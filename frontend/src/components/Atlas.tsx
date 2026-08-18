@@ -54,6 +54,42 @@ export type Waypoint = { x: number; y: number }
 const LOADED = new Map<string, boolean>()   // name -> usable
 const MAX_FACES = 90
 
+// Labels are rendered once into their own canvas and blitted thereafter.
+export const LABEL_PX = 22
+export const LABEL_DPR = 2
+const LABELS = new Map<string, HTMLCanvasElement>()
+
+function labelImage(name: string, rgb: [number, number, number],
+                    onReady: () => void): HTMLCanvasElement | null {
+  const face = faceFor(name, () => { LABELS.delete(labelKey(name, rgb)); onReady() })
+  const key = labelKey(name, rgb)
+  const hit = LABELS.get(key)
+  if (hit) return hit
+
+  const font = `${LABEL_PX * LABEL_DPR}px ${face
+    ? `"${face}", ui-monospace, monospace` : "ui-monospace, Menlo, monospace"}`
+  const probe = document.createElement("canvas").getContext("2d")!
+  probe.font = font
+  const wpx = Math.ceil(probe.measureText(name).width) + 4
+  const hpx = Math.ceil(LABEL_PX * LABEL_DPR * 1.5)
+
+  const cv = document.createElement("canvas")
+  cv.width = Math.max(wpx, 2); cv.height = hpx
+  const cx = cv.getContext("2d")!
+  cx.font = font
+  cx.textBaseline = "middle"
+  cx.fillStyle = `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
+  cx.fillText(name, 0, hpx / 2)
+
+  if (LABELS.size > 600) LABELS.clear()
+  LABELS.set(key, cv)
+  return cv
+}
+
+function labelKey(name: string, rgb: [number, number, number]) {
+  return `${name}|${Math.round(rgb[0])},${Math.round(rgb[1])},${Math.round(rgb[2])}`
+}
+
 function faceFor(name: string, onReady: () => void): string | null {
   const known = LOADED.get(name)
   if (known === true) return `vg-${name}`
@@ -94,6 +130,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const paths = useRef(new Map<string, Path2D>())
   const frame = useRef(0)
   const lastDraw = useRef(0)
+  // Per-label opacity, eased toward its target. The declutter grid is computed
+  // in screen space, so which font holds a cell changes as the camera turns; on
+  // a hard toggle that reads as names blinking on and off. Easing turns the
+  // same decision into a fade.
+  const labelAlpha = useRef(new Map<number, number>())
   const showNames = useRef(true)
   const [namesOn, setNamesOn] = useState(true)
   const [zoomLabel, setZoomLabel] = useState(22)
@@ -121,7 +162,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // Height already arrives normalised to 0..1 from the server.
   const norm = useCallback((h: number) => h, [])
 
-  useEffect(() => { paths.current.clear() }, [data])
+  // Corpus glyph outlines do not change between moves, so the cache survives
+  // them. Only the traveller's own specimen is rebuilt, and its key carries
+  // enough to tell one from the next.
+  useEffect(() => {
+    for (const k of paths.current.keys())
+      if (k.startsWith("self:")) paths.current.delete(k)
+  }, [data])
 
   // Fit to the corpus once, so the first sight of the space is the whole of it.
   // Guarded on a measured width: run before layout settles and the fit is
@@ -157,14 +204,9 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const ink = `hsl(${css.getPropertyValue("--ink")})`
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
+    const card = `hsl(${css.getPropertyValue("--card")})`
     const c = cam.current
     const P = (x: number, y: number, hh: number) => project(x, y, hh, w, h, c)
-
-    // Hover is resolved here rather than on every pointer event: the points are
-    // being projected anyway, so the hit test is a comparison rather than a
-    // second pass, and it runs once a frame instead of once an event.
-    const probe = drag.current ? null : pending.current
-    let hit: { name: string; sx: number; sy: number; dist: number } | null = null
 
     // Ground: the plane of the corpus centroid.
     ctx.strokeStyle = muted; ctx.globalAlpha = 0.16; ctx.lineWidth = 1
@@ -179,33 +221,23 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     }
     ctx.globalAlpha = 1
 
-    // Centroid: the average of every font in the corpus.
     const o = P(0, 0, 0)
     ctx.strokeStyle = muted; ctx.globalAlpha = 0.5
     ctx.beginPath(); ctx.arc(o.sx, o.sy, 4, 0, Math.PI * 2); ctx.stroke()
     ctx.globalAlpha = 1
 
-    // Which names get drawn. Five hundred labels over one another is not more
-    // information than fifty, it is less, so the plane is divided into cells
-    // and the nearest font in each takes the cell. Nearest first, so the labels
-    // that survive are the ones in the country being travelled.
-    const taken = new Set<string>()
-    const labelled = new Set<number>()
-    if (names) {
-      const order = [...data.points].sort((a, b) => a.d - b.d)
-      for (const p of order) {
-        const q = P(p.x, p.y, norm(p.h))
-        if (q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
-        const key = `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
-        if (taken.has(key)) continue
-        taken.add(key)
-        labelled.add(p.i)
-      }
-    }
+    // One projection pass. Hover, decluttering and drawing all read from it;
+    // projecting the corpus once per frame rather than once per purpose is most
+    // of the difference between this being smooth and not.
+    const probe = drag.current ? null : pending.current
+    let hit: { name: string; sx: number; sy: number; dist: number } | null = null
 
-    type Item = { depth: number; kind: "dot" | "sprite" | "self"
-                  sx: number; sy: number; p?: typeof data.points[0] }
+    type Item = { depth: number; kind: "dot" | "sprite"; sx: number; sy: number
+                  p: typeof data.points[0] }
     const items: Item[] = []
+    const proj: { p: typeof data.points[0]; sx: number; sy: number
+                  depth: number; on: boolean }[] = []
+
     for (const p of data.points) {
       const q = P(p.x, p.y, norm(p.h))
       if (probe) {
@@ -213,15 +245,43 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         if (dd < 16 && (!hit || dd < hit.dist))
           hit = { name: p.name, sx: q.sx, sy: q.sy, dist: dd }
       }
-      if (q.sx < -200 || q.sx > w + 200 || q.sy < -200 || q.sy > h + 200) continue
-      items.push({ depth: q.depth, kind: data.sprites[p.i] ? "sprite" : "dot",
-                   sx: q.sx, sy: q.sy, p })
+      const on = q.sx > -220 && q.sx < w + 220 && q.sy > -220 && q.sy < h + 220
+      proj.push({ p, sx: q.sx, sy: q.sy, depth: q.depth, on })
     }
-    const me = P(data.self.x, data.self.y, norm(data.self.h))
-    items.push({ depth: me.depth, kind: "self", sx: me.sx, sy: me.sy })
-    // Depth order within a kind, but letterforms always above the dust: a
-    // sprite buried under a hundred dots is not a label of anything.
-    const rank = { dot: 0, sprite: 1, self: 2 } as const
+
+    // Which names get drawn. Five hundred labels over one another is not more
+    // information than fifty, it is less, so the plane is divided into cells
+    // and the nearest font in each takes the cell.
+    const labelled = new Set<number>()
+    if (names) {
+      const taken = new Set<string>()
+      for (const q of [...proj].sort((a, b) => a.p.d - b.p.d)) {
+        if (!q.on || q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
+        const key = `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
+        if (taken.has(key)) continue
+        taken.add(key)
+        labelled.add(q.p.i)
+      }
+    }
+
+    for (const q of proj) {
+      if (!q.on) continue
+      items.push({ depth: q.depth, kind: data.sprites[q.p.i] ? "sprite" : "dot",
+                   sx: q.sx, sy: q.sy, p: q.p })
+    }
+
+    // Ease every label toward on or off, and keep drawing while any is moving.
+    let animating = false
+    const alphas = labelAlpha.current
+    for (const q of proj) {
+      const target = labelled.has(q.p.i) ? 1 : 0
+      const prev = alphas.get(q.p.i) ?? target
+      const next = prev + (target - prev) * 0.18
+      if (Math.abs(target - next) > 0.01) animating = true
+      alphas.set(q.p.i, Math.abs(target - next) < 0.005 ? target : next)
+    }
+
+    const rank = { dot: 0, sprite: 1 } as const
     items.sort((a, b) => rank[a.kind] - rank[b.kind] || b.depth - a.depth)
 
     // The waypoint, and the line you would travel along to reach it.
@@ -252,114 +312,110 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)
       })
       ctx.stroke()
-      ctx.globalAlpha = 1
+      ctx.globalAlpha = 0.35
+      ctx.fillStyle = burg
       for (const t of data.trail) {
         const q = P(t.x, t.y, norm(t.h))
-        ctx.fillStyle = burg; ctx.globalAlpha = 0.35
         ctx.beginPath(); ctx.arc(q.sx, q.sy, 2, 0, Math.PI * 2); ctx.fill()
       }
       ctx.globalAlpha = 1
     }
 
     for (const it of items) {
-      if (it.kind === "dot" && it.p) {
-        // Fades with distance, so the near country reads clearly and the far
-        // country stays as context rather than competing with it.
-        const near = Math.max(0, 1 - it.p.d / 16)
-        const [r, g, b] = ramp(it.p.c)
+      const near = Math.max(0, 1 - it.p.d / 16)
+      const [r, g, b] = ramp(it.p.c)
+
+      if (it.kind === "dot") {
         ctx.fillStyle = `rgb(${r} ${g} ${b})`
         ctx.globalAlpha = 0.25 + 0.6 * near
         ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
         ctx.fill()
-        if (names && labelled.has(it.p.i)) {
-          const face = faceFor(it.p.name, schedule)
-          const size = 9 + 3 * near
-          ctx.globalAlpha = 0.25 + 0.7 * near
-          ctx.font = face
-            ? `${size}px "${face}", ui-monospace, monospace`
-            : `${7 + 2 * near}px ui-monospace, Menlo, monospace`
-          ctx.textAlign = "left"
-          ctx.fillText(it.p.name, it.sx + 4, it.sy + 3)
-        }
         ctx.globalAlpha = 1
-      } else if (it.kind === "sprite" && it.p) {
+      } else {
         const glyphs = data.sprites[it.p.i]
-        const scale = SPRITE_PX
-        // A little of the ground colour behind each letterform, so it reads
-        // against the cloud rather than dissolving into it.
         ctx.save()
         ctx.globalAlpha = 0.75
-        ctx.fillStyle = `hsl(${css.getPropertyValue("--card")})`
+        ctx.fillStyle = card
         ctx.beginPath()
-        ctx.ellipse(it.sx + scale * 0.5, it.sy - scale * 0.22,
-                    scale * 0.95, scale * 0.5, 0, 0, Math.PI * 2)
+        ctx.ellipse(it.sx + SPRITE_PX * 0.5, it.sy - SPRITE_PX * 0.22,
+                    SPRITE_PX * 0.95, SPRITE_PX * 0.5, 0, 0, Math.PI * 2)
         ctx.fill()
         ctx.restore()
 
         ctx.save()
         ctx.translate(it.sx, it.sy)
-        ctx.scale(scale, -scale)
+        ctx.scale(SPRITE_PX, -SPRITE_PX)
         ctx.fillStyle = ink
         ctx.globalAlpha = Math.max(0.35, 1 - it.p.d / 12)
         let dx = 0
-        for (const g of glyphs) {
-          let path = paths.current.get(`${it.p.i}:${g.char}`)
-          if (!path) {
-            path = new Path2D(g.path)
-            paths.current.set(`${it.p.i}:${g.char}`, path)
-          }
+        for (const gl of glyphs) {
+          const key = `${it.p.i}:${gl.char}`
+          let path = paths.current.get(key)
+          if (!path) { path = new Path2D(gl.path); paths.current.set(key, path) }
           ctx.save(); ctx.translate(dx, 0); ctx.fill(path, "evenodd"); ctx.restore()
-          dx += g.advance
+          dx += gl.advance
         }
         ctx.restore()
         ctx.globalAlpha = 1
-        if (names && it.p) {
-          const [r, g, b] = ramp(it.p.c)
-          const face = faceFor(it.p.name, schedule)
-          ctx.fillStyle = `rgb(${r} ${g} ${b})`
-          ctx.globalAlpha = 0.95
-          ctx.font = face ? `11px "${face}", ui-monospace, monospace`
-                          : "8px ui-monospace, Menlo, monospace"
-          ctx.textAlign = "center"
-          ctx.fillText(it.p.name, it.sx + SPRITE_PX * 0.5, it.sy + 12)
+      }
+
+      // Labels are blitted, not typeset. Shaping and rasterising dozens of
+      // different faces on every frame is what made this crawl; each label is
+      // drawn once into its own canvas and copied thereafter.
+      const fade = alphas.get(it.p.i) ?? 0
+      if (fade > 0.02) {
+        const img = labelImage(it.p.name, [r, g, b], schedule)
+        if (img) {
+          const scale = (it.kind === "sprite" ? 12 : 9 + 3 * near) / LABEL_PX
+          const iw = (img.width / LABEL_DPR) * scale
+          const ih = (img.height / LABEL_DPR) * scale
+          ctx.globalAlpha = fade *
+            (it.kind === "sprite" ? 0.95 : 0.25 + 0.7 * near)
+          if (it.kind === "sprite") {
+            ctx.drawImage(img, it.sx + SPRITE_PX * 0.5 - iw / 2,
+                          it.sy + 4, iw, ih)
+          } else {
+            ctx.drawImage(img, it.sx + 4, it.sy - ih * 0.72, iw, ih)
+          }
           ctx.globalAlpha = 1
         }
-      } else {
-        // You: drawn last within its depth, in the accent, with a drop line to
-        // the ground so the height reading is not ambiguous.
-        const ground = P(data.self.x, data.self.y, 0)
-        ctx.strokeStyle = burg; ctx.globalAlpha = 0.35
-        ctx.setLineDash([2, 3])
-        ctx.beginPath(); ctx.moveTo(it.sx, it.sy); ctx.lineTo(ground.sx, ground.sy)
-        ctx.stroke(); ctx.setLineDash([])
-        ctx.globalAlpha = 1
-
-        const scale = SELF_PX
-        ctx.save()
-        ctx.translate(it.sx, it.sy)
-        ctx.scale(scale, -scale)
-        ctx.fillStyle = burg
-        let dx = 0
-        for (const g of data.self.glyphs) {
-          let path = paths.current.get(`self:${g.char}`)
-          if (!path) { path = new Path2D(g.path); paths.current.set(`self:${g.char}`, path) }
-          ctx.save(); ctx.translate(dx, 0); ctx.fill(path, "evenodd"); ctx.restore()
-          dx += g.advance
-        }
-        ctx.restore()
       }
     }
+
+    // You: drawn last, in the accent, with a drop line to the ground so the
+    // height reading is not ambiguous.
+    const me = P(data.self.x, data.self.y, norm(data.self.h))
+    const ground = P(data.self.x, data.self.y, 0)
+    ctx.strokeStyle = burg; ctx.globalAlpha = 0.35
+    ctx.setLineDash([2, 3])
+    ctx.beginPath(); ctx.moveTo(me.sx, me.sy); ctx.lineTo(ground.sx, ground.sy)
+    ctx.stroke(); ctx.setLineDash([])
+    ctx.globalAlpha = 1
+    ctx.save()
+    ctx.translate(me.sx, me.sy)
+    ctx.scale(SELF_PX, -SELF_PX)
+    ctx.fillStyle = burg
+    let sdx = 0
+    for (const gl of data.self.glyphs) {
+      const key = `self:${gl.char}:${gl.path.length}`
+      let path = paths.current.get(key)
+      if (!path) { path = new Path2D(gl.path); paths.current.set(key, path) }
+      ctx.save(); ctx.translate(sdx, 0); ctx.fill(path, "evenodd"); ctx.restore()
+      sdx += gl.advance
+    }
+    ctx.restore()
 
     if (probe) {
       pending.current = null
       const name = hit?.name ?? null
-      // Only disturb React when the hovered font actually changes.
       if (name !== hoverName.current) {
         hoverName.current = name
         setHover(hit ? { name: hit.name, sx: hit.sx, sy: hit.sy } : null)
       }
     }
-  }, [data, norm, project, waypoint])
+
+    if (animating) schedule()
+  }, [data, norm, project, waypoint, schedule])
 
   // One draw per frame at most, and never faster than MAX_FPS. Pointer events
   // arrive far more often than the screen can show them, so they only mark the

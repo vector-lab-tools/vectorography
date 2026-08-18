@@ -1,0 +1,8 @@
+{
+  "name": "vectorography",
+  "private": true,
+  "description": "Root manifest so Vercel's default install runs, which is what lets the Python runtime install backend/requirements.txt for the api function.",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}
