@@ -519,11 +519,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     <>
       <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
         <span className="font-mono text-[9px] uppercase tracking-[0.12em]
-                         text-muted-foreground pointer-events-none">
-          {data.axes.ride ? "ride heading" : `axis ${data.axes.x}`}
-          {" × "}axis {data.axes.y}
-          {" · height: "}
-          {data.axes.height === "density" ? "crowding" : "from centroid"}
+                         text-muted-foreground pointer-events-none truncate
+                         max-w-[52%]"
+              title={`Ground plane: ${data.axes.ride ? "ride heading"
+                : `axis ${data.axes.x}`} by axis ${data.axes.y}. Height: ${
+                data.axes.height === "density"
+                  ? "crowding" : "distance from the centroid"}.`}>
+          {data.axes.ride ? "ride" : data.axes.x}×{data.axes.y}
+          {" · "}{data.axes.height === "density" ? "crowding" : "centroid"}
         </span>
         <div className="flex items-center gap-1.5">
           <select

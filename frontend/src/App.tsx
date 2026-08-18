@@ -328,46 +328,44 @@ export default function App() {
       </header>
 
       <main className="flex-1 min-h-0 flex flex-col">
-        {/* Top: the space itself. Letterforms, not numbers. */}
-        <section className="min-h-0 flex flex-col gap-3 px-3 pt-3"
+        {/* Top: the space fills the frame, and the controls that move you
+            through it sit down one side, with the current location rendered
+            above them. */}
+        <section className="min-h-0 flex gap-3 px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
-          <div className="panel shrink-0 px-5 py-1.5 flex items-center
-                          justify-center h-[92px]">
-            <Specimen glyphs={location?.glyphs ?? []} text={text}
-                      height={76} className="text-ink" />
+          <div className="flex-1 min-w-0">
+            <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                   directions={directions}
+                   colourBy={colourBy} setColourBy={setColourBy}
+                   waypoint={waypoint} setWaypoint={setWaypoint}
+                   onToward={goToward} radius={radius} />
           </div>
 
-          {/* Atlas and rose on one line: a picture of the space beside the
-              controls that move you through it. */}
-          <div className="flex-1 min-h-0 flex gap-3">
-            <div className="flex-1 min-w-0">
-              <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                     directions={directions}
-                     colourBy={colourBy} setColourBy={setColourBy}
-                     waypoint={waypoint} setWaypoint={setWaypoint}
-                     onToward={goToward} radius={radius} />
+          <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0
+                          flex flex-col gap-3">
+            <div className="panel shrink-0 h-[88px] px-3 py-2 flex items-center
+                            justify-center">
+              <Specimen glyphs={location?.glyphs ?? []} text={text}
+                        height={68} className="text-ink" />
             </div>
-            {/* Walk and steer together: the eight directions the space offers
-                here, and the eight properties you can name. */}
-            <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
-                            flex flex-col gap-3">
-              <div className="flex-1 min-h-[168px]">
-                <CompassRose
-                  points={compass}
-                  centre={location?.glyphs ?? []}
-                  compassText={compassText}
-                  radius={radius}
-                  onTravel={(p) => walk(p.bearing)}
-                  busy={busy}
-                />
+
+            <div className="flex-1 min-h-[168px]">
+              <CompassRose
+                points={compass}
+                centre={location?.glyphs ?? []}
+                compassText={compassText}
+                radius={radius}
+                onTravel={(p) => walk(p.bearing)}
+                busy={busy}
+              />
+            </div>
+
+            {directions.length > 0 && (
+              <div className="shrink-0 border-t border-border pt-2">
+                <DirectionPad directions={directions} onSteer={steer}
+                              busy={busy} />
               </div>
-              {directions.length > 0 && (
-                <div className="shrink-0 border-t border-border pt-2">
-                  <DirectionPad directions={directions} onSteer={steer}
-                                busy={busy} />
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </section>
 
