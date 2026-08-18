@@ -82,6 +82,8 @@ class TravelReq(Z):
     direction: str | None = None
     sign: float = 1.0
     amount: float | None = None
+    target_x: float | None = None
+    target_y: float | None = None
     centre: list[float] | None = None
     angle: float = 20.0
     seed: int | None = None
@@ -136,6 +138,24 @@ def corpus_info():
         "centroid_distances": s._centroid_dists.tolist(),
         "centroid_max": float(s._centroid_dists.max()),
     }
+
+
+@app.get("/api/fontfile/{name}")
+def font_file(name: str):
+    """The corpus family's own file, for setting its name in its own typeface.
+
+    Deliberately the real font rather than the space's reconstruction: a label
+    naming a family should show that family, not this instrument's lossy
+    account of it. Absent in a fresh clone, where the corpus was never
+    downloaded, so callers fall back to a plain face.
+    """
+    if not name.replace("-", "").replace("_", "").isalnum():
+        raise HTTPException(400, "bad name")
+    path = Path(__file__).parent / "data" / "fonts" / f"{name}.ttf"
+    if not path.exists():
+        raise HTTPException(404, "not in the local corpus cache")
+    return Response(path.read_bytes(), media_type="font/ttf",
+                    headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/api/directions")
@@ -275,6 +295,12 @@ def travel(req: TravelReq):
         nz = np.asarray(s.drift(z, req.temperature, rng))
     elif req.mode == "repel":
         nz = np.asarray(s.repel(z, req.step))
+    elif req.mode == "toward":
+        if req.target_x is None or req.target_y is None:
+            raise HTTPException(400, "toward needs a target")
+        u, v = s.heading_basis(req.axis_a, req.axis_b,
+                               np.asarray(req.ride) if req.ride else None)
+        nz = np.asarray(s.toward(z, req.target_x, req.target_y, u, v, req.amount))
     elif req.mode == "steer":
         if not req.direction:
             raise HTTPException(400, "steer needs a direction")

@@ -92,6 +92,8 @@ large and fully regenerable from `fetch.py` and the manifest.
 | **Repel** (`r`) | step against the local density gradient, away from the crowd |
 | **Ride** | make the difference between two families a heading usable from anywhere |
 | **Orbit** | circle a chosen family at fixed radius |
+| **Atlas** | click a family to travel to it; click open ground to drop a waypoint, then step toward it or go |
+| **Steer** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on |
 | **Trail** | click any stop to return; moving from an earlier stop opens a branch |
 | **Backspace** | back to the previous stop |
 
@@ -101,6 +103,23 @@ variance, because which plane you turn in is a choice about which directions of
 variation you treat as the important ones. REPEL is not confined to the plane:
 it uses the density gradient in the dominant style subspace and will take you out
 of whatever plane you are turning in.
+
+## The atlas
+
+The corpus drawn as a place. Both ground axes are the plane the compass turns
+in, so it is the surface actually being steered on rather than another
+projection of the space, and height is crowding, which makes REPEL visibly
+downhill. Coordinates are absolute with the centroid at the origin, so the map
+holds still while you move across it.
+
+Every family is named, and **each name is set in its own typeface**, so the map
+doubles as a specimen catalogue. Labels are decluttered by an occupancy grid,
+nearest first. Colour runs along whichever measured property you choose, with a
+legend naming it and saying which way it runs.
+
+A click on open ground names two coordinates, not a position: the other 126 are
+unspecified, and are left exactly as they are. Travelling to a spot on the map
+therefore moves within the plane you are steering in and changes nothing else.
 
 ## Export
 

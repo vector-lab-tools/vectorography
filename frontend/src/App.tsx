@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, type AtlasData, type CompassPoint, type CorpusInfo,
          type Location, type NamedDirection } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
-import { Atlas } from "./components/Atlas"
+import { Atlas, type Waypoint } from "./components/Atlas"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
@@ -50,6 +50,7 @@ export default function App() {
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
   const [atlasHeight, setAtlasHeight] = useState<"density" | "centroid">("density")
   const [colourBy, setColourBy] = useState("serif")
+  const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
   const [split, setSplit] = useState(0.56)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -153,6 +154,13 @@ export default function App() {
     return travel({ mode: "steer", direction: key, sign }, "steer",
                   `${way ?? key}`)
   }, [travel, directions])
+
+  const goToward = useCallback((w: Waypoint, amount: number | null) =>
+    travel({ mode: "toward", target_x: w.x, target_y: w.y, amount },
+           "toward", amount === null
+             ? `to ${w.x.toFixed(1)}, ${w.y.toFixed(1)}`
+             : `toward ${w.x.toFixed(1)}, ${w.y.toFixed(1)}`),
+    [travel])
 
   const goToFamily = useCallback(async (name: string) => {
     try {
@@ -332,7 +340,9 @@ export default function App() {
             <div className="flex-1 min-h-0">
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
                      directions={directions}
-                     colourBy={colourBy} setColourBy={setColourBy} />
+                     colourBy={colourBy} setColourBy={setColourBy}
+                     waypoint={waypoint} setWaypoint={setWaypoint}
+                     onToward={goToward} radius={radius} />
             </div>
           </div>
           <div className="w-[250px] shrink-0 min-h-0 hidden xl:block">

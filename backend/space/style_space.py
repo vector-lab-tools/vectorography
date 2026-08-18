@@ -222,6 +222,25 @@ class StyleSpace:
         step = amount if amount is not None else 0.15 * float(d["spread"])
         return (np.asarray(z, dtype=np.float64) + sign * step * v).tolist()
 
+    def toward(self, z, tx: float, ty: float, u, v, amount: float | None = None):
+        """Move to a point picked in the heading plane.
+
+        A click on the map names two coordinates, not a position: the other 126
+        are unspecified. They are left exactly as they are, so travelling to a
+        spot on the map moves within the plane being steered in and changes
+        nothing else. With an amount, the move is a step of that length along
+        the way rather than a jump.
+        """
+        z = np.asarray(z, dtype=np.float64)
+        u = np.asarray(u, dtype=np.float64)
+        v = np.asarray(v, dtype=np.float64)
+        target = z - (z @ u) * u - (z @ v) * v + tx * u + ty * v
+        delta = target - z
+        n = float(np.linalg.norm(delta))
+        if amount is None or n <= amount or n < 1e-12:
+            return target.tolist()
+        return (z + amount * delta / n).tolist()
+
     def repel(self, z, step=0.5):
         g = self.density_gradient(z)
         n = np.linalg.norm(g)

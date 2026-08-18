@@ -40,13 +40,45 @@ function ramp(t: number): [number, number, number] {
           a[2] + (b[2] - a[2]) * f]
 }
 
-export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }: {
+export type Waypoint = { x: number; y: number }
+
+/**
+ * Every family's name, set in that family.
+ *
+ * The files are the corpus originals rather than the space's reconstruction of
+ * them: a label naming a typeface should show that typeface, not this
+ * instrument's lossy account of it. Loading is lazy and capped, and anything
+ * that fails, or that is missing because the corpus was never downloaded,
+ * falls back to the plain face without comment.
+ */
+const LOADED = new Map<string, boolean>()   // name -> usable
+const MAX_FACES = 90
+
+function faceFor(name: string, onReady: () => void): string | null {
+  const known = LOADED.get(name)
+  if (known === true) return `vg-${name}`
+  if (known === false) return null
+  if (LOADED.size >= MAX_FACES) return null
+  LOADED.set(name, false)
+  const face = new FontFace(`vg-${name}`, `url(/api/fontfile/${name})`)
+  face.load()
+    .then((f) => { document.fonts.add(f); LOADED.set(name, true); onReady() })
+    .catch(() => { LOADED.set(name, false) })
+  return null
+}
+
+export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
+                        waypoint, setWaypoint, onToward, radius }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
   directions: NamedDirection[]
   colourBy: string
   setColourBy: (k: string) => void
+  waypoint: Waypoint | null
+  setWaypoint: (w: Waypoint | null) => void
+  onToward: (w: Waypoint, amount: number | null) => void
+  radius: number
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -105,6 +137,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
     setZoomLabel(cam.current.zoom)
   }, [data])
 
+  // Loading a face has to be able to ask for another frame once it arrives.
+  const scheduleRef = useRef<() => void>(() => {})
+  const schedule = useCallback(() => scheduleRef.current(), [])
+
   const draw = useCallback(() => {
     const cv = canvas.current, bx = box.current
     if (!cv || !bx || !data) return
@@ -160,7 +196,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
       for (const p of order) {
         const q = P(p.x, p.y, norm(p.h))
         if (q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
-        const key = `${Math.round(q.sx / 62)}:${Math.round(q.sy / 12)}`
+        const key = `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
         if (taken.has(key)) continue
         taken.add(key)
         labelled.add(p.i)
@@ -187,6 +223,25 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
     // sprite buried under a hundred dots is not a label of anything.
     const rank = { dot: 0, sprite: 1, self: 2 } as const
     items.sort((a, b) => rank[a.kind] - rank[b.kind] || b.depth - a.depth)
+
+    // The waypoint, and the line you would travel along to reach it.
+    if (waypoint) {
+      const wp = P(waypoint.x, waypoint.y, 0)
+      const from = P(data.self.x, data.self.y, 0)
+      ctx.strokeStyle = burg
+      ctx.globalAlpha = 0.5
+      ctx.setLineDash([4, 4]); ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(from.sx, from.sy); ctx.lineTo(wp.sx, wp.sy)
+      ctx.stroke(); ctx.setLineDash([])
+      ctx.globalAlpha = 0.9
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.arc(wp.sx, wp.sy, 6, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(wp.sx - 10, wp.sy); ctx.lineTo(wp.sx + 10, wp.sy)
+      ctx.moveTo(wp.sx, wp.sy - 10); ctx.lineTo(wp.sx, wp.sy + 10)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
 
     // Trail, on the ground plane so the route reads as a route.
     if (data.trail.length > 1) {
@@ -217,10 +272,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
         ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
         ctx.fill()
         if (names && labelled.has(it.p.i)) {
-          ctx.globalAlpha = 0.2 + 0.7 * near
-          ctx.font = `${7 + 2 * near}px ui-monospace, Menlo, monospace`
+          const face = faceFor(it.p.name, schedule)
+          const size = 9 + 3 * near
+          ctx.globalAlpha = 0.25 + 0.7 * near
+          ctx.font = face
+            ? `${size}px "${face}", ui-monospace, monospace`
+            : `${7 + 2 * near}px ui-monospace, Menlo, monospace`
           ctx.textAlign = "left"
-          ctx.fillText(it.p.name, it.sx + 4, it.sy + 2.5)
+          ctx.fillText(it.p.name, it.sx + 4, it.sy + 3)
         }
         ctx.globalAlpha = 1
       } else if (it.kind === "sprite" && it.p) {
@@ -256,11 +315,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
         ctx.globalAlpha = 1
         if (names && it.p) {
           const [r, g, b] = ramp(it.p.c)
+          const face = faceFor(it.p.name, schedule)
           ctx.fillStyle = `rgb(${r} ${g} ${b})`
-          ctx.globalAlpha = 0.9
-          ctx.font = "8px ui-monospace, Menlo, monospace"
+          ctx.globalAlpha = 0.95
+          ctx.font = face ? `11px "${face}", ui-monospace, monospace`
+                          : "8px ui-monospace, Menlo, monospace"
           ctx.textAlign = "center"
-          ctx.fillText(it.p.name, it.sx + SPRITE_PX * 0.5, it.sy + 11)
+          ctx.fillText(it.p.name, it.sx + SPRITE_PX * 0.5, it.sy + 12)
           ctx.globalAlpha = 1
         }
       } else {
@@ -298,13 +359,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
         setHover(hit ? { name: hit.name, sx: hit.sx, sy: hit.sy } : null)
       }
     }
-  }, [data, norm, project])
+  }, [data, norm, project, waypoint])
 
   // One draw per frame at most, and never faster than MAX_FPS. Pointer events
   // arrive far more often than the screen can show them, so they only mark the
   // canvas dirty and the loop coalesces them.
   const MAX_FPS = 60
-  const schedule = useCallback(() => {
+  const scheduleImpl = useCallback(() => {
     if (frame.current) return
     frame.current = requestAnimationFrame((t) => {
       frame.current = 0
@@ -313,6 +374,26 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
       draw()
     })
   }, [draw])
+  scheduleRef.current = scheduleImpl
+
+  /**
+   * Screen point back to a position in the heading plane, on the ground.
+   * The projection is orthographic, so this inverts exactly: undo the scale
+   * and the tilt, then undo the yaw.
+   */
+  const unproject = useCallback((sx: number, sy: number) => {
+    const bx = box.current
+    if (!bx) return null
+    const w = bx.clientWidth, hgt = bx.clientHeight
+    const c = cam.current
+    const sp = Math.sin(c.pitch)
+    // Looking along the plane edge-on, a screen point names no ground point.
+    if (Math.abs(sp) < 0.08) return null
+    const rx = (sx - w / 2) / c.zoom
+    const ry = ((sy - hgt * 0.62) / c.zoom) / sp
+    const cy = Math.cos(c.yaw), sy2 = Math.sin(c.yaw)
+    return { x: rx * cy + ry * sy2, y: -rx * sy2 + ry * cy }
+  }, [])
 
   // Zoom without a wheel: a trackpad pinch is not obvious, and reaching the
   // far country by scrolling is tedious.
@@ -446,7 +527,15 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
            setZoomLabel(cam.current.zoom)
            schedule()
          }}
-         onClick={() => { if (hover && !busy) onPick(hover.name) }}
+         onClick={(e) => {
+           if (busy) return
+           // A font under the pointer is a place with a name; anywhere else is
+           // a bearing on the map.
+           if (hover) { onPick(hover.name); return }
+           const r = box.current!.getBoundingClientRect()
+           const g = unproject(e.clientX - r.left, e.clientY - r.top)
+           if (g) setWaypoint(g)
+         }}
     >
       <canvas ref={canvas} className="block" />
       {controls}
@@ -487,9 +576,44 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }:
         </span>
       </div>
 
+      {waypoint && data && (
+        <div className="absolute bottom-10 right-2 flex items-center gap-1.5
+                        bg-card border border-border rounded-sm px-2 py-1.5
+                        shadow-editorial">
+          <span className="font-mono text-[9px] text-muted-foreground">
+            waypoint {waypoint.x.toFixed(1)}, {waypoint.y.toFixed(1)} ·{" "}
+            {Math.hypot(waypoint.x - data.self.x,
+                        waypoint.y - data.self.y).toFixed(1)} away
+          </span>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onToward(waypoint, radius) }}
+            className="btn !px-2 !py-1 !text-[9px]"
+            title={`One step of ${radius.toFixed(2)} toward the waypoint`}
+          >
+            step
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onToward(waypoint, null) }}
+            className="btn !px-2 !py-1 !text-[9px]"
+            title="Travel the whole way"
+          >
+            go
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setWaypoint(null) }}
+            className="btn !px-2 !py-1 !text-[9px]"
+          >
+            clear
+          </button>
+        </div>
+      )}
+
       <div className="absolute bottom-2 right-2 font-mono text-[9px]
                       text-muted-foreground/70 pointer-events-none">
-        drag to orbit · click a font to travel there
+        drag to orbit · click a font to travel · click the ground to aim
       </div>
     </div>
   )
