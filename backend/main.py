@@ -86,6 +86,18 @@ class JourneyReq(BaseModel):
     masters: int = Field(5, ge=2, le=12)
 
 
+def _sample_trail(trail: list[list[float]], n: int) -> np.ndarray:
+    """Sample the recorded path at uniform arc length."""
+    t = np.asarray(trail, dtype=np.float64)
+    seg = np.linalg.norm(np.diff(t, axis=0), axis=1)
+    cum = np.concatenate([[0.0], np.cumsum(seg)])
+    if cum[-1] <= 0:
+        raise HTTPException(400, "journey has zero length")
+    targets = np.linspace(0, cum[-1], n)
+    return np.stack([np.interp(targets, cum, t[:, d])
+                     for d in range(t.shape[1])], axis=1)
+
+
 class FontReq(Z):
     family: str = "Vectorography"
     style: str = "Regular"
@@ -196,6 +208,27 @@ def export_font(req: FontReq):
         "Content-Disposition": f"attachment; filename={safe}-{req.style}.{fmt}"})
 
 
+@app.post("/api/preview/journey")
+def preview_journey(req: JourneyReq):
+    """The journey compiled to a variable font, returned bare.
+
+    The same compilation the export runs, so what is tested in the app is the
+    artefact that leaves it, not a rendering that resembles it.
+    """
+    from export.fontfile import build_variable
+
+    s = space()
+    if len(req.trail) < 2:
+        raise HTTPException(400, "a journey needs at least two locations")
+    zs = _sample_trail(req.trail, req.masters)
+    try:
+        vf, _, _ = build_variable([s.decode(z) for z in zs], req.family,
+                                  s.metas[0], VERSION)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"font build failed: {exc}") from exc
+    return Response(vf, media_type="font/ttf")
+
+
 def _specimen_html(family: str, stops: list[str]) -> str:
     """A tester that opens straight from the unzipped folder, no setup."""
     faces = "\n".join(
@@ -251,16 +284,7 @@ def export_journey(req: JourneyReq):
     if len(req.trail) < 2:
         raise HTTPException(400, "journey needs at least two locations")
 
-    # Sample uniformly by arc length along the trail.
-    trail = np.asarray(req.trail, dtype=np.float64)
-    seg = np.linalg.norm(np.diff(trail, axis=0), axis=1)
-    cum = np.concatenate([[0.0], np.cumsum(seg)])
-    if cum[-1] <= 0:
-        raise HTTPException(400, "journey has zero length")
-    targets = np.linspace(0, cum[-1], req.masters)
-    zs = np.stack([np.interp(targets, cum, trail[:, d])
-                   for d in range(trail.shape[1])], axis=1)
-
+    zs = _sample_trail(req.trail, req.masters)
     meta = s.metas[0]
     vectors = [s.decode(z) for z in zs]
     try:
@@ -280,8 +304,8 @@ def export_journey(req: JourneyReq):
                   "kind": "whitened principal subspace", "dims": s.dims,
                   "corpus": "google-fonts-ofl", "corpus_size": len(s.names)},
         "trail": req.trail,
-        "masters": [{"file": n, "t": float(t / cum[-1])}
-                    for (n, _), t in zip(masters, targets)],
+        "masters": [{"file": n, "t": i / (len(masters) - 1)}
+                    for i, (n, _) in enumerate(masters)],
         "licence_note": ("Derived from OFL-1.1 Google Fonts families; "
                          "see corpus-manifest.json"),
     }

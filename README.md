@@ -134,6 +134,12 @@ corpus-manifest.json   every family the space was fitted from
 README.txt             what each of the above is
 ```
 
+**Test Journey.** Compiles the journey and loads the resulting variable font
+into the app, so the artefact can be judged before it leaves: a journey-axis
+slider, a size slider, editable text, a waterfall, a paragraph, and faint
+cap-height, x-height and baseline guides drawn off a measured baseline. This is
+the same compilation the export runs, so what is tested is what ships.
+
 **Export Specimen Sheet (SVG).** The current location as a specimen sheet with
 its map reading (distance from centroid, density percentile, isolation, and the
 five nearest real families) printed on it. The reading travels with the artefact.

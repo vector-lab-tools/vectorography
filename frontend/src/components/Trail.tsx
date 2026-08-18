@@ -12,11 +12,13 @@ export type Crumb = {
  * earlier crumb and moving again opens a branch; both survive, and the indent
  * shows the fork.
  */
-export function Trail({ trail, cursor, onGo, onExport, busy }: {
+export function Trail({ trail, cursor, onGo, onExport, onTest, canCompile, busy }: {
   trail: Crumb[]
   cursor: number
   onGo: (id: number) => void
   onExport: () => void
+  onTest: () => void
+  canCompile: boolean
   busy: boolean
 }) {
   return (
@@ -52,16 +54,28 @@ export function Trail({ trail, cursor, onGo, onExport, busy }: {
         })}
       </ol>
 
-      <button
-        className="btn mt-3 w-full"
-        onClick={onExport}
-        disabled={busy || trail.length < 2}
-        title={trail.length < 2
-          ? "Travel somewhere first: a journey needs at least two stops"
-          : "Compile this journey into a variable font"}
-      >
-        Compile journey
-      </button>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          className="btn"
+          onClick={onTest}
+          disabled={busy || !canCompile}
+          title={!canCompile
+            ? "Travel somewhere first: a journey needs at least two stops"
+            : "Compile this journey and test the variable font here"}
+        >
+          Test
+        </button>
+        <button
+          className="btn"
+          onClick={onExport}
+          disabled={busy || !canCompile}
+          title={!canCompile
+            ? "Travel somewhere first: a journey needs at least two stops"
+            : "Compile this journey into a variable font and download it"}
+        >
+          Compile
+        </button>
+      </div>
     </div>
   )
 }

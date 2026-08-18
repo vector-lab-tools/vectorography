@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, type CompassPoint, type CorpusInfo, type Location } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
 import { CompassRose } from "./components/CompassRose"
+import { JourneyTester } from "./components/JourneyTester"
 import { MenuBar, type Menu } from "./components/MenuBar"
 import { Neighbours } from "./components/Neighbours"
 import { Specimen } from "./components/Specimen"
@@ -26,6 +27,7 @@ export default function App() {
   const [ride, setRide] = useState<Ride>(null)
   const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Journey")
+  const [testing, setTesting] = useState(false)
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -183,6 +185,13 @@ export default function App() {
             ? "Travel somewhere first: a journey needs at least two stops"
             : "The whole path as a variable font, plus every stop as an OTF" },
         { kind: "sep" },
+        { kind: "item", label: "Test Journey\u2026", hint: "compiled",
+          disabled: ancestry.length < 2 || busy,
+          onSelect: () => setTesting(true),
+          title: ancestry.length < 2
+            ? "Travel somewhere first: a journey needs at least two stops"
+            : "Compile the journey and test the actual variable font here" },
+        { kind: "sep" },
         { kind: "item", label: "Export Specimen Sheet (SVG)",
           disabled: !z, onSelect: exportSvg,
           title: "This location as a specimen sheet, with its map reading" },
@@ -297,10 +306,20 @@ export default function App() {
               title="Family name for the exported variable font"
             />
             <Trail trail={trail} cursor={cursor} onGo={setCursor}
-                   onExport={exportJourney} busy={busy} />
+                   onExport={exportJourney} onTest={() => setTesting(true)}
+                   canCompile={ancestry.length >= 2} busy={busy} />
           </div>
         </aside>
       </main>
+
+      {testing && ancestry.length >= 2 && (
+        <JourneyTester
+          trail={ancestry.map((c) => c.z)}
+          family={family}
+          stops={Math.min(Math.max(ancestry.length, 2), 12)}
+          onClose={() => setTesting(false)}
+        />
+      )}
 
       <footer className="h-8 shrink-0 px-4 flex items-center gap-4 border-t
                          border-border bg-card/60">
