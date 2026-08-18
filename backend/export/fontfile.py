@@ -21,12 +21,13 @@ import numpy as np
 from fontTools.designspaceLib import (AxisDescriptor, DesignSpaceDocument,
                                       SourceDescriptor)
 from fontTools.fontBuilder import FontBuilder
-from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib.tables._g_l_y_f import Glyph, GlyphCoordinates
+from fontTools.ttLib.tables import ttProgram
 from fontTools.varLib import build as varlib_build
 
 from corpus.outlines import GLYPHS, decode_vector
 
-UPEM = 1000
+UPEM = 2048
 AXIS_TAG = "JRNY"
 
 DIGIT_NAMES = ["zero", "one", "two", "three", "four",
@@ -39,11 +40,44 @@ def glyph_name(ch: str) -> str:
     return ch
 
 
-def _draw(contours: np.ndarray, pen) -> None:
+def _glyph(contours: np.ndarray) -> Glyph:
+    """Build the glyf entry directly rather than through a pen.
+
+    A pen drops duplicate consecutive points, and after rounding to integer
+    units adjacent resampled points collide in one master and not in another,
+    so masters that should have matched point for point come out with different
+    counts and varLib drops the glyph. Writing the contours here keeps every
+    master at exactly N_CONTOURS x N_POINTS, including collapsed pads, which is
+    what makes any set of sampled locations interpolation compatible.
+
+    All points are off-curve: TrueType then implies the on-curve midpoints, so
+    a fixed point count still yields a curve rather than a polygon.
+    """
+    pts, ends = [], []
     for c in contours:
-        pts = [(round(float(x) * UPEM), round(float(y) * UPEM)) for x, y in c]
-        pen.qCurveTo(*pts, None)   # closed all-off-curve spline
-        pen.closePath()
+        for x, y in c:
+            pts.append((int(round(float(x) * UPEM)), int(round(float(y) * UPEM))))
+        ends.append(len(pts) - 1)
+
+    g = Glyph()
+    g.numberOfContours = len(ends)
+    g.coordinates = GlyphCoordinates(pts)
+    g.endPtsOfContours = ends
+    g.flags = np.zeros(len(pts), dtype=np.uint8)   # 0 = off-curve
+    g.program = ttProgram.Program()
+    g.program.fromBytecode(b"")
+    return g
+
+
+def _empty_glyph() -> Glyph:
+    g = Glyph()
+    g.numberOfContours = 0
+    g.coordinates = GlyphCoordinates([])
+    g.endPtsOfContours = []
+    g.flags = np.zeros(0, dtype=np.uint8)
+    g.program = ttProgram.Program()
+    g.program.fromBytecode(b"")
+    return g
 
 
 def build_master(vec: np.ndarray, family: str, style: str,
@@ -60,19 +94,17 @@ def build_master(vec: np.ndarray, family: str, style: str,
                           **{ord(c): glyph_name(c) for c in GLYPHS}})
 
     glyphs, metrics = {}, {}
-    pen = TTGlyphPen(None)
-    glyphs[".notdef"] = pen.glyph()
+    glyphs[".notdef"] = _empty_glyph()
     metrics[".notdef"] = (UPEM // 2, 0)
-    glyphs["space"] = TTGlyphPen(None).glyph()
+    glyphs["space"] = _empty_glyph()
     metrics["space"] = (int(0.3 * UPEM), 0)
 
     for i, ch in enumerate(GLYPHS):
-        pen = TTGlyphPen(None)
-        _draw(dec["contours"][i], pen)
-        g = pen.glyph()
-        glyphs[glyph_name(ch)] = g
+        contours = dec["contours"][i]
+        glyphs[glyph_name(ch)] = _glyph(contours)
         adv = max(int(round(float(dec["advances"][i]) * UPEM)), 1)
-        metrics[glyph_name(ch)] = (adv, 0)
+        lsb = int(round(float(contours[..., 0].min()) * UPEM))
+        metrics[glyph_name(ch)] = (adv, lsb)
 
     fb.setupGlyf(glyphs)
     fb.setupHorizontalMetrics(metrics)

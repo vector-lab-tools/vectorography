@@ -49,7 +49,9 @@ def decode_to_glyphs(vec: np.ndarray) -> list[dict]:
 
 
 def specimen_svg(glyphs: list[dict], text: str, size: float = 1.0,
-                 asc: float = 0.8, colour: str = "#1a1a1a") -> str:
+                 asc: float = 0.88, colour: str = "#1a1a1a") -> str:
+    """One line of specimen. Font coordinates are y-up, so the group flips;
+    the viewBox must therefore cover -asc .. +0.28, not 0 .. asc."""
     by = {g["char"]: g for g in glyphs}
     x = 0.0
     body = []
@@ -64,58 +66,72 @@ def specimen_svg(glyphs: list[dict], text: str, size: float = 1.0,
         body.append(f'<g transform="translate({x:.4f},0)">{inner}</g>')
         x += g["advance"]
     w = max(x, 0.001)
+    h = asc + 0.28
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {-0.25:g} {w:.4f} '
-        f'{asc + 0.25:.4f}" width="{w * 100 * size:.1f}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {-asc:.4f} {w:.4f} '
+        f'{h:.4f}" width="{w * 100 * size:.1f}">'
         f'<g transform="scale(1,-1)" fill="{colour}" fill-rule="evenodd">'
         f'{"".join(body)}</g></svg>'
     )
 
 
+def _line(glyphs_by: dict, text: str, size: float, baseline: float) -> tuple[str, float]:
+    """A line of text set at `size` em, its baseline at y=`baseline` (y-down)."""
+    x = 0.0
+    parts = []
+    for ch in text:
+        g = glyphs_by.get(ch)
+        if ch == " " or not g:
+            x += 0.3
+            continue
+        inner = "".join(f'<path d="{p}"/>' for p in g["paths"])
+        parts.append(f'<g transform="translate({x:.4f},0)">{inner}</g>')
+        x += g["advance"]
+    body = (f'<g transform="translate(0,{baseline:.4f}) scale({size:.5f},{-size:.5f})">'
+            f'{"".join(parts)}</g>')
+    return body, x * size
+
+
 def specimen_sheet_svg(glyphs: list[dict], location: dict) -> str:
-    """A full specimen sheet for the current location: waterfall plus the map
-    reading that produced it."""
-    lines = ["Hamburgefonstiv", "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-             "abcdefghijklmnopqrstuvwxyz", "0123456789"]
-    sizes = [0.16, 0.075, 0.075, 0.075]
+    """A specimen sheet for the current location: a waterfall, plus the map
+    reading that produced it. The reading travels with the artefact."""
+    lines = [("Hamburgefonstiv", 0.20),
+             ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0.072),
+             ("abcdefghijklmnopqrstuvwxyz", 0.072),
+             ("0123456789", 0.072)]
     by = {g["char"]: g for g in glyphs}
-    parts, y = [], 0.0
-    width = 0.0
-    for text, s in zip(lines, sizes):
-        x = 0.0
-        row = []
-        for ch in text:
-            g = by.get(ch)
-            if not g:
-                x += 0.3 * s
-                continue
-            inner = "".join(f'<path d="{p}"/>' for p in g["paths"])
-            row.append(f'<g transform="translate({x:.4f},0)">{inner}</g>')
-            x += g["advance"] * s
-        width = max(width, x)
-        y += s * 1.05
-        parts.append(
-            f'<g transform="translate(0,{y:.4f}) scale({s:.4f},{-s:.4f})">'
-            f'{"".join(f'<g transform="scale({1 / s:.6f},{1 / s:.6f})">{r}</g>' for r in row)}</g>')
-        y += s * 0.45
-    W, H = max(width + 0.1, 1.2), y + 0.35
-    prov = " · ".join(f"{n['family']} {n['distance']:.2f}"
-                      for n in location.get("neighbours", [])[:5])
+
+    parts, y, width = [], 0.10, 0.0
+    for text, size in lines:
+        y += size * 0.92
+        body, w = _line(by, text, size, y)
+        parts.append(body)
+        width = max(width, w)
+        y += size * 0.42
+
+    W = max(width, 1.9) + 0.20
+    H = y + 0.30
     alt = location.get("altitude", {})
-    caption = (f"centroid {alt.get('centroid_distance', 0):.2f} "
-               f"({alt.get('centroid_percentile', 0):.0f}th) · "
-               f"density {alt.get('density_percentile', 0):.0f}th percentile")
+    prov = "  ".join(f"{n['family']} {n['distance']:.2f}"
+                     for n in location.get("neighbours", [])[:5])
+    reading = (f"centroid {alt.get('centroid_distance', 0):.2f} "
+               f"({alt.get('centroid_percentile', 0):.0f}th pct)   "
+               f"density {alt.get('density_percentile', 0):.0f}th   "
+               f"isolation {alt.get('knn_distance', 0):.2f}")
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.3f} {H:.3f}" '
-        f'width="{W * 700:.0f}">'
+        f'width="{W * 640:.0f}" height="{H * 640:.0f}">'
         f'<rect width="{W:.3f}" height="{H:.3f}" fill="#faf8f4"/>'
-        f'<g transform="translate(0.05,0.02)" fill="#1a1a1a" fill-rule="evenodd">'
+        f'<g transform="translate(0.10,0)" fill="#1a1a1a" fill-rule="evenodd">'
         f'{"".join(parts)}</g>'
-        f'<text x="0.05" y="{H - 0.16:.3f}" font-family="monospace" '
-        f'font-size="0.030" fill="#7c2d36">{caption}</text>'
-        f'<text x="0.05" y="{H - 0.10:.3f}" font-family="monospace" '
-        f'font-size="0.026" fill="#666">neighbours: {prov}</text>'
-        f'<text x="0.05" y="{H - 0.04:.3f}" font-family="monospace" '
-        f'font-size="0.026" fill="#999">vectorography · corpus: Google Fonts, OFL-1.1</text>'
+        f'<line x1="0.10" x2="{W - 0.10:.3f}" y1="{H - 0.21:.3f}" '
+        f'y2="{H - 0.21:.3f}" stroke="#ddd8cc" stroke-width="0.004"/>'
+        f'<text x="0.10" y="{H - 0.15:.3f}" font-family="monospace" '
+        f'font-size="0.032" fill="#7c2d36">{reading}</text>'
+        f'<text x="0.10" y="{H - 0.095:.3f}" font-family="monospace" '
+        f'font-size="0.028" fill="#666">neighbours  {prov}</text>'
+        f'<text x="0.10" y="{H - 0.04:.3f}" font-family="monospace" '
+        f'font-size="0.028" fill="#999">'
+        f'vectorography  ·  corpus: Google Fonts, OFL-1.1</text>'
         f'</svg>'
     )

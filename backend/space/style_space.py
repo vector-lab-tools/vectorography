@@ -34,6 +34,14 @@ class StyleSpace:
         self.metas = list(metas)
         self.evr = evr
         self.dims = components.shape[0]
+        # Relative weight of each axis in the unwhitened corpus. Whitening makes
+        # distance mean the same thing on every axis, which is what a compass
+        # radius needs, but it also means a uniformly random direction in 128
+        # dimensions is almost entirely fine detail. Drift is sampled against
+        # this spectrum instead, so a random step moves the way a typeface
+        # varies rather than the way noise does.
+        self.spectrum = (self.scale / max(float(self.scale[0]), 1e-12)
+                         if len(self.scale) else self.scale)
 
         self.centroid = self.Z.mean(axis=0)
         self._centroid_dists = np.linalg.norm(self.Z - self.centroid, axis=1)
@@ -47,7 +55,7 @@ class StyleSpace:
     # ---------------------------------------------------------------- fitting
 
     @classmethod
-    def fit(cls, X, names, metas, dims=32):
+    def fit(cls, X, names, metas, dims=128):
         mean = X.mean(axis=0)
         Xc = X - mean
         U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
@@ -179,8 +187,9 @@ class StyleSpace:
 
     def drift(self, z, temperature=0.5, rng=None):
         rng = rng or np.random.default_rng()
-        d = rng.normal(size=self.dims)
-        d /= np.linalg.norm(d) or 1.0
+        d = rng.normal(size=self.dims) * self.spectrum
+        n = np.linalg.norm(d)
+        d = d / n if n > 0 else d
         return (np.asarray(z) + temperature * d).tolist()
 
     def orbit(self, z, centre, angle_deg=20.0, axis_b=1):

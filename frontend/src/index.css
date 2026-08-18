@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: 0 0% 10%;
+    --ivory: 40 33% 97%;
+    --cream: 40 24% 94%;
+    --parchment: 40 24% 89%;
+    --burgundy: 352 47% 33%;
+    --gold: 43 85% 38%;
+    --background: 40 33% 97%;
+    --foreground: 0 0% 10%;
+    --muted: 40 24% 94%;
+    --muted-foreground: 0 0% 42%;
+    --card: 0 0% 100%;
+    --border: 40 24% 87%;
+  }
+  .dark {
+    --ink: 40 20% 92%;
+    --ivory: 220 15% 12%;
+    --cream: 220 12% 16%;
+    --parchment: 220 10% 20%;
+    --burgundy: 352 55% 55%;
+    --gold: 43 75% 55%;
+    --background: 220 15% 10%;
+    --foreground: 40 20% 92%;
+    --muted: 220 12% 18%;
+    --muted-foreground: 40 8% 60%;
+    --card: 220 12% 14%;
+    --border: 220 10% 25%;
+  }
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .rail-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground;
+  }
+  .panel {
+    @apply bg-card border border-border rounded-md shadow-editorial;
+  }
+  .btn {
+    @apply font-mono text-[11px] uppercase tracking-[0.1em] px-3 py-2
+           border border-border rounded-sm bg-card text-foreground
+           hover:bg-muted transition-colors disabled:opacity-40
+           disabled:cursor-not-allowed select-none;
+  }
+  .btn-active {
+    @apply bg-burgundy text-ivory border-burgundy hover:bg-burgundy;
+  }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }

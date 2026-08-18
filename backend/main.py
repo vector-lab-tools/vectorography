@@ -92,6 +92,8 @@ def corpus_info():
         "explained_variance": s.evr,
         "glyphs": GLYPHS,
         "licence": "OFL-1.1 (Google Fonts, ofl/ tree only)",
+        "centroid_distances": s._centroid_dists.tolist(),
+        "centroid_max": float(s._centroid_dists.max()),
     }
 
 

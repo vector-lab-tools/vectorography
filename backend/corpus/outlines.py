@@ -172,6 +172,42 @@ def decode_vector(vec: np.ndarray) -> dict:
     return {"contours": body, "advances": advances}
 
 
+def align_corpus(X: np.ndarray, iters: int = 3) -> np.ndarray:
+    """Put the points of every contour into correspondence across the corpus.
+
+    Starting each contour at its topmost point is not enough. On a flat-topped
+    letter like H the topmost point is ambiguous and lands somewhere different
+    in every font, so the same outline arrives at the model under an arbitrary
+    cyclic rotation and averaging smears it. Here each contour is instead
+    rotated to whichever of its P offsets best matches a running mean, two or
+    three passes, which is a cyclic Procrustes fit. This is the single change
+    that decides whether the space is walkable.
+    """
+    n = X.shape[0]
+    ng = len(GLYPHS)
+    body = X[:, : ng * GLYPH_DIM].reshape(n, ng, N_CONTOURS, N_POINTS, 2).copy()
+
+    for _ in range(iters):
+        ref = body.mean(axis=0)                       # (ng, K, P, 2)
+        for g in range(ng):
+            for k in range(N_CONTOURS):
+                block = body[:, g, k]                 # (n, P, 2)
+                # Degenerate pads carry no phase; leave them alone.
+                live = np.ptp(block.reshape(n, -1), axis=1) > 1e-6
+                if not live.any():
+                    continue
+                rots = np.stack([np.roll(block, -r, axis=1)
+                                 for r in range(N_POINTS)])       # (P, n, P, 2)
+                d = ((rots - ref[g, k]) ** 2).sum(axis=(2, 3))    # (P, n)
+                best = np.argmin(d, axis=0)                       # (n,)
+                best[~live] = 0
+                body[:, g, k] = rots[best, np.arange(n)]
+
+    out = X.copy()
+    out[:, : ng * GLYPH_DIM] = body.reshape(n, -1)
+    return out
+
+
 def build_corpus(font_dir: Path | None = None, limit: int | None = None) -> dict:
     font_dir = font_dir or (DATA / "fonts")
     paths = sorted(font_dir.glob("*.ttf"))
@@ -191,6 +227,8 @@ def build_corpus(font_dir: Path | None = None, limit: int | None = None) -> dict
             print(f"  encoded {len(vecs)}/{i + 1}")
 
     X = np.stack(vecs)
+    print("  aligning contours across the corpus")
+    X = align_corpus(X)
     np.savez_compressed(CACHE, X=X, names=np.array(names),
                         metas=np.array([json.dumps(m) for m in metas]))
     print(f"corpus: {X.shape[0]} fonts x {X.shape[1]} dims -> {CACHE}")
