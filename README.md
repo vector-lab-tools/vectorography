@@ -104,18 +104,39 @@ of whatever plane you are turning in.
 
 ## Export
 
-**Specimen SVG.** The current location as a specimen sheet, with its map reading
-(distance from centroid, density percentile, isolation, and the five nearest real
-families) printed on the sheet. The reading travels with the artefact.
+Everything is under **File** in the menu bar.
 
-**Compile journey.** The recorded path becomes a **variable font**. The trail is
-sampled at uniform arc length, each sample is decoded to outlines and compiled as
-a master, and `varLib` builds a variable font whose single `JRNY` (Journey) axis
-runs from the start of the journey to its end. The export is a zip containing the
-variable font, every master as a static TTF, the designspace, a `journey.json`
-recording the full path in latent coordinates, and the corpus manifest.
+**Export Typeface (OTF / TTF).** The current location as one installable static
+font. The OTF carries cubic Bezier outlines converted from the same Catmull-Rom
+construction the navigator draws with, so what you looked at is what you install:
+no requantisation, no second approximation. Metrics, x-height, cap-height and
+naming are filled in properly and `fsType` is 0, so it installs in Font Book and
+sets text like any other font.
 
-The journey is literally the axis of the font.
+**Compile Journey to Variable Font.** The recorded path becomes a **variable
+font**. The trail is sampled at uniform arc length, each sample is decoded and
+compiled as a master, and `varLib` builds a variable font whose single `JRNY`
+(Journey) axis runs from the start of the journey to its end, with a named
+instance and a STAT entry per stop so the stops appear as selectable styles.
+
+The journey is the axis of the font.
+
+The zip contains:
+
+```
+specimen.html          open this first: tests everything in a browser, no install
+<Family>-VF.ttf        the variable font, one Journey axis, named instance per stop
+instances/             each stop as a static OTF, ready to install
+masters/               the TrueType masters the variable font interpolated from
+journey.designspace    the designspace varLib was given
+journey.json           the full path in latent coordinates, and the model it belongs to
+corpus-manifest.json   every family the space was fitted from
+README.txt             what each of the above is
+```
+
+**Export Specimen Sheet (SVG).** The current location as a specimen sheet with
+its map reading (distance from centroid, density percentile, isolation, and the
+five nearest real families) printed on it. The reading travels with the artefact.
 
 ## How it works
 

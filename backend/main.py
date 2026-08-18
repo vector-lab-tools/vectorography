@@ -86,6 +86,12 @@ class JourneyReq(BaseModel):
     masters: int = Field(5, ge=2, le=12)
 
 
+class FontReq(Z):
+    family: str = "Vectorography"
+    style: str = "Regular"
+    format: str = "otf"
+
+
 @app.get("/api/corpus")
 def corpus_info():
     s = space()
@@ -173,9 +179,73 @@ def export_svg(req: LocationReq):
         "Content-Disposition": "attachment; filename=vectorography-specimen.svg"})
 
 
+@app.post("/api/export/font")
+def export_font(req: FontReq):
+    """The current location as one installable typeface."""
+    from export.fontfile import build_otf, build_ttf
+
+    s = space()
+    vec = s.decode(req.z)
+    fmt = req.format.lower()
+    if fmt not in ("otf", "ttf"):
+        raise HTTPException(400, "format must be otf or ttf")
+    build = build_otf if fmt == "otf" else build_ttf
+    data = build(vec, req.family, req.style, s.metas[0], VERSION)
+    safe = req.family.replace(" ", "") or "Vectorography"
+    return Response(data, media_type="font/" + fmt, headers={
+        "Content-Disposition": f"attachment; filename={safe}-{req.style}.{fmt}"})
+
+
+def _specimen_html(family: str, stops: list[str]) -> str:
+    """A tester that opens straight from the unzipped folder, no setup."""
+    faces = "\n".join(
+        f'@font-face{{font-family:"VGStop{i}";'
+        f'src:url("instances/{n}") format("opentype");}}'
+        for i, n in enumerate(stops))
+    blocks = "\n".join(
+        f'<div class="l">Stop {i}</div>'
+        f'<div class="s" style=\'font-family:"VGStop{i}"\'>'
+        f'Hamburgefonstiv 0123456789</div>'
+        f'<div class="p" style=\'font-family:"VGStop{i}"\'>'
+        f'The quick brown fox jumps over the lazy dog. '
+        f'ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz</div>'
+        for i in range(len(stops)))
+    return f"""<!doctype html>
+<meta charset="utf-8"><title>{family} \u00b7 specimen</title>
+<style>
+{faces}
+@font-face{{font-family:"VGVar";src:url("{family.replace(' ', '')}-VF.ttf")
+  format("truetype-variations");font-weight:1 1000;}}
+body{{background:#faf8f4;color:#1a1a1a;margin:0;padding:40px;
+  font-family:ui-monospace,Menlo,monospace;}}
+h1{{font:400 22px Georgia,serif;margin:0 0 4px}}
+.sub{{font-size:11px;color:#777;margin-bottom:28px}}
+.l{{font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:#7c2d36;margin:26px 0 6px}}
+.s{{font-size:54px;line-height:1.2}}
+.p{{font-size:17px;line-height:1.5;margin-top:8px;color:#333}}
+.slider{{width:100%;max-width:640px;accent-color:#7c2d36}}
+hr{{border:0;border-top:1px solid #e6e0d4;margin:34px 0}}
+</style>
+<h1>{family}</h1>
+<div class="sub">A journey through VectorModel, compiled. Corpus: Google Fonts,
+OFL-1.1. Open this file in a browser; nothing needs installing.</div>
+
+<div class="l">The variable font, across its journey axis</div>
+<input class="slider" type="range" min="0" max="1000" value="0"
+  oninput="v.style.fontVariationSettings=`'JRNY' ${{this.value}}`;
+           out.textContent=this.value">
+<span id="out" style="font-size:11px;color:#777">0</span>
+<div id="v" class="s" style="font-family:VGVar">Hamburgefonstiv 0123456789</div>
+<hr>
+<div class="l">The stops, as static OTFs</div>
+{blocks}
+"""
+
+
 @app.post("/api/export/journey")
 def export_journey(req: JourneyReq):
-    from export.fontfile import build_variable
+    from export.fontfile import build_otf, build_variable
 
     s = space()
     if len(req.trail) < 2:
@@ -194,13 +264,18 @@ def export_journey(req: JourneyReq):
     meta = s.metas[0]
     vectors = [s.decode(z) for z in zs]
     try:
-        vf, ds_xml, masters = build_variable(vectors, req.family, meta)
+        vf, ds_xml, masters = build_variable(vectors, req.family, meta, VERSION)
+        instances = [
+            (f"{req.family.replace(' ', '')}-Stop{i}.otf",
+             build_otf(v, req.family, f"Stop {i}", meta, VERSION))
+            for i, v in enumerate(vectors)]
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"variable font build failed: {exc}") from exc
+        raise HTTPException(500, f"font build failed: {exc}") from exc
 
     journey = {
         "format": "vectorography-journey/1",
         "family": req.family,
+        "vectorography_version": VERSION,
         "space": {"model": MODEL_NAME, "model_version": MODEL_VERSION,
                   "kind": "whitened principal subspace", "dims": s.dims,
                   "corpus": "google-fonts-ofl", "corpus_size": len(s.names)},
@@ -211,13 +286,40 @@ def export_journey(req: JourneyReq):
                          "see corpus-manifest.json"),
     }
 
+    safe = req.family.replace(" ", "") or "Journey"
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(f"{req.family}-VF.ttf", vf)
-        zf.writestr("journey.designspace", ds_xml)
-        zf.writestr("journey.json", json.dumps(journey, indent=2))
+        zf.writestr(f"{safe}-VF.ttf", vf)
+        for name, data in instances:
+            zf.writestr(f"instances/{name}", data)
         for name, data in masters:
             zf.writestr(f"masters/{name}", data)
+        zf.writestr("specimen.html",
+                    _specimen_html(req.family, [n for n, _ in instances]))
+        zf.writestr("journey.designspace", ds_xml)
+        zf.writestr("journey.json", json.dumps(journey, indent=2))
+        zf.writestr("README.txt", (
+            f"{req.family}\n"
+            f"{'=' * len(req.family)}\n\n"
+            f"A journey through {MODEL_NAME} {MODEL_VERSION}, compiled by "
+            f"Vectorography {VERSION}.\n\n"
+            f"  specimen.html    open this first. Tests everything in a "
+            f"browser, no install.\n"
+            f"  {safe}-VF.ttf    the variable font. One axis, JRNY, running "
+            f"from the start\n"
+            f"                   of the journey to its end, with a named "
+            f"instance per stop.\n"
+            f"  instances/       each stop as a static OTF. Install these to "
+            f"set text.\n"
+            f"  masters/         the TrueType masters the variable font was "
+            f"interpolated from.\n"
+            f"  journey.json     the full path in latent coordinates, and the "
+            f"model it belongs to.\n"
+            f"  corpus-manifest.json   every family the space was fitted "
+            f"from.\n\n"
+            f"Outlines are derived from OFL-1.1 licensed Google Fonts "
+            f"families. Check the\n"
+            f"OFL terms before distributing a typeface built with this.\n"))
         man = Path(__file__).parent / "data" / "corpus-manifest.json"
         if man.exists():
             zf.writestr("corpus-manifest.json", man.read_text())

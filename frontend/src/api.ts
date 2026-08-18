@@ -21,6 +21,8 @@ export type CorpusInfo = {
   licence: string
   centroid_distances: number[]
   centroid_max: number
+  version: string
+  model: { name: string; version: string; kind: string; id: string }
 }
 
 export type Location = {
@@ -60,6 +62,10 @@ export const api = {
 
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude }>("/api/travel", body),
+
+  exportFont: (z: number[], family: string, style: string, format: string) =>
+    api.download("/api/export/font", { z, family, style, format },
+                 `${family.replace(/ /g, "")}-${style}.${format}`),
 
   fontPosition: (name: string) =>
     fetch(`/api/font/${name}`).then((r) => r.json() as Promise<{ z: number[] }>),

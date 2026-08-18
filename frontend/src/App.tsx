@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, type CompassPoint, type CorpusInfo, type Location } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
 import { CompassRose } from "./components/CompassRose"
+import { MenuBar, type Menu } from "./components/MenuBar"
 import { Neighbours } from "./components/Neighbours"
 import { Specimen } from "./components/Specimen"
 import { Trail, type Crumb } from "./components/Trail"
@@ -153,35 +154,78 @@ export default function App() {
     catch (e) { setError(String(e)) }
   }, [z, text])
 
+  const exportFont = useCallback(async (format: "otf" | "ttf") => {
+    if (!z) return
+    setBusy(true)
+    try {
+      const near = location?.neighbours?.[0]?.family
+      const style = here ? `Stop ${here.id}` : "Regular"
+      await api.exportFont(z, family, style, format)
+      void near
+    } catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [z, family, location, here])
+
+  const menus: Menu[] = useMemo(() => [
+    {
+      label: "File",
+      items: [
+        { kind: "item", label: "Export Typeface (OTF)", hint: "here",
+          disabled: !z || busy, onSelect: () => exportFont("otf"),
+          title: "This location as an installable static OTF, cubic outlines" },
+        { kind: "item", label: "Export Typeface (TTF)", hint: "here",
+          disabled: !z || busy, onSelect: () => exportFont("ttf"),
+          title: "This location as a static TrueType font" },
+        { kind: "sep" },
+        { kind: "item", label: "Compile Journey to Variable Font\u2026",
+          hint: `${ancestry.length} stops`,
+          disabled: ancestry.length < 2 || busy, onSelect: exportJourney,
+          title: ancestry.length < 2
+            ? "Travel somewhere first: a journey needs at least two stops"
+            : "The whole path as a variable font, plus every stop as an OTF" },
+        { kind: "sep" },
+        { kind: "item", label: "Export Specimen Sheet (SVG)",
+          disabled: !z, onSelect: exportSvg,
+          title: "This location as a specimen sheet, with its map reading" },
+      ],
+    },
+    {
+      label: "View",
+      items: [
+        { kind: "item", label: dark ? "Light theme" : "Dark theme",
+          onSelect: () => setDark((d) => !d) },
+      ],
+    },
+  ], [z, busy, dark, ancestry.length, exportFont, exportJourney, exportSvg])
+
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
 
   return (
     <div className="h-full flex flex-col">
-      <header className="flex items-center gap-4 px-4 h-12 border-b border-border
-                         bg-card/60 shrink-0">
-        <h1 className="font-display text-base tracking-tight">
+      <header className="flex items-stretch gap-3 pl-4 pr-3 h-11 border-b
+                         border-border bg-card/60 shrink-0">
+        <h1 className="font-display text-base tracking-tight self-center
+                       whitespace-nowrap">
           Vectorography
           <span className="ml-2 font-mono text-[10px] text-muted-foreground">
             {__APP_VERSION__}
           </span>
         </h1>
-        <span className="font-mono text-[10px] text-muted-foreground hidden md:inline">
-          {corpus.count} OFL families · {corpus.dims}-dim space ·
-          {" "}{(corpus.explained_variance.reduce((a, b) => a + b, 0) * 100).toFixed(0)}% variance
-        </span>
+        <MenuBar menus={menus} />
         <div className="flex-1" />
+        <span className="self-center font-mono text-[10px] text-muted-foreground
+                         hidden lg:inline whitespace-nowrap">
+          {corpus.model?.name} {corpus.model?.version} · {corpus.count} OFL
+          families · {corpus.dims}d
+        </span>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          className="font-mono text-[11px] w-56 bg-background border border-border
-                     rounded-sm px-2 py-1"
+          className="self-center font-mono text-[11px] w-52 bg-background
+                     border border-border rounded-sm px-2 py-1"
           title="Specimen text. Reading the letters is how you decide where to go."
         />
-        <button className="btn" onClick={exportSvg}>Specimen SVG</button>
-        <button className="btn" onClick={() => setDark((d) => !d)}
-                title="Toggle dark">{dark ? "Light" : "Dark"}</button>
       </header>
 
       <main className="flex-1 min-h-0 grid grid-cols-[180px_minmax(0,1fr)_215px] gap-4 p-4">
@@ -203,6 +247,7 @@ export default function App() {
               centre={location?.glyphs ?? []}
 
               compassText={compassText}
+              radius={radius}
               onTravel={(p) => walk(p.bearing)}
               busy={busy}
             />
