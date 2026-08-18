@@ -10,6 +10,8 @@
     --parchment: 40 24% 89%;
     --burgundy: 352 47% 33%;
     --gold: 43 85% 38%;
+    /* Where you are, wherever it is shown. */
+    --here: 208 72% 42%;
     --background: 40 33% 97%;
     --foreground: 0 0% 10%;
     --muted: 40 24% 94%;
@@ -24,6 +26,7 @@
     --parchment: 220 10% 20%;
     --burgundy: 352 55% 55%;
     --gold: 43 75% 55%;
+    --here: 205 80% 62%;
     --background: 220 15% 10%;
     --foreground: 40 20% 92%;
     --muted: 220 12% 18%;

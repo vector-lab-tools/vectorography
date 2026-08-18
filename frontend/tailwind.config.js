@@ -11,6 +11,7 @@ export default {
         parchment: "hsl(var(--parchment) / <alpha-value>)",
         burgundy: "hsl(var(--burgundy) / <alpha-value>)",
         gold: "hsl(var(--gold) / <alpha-value>)",
+        here: "hsl(var(--here) / <alpha-value>)",
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         muted: "hsl(var(--muted) / <alpha-value>)",

@@ -86,16 +86,13 @@ export function CompassRose({
       })}
 
       {/* The centre shows where you already are, at the same scale as the eight
-          around it, so the comparison is like for like. It is not a control. */}
+          around it, so the comparison is like for like. It is not a control,
+          and it carries the colour that means "you" everywhere else. */}
       <div className="col-start-2 row-start-2 rounded-sm flex items-center
                       justify-center px-1.5 pt-3.5 pb-1.5 relative
-                      bg-transparent border border-dashed border-ink/20">
+                      bg-here/[0.06] border border-here/50">
         <Specimen glyphs={centre} text={compassText} height={46}
-                  className="text-ink" />
-        <span className="absolute top-1 left-1/2 -translate-x-1/2 font-mono
-                         text-[9px] uppercase tracking-[0.14em] text-burgundy">
-          here
-        </span>
+                  className="text-here" />
       </div>
       </div>
     </div>

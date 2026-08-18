@@ -16,6 +16,8 @@ import type { AtlasData, NamedDirection } from "../api"
 
 type Cam = { yaw: number; pitch: number; zoom: number }
 
+const DEFAULT_CAM: Cam = { yaw: 0.6, pitch: 0.62, zoom: 52 }
+
 /**
  * Colour runs along whichever measured property is selected: a diverging ramp
  * from one end of the measurement to the other, through a neutral middle. It is
@@ -134,8 +136,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // The camera is a ref, not state. Held as state, every pointer event during
   // a drag re-rendered the tree before it drew a frame, which is most of what
   // made orbiting feel heavy.
-  const cam = useRef<Cam>({ yaw: 0.6, pitch: 0.62, zoom: 22 })
-  const fitted = useRef(false)
+  const cam = useRef<Cam>({ ...DEFAULT_CAM })
   const [hover, setHover] = useState<{ name: string; sx: number; sy: number } | null>(null)
   const hoverName = useRef<string | null>(null)
   const drag = useRef<{ x: number; y: number; cam: Cam } | null>(null)
@@ -149,12 +150,18 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // same decision into a fade.
   const labelAlpha = useRef(new Map<number, number>())
   const dirty = useRef(false)
+  // Where the view is centred, read by unproject without re-subscribing.
+  const selfRef = useRef({ x: 0, y: 0, h: 0 })
   // What a family is drawn as. "letters" sets the same sample in that family's
   // own face, which is the thing a designer can actually read off a map; the
   // name is a string that happens to be attached to it.
-  const mode = useRef<"letters" | "names" | "off">("letters")
-  const [modeOn, setModeOn] = useState<"letters" | "names" | "off">("letters")
-  const [zoomLabel, setZoomLabel] = useState(22)
+  // Names by default, not letters. When every family was drawn as its own
+  // "Ha" the map competed with the traveller's own specimen and the one mark
+  // that matters was lost among four hundred that look like it. Colour already
+  // carries the property being read; the letters stay available on request.
+  const mode = useRef<"names" | "letters" | "off">("names")
+  const [modeOn, setModeOn] = useState<"names" | "letters" | "off">("names")
+  const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
 
   const HEIGHT_SCALE = 5.5
   // Sized in screen pixels, not world units. Tied to the zoom, the traveller's
@@ -162,16 +169,21 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // one view every user sees first.
   const SELF_PX = 46
 
+  // The traveller is the subject: the view is centred on them and the map moves
+  // underneath, so orbiting turns about where you are standing rather than
+  // about an origin you may be nowhere near.
   const project = useCallback((x: number, y: number, h: number,
-                               w: number, ht: number, c: Cam) => {
+                               w: number, ht: number, c: Cam,
+                               cx = 0, cy0 = 0, ch = 0) => {
     const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw)
     const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch)
-    const rx = x * cy - y * sy
-    const ry = x * sy + y * cy
+    const dx = x - cx, dy = y - cy0, dh = h - ch
+    const rx = dx * cy - dy * sy
+    const ry = dx * sy + dy * cy
     return {
       sx: w / 2 + rx * c.zoom,
-      sy: ht * 0.62 + (ry * sp - h * HEIGHT_SCALE * cp) * c.zoom,
-      depth: ry * cp + h * HEIGHT_SCALE * sp,
+      sy: ht * 0.5 + (ry * sp - dh * HEIGHT_SCALE * cp) * c.zoom,
+      depth: ry * cp + dh * HEIGHT_SCALE * sp,
     }
   }, [])
 
@@ -184,20 +196,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   useEffect(() => {
     for (const k of paths.current.keys())
       if (k.startsWith("self:")) paths.current.delete(k)
-  }, [data])
-
-  // Fit to the corpus once, so the first sight of the space is the whole of it.
-  // Guarded on a measured width: run before layout settles and the fit is
-  // computed against a box of nothing.
-  useEffect(() => {
-    if (!data || fitted.current) return
-    const w = box.current?.clientWidth ?? 0
-    if (w < 50) return
-    const spread = Math.max(
-      ...data.points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))), 1)
-    fitted.current = true
-    cam.current = { ...cam.current, zoom: Math.max(7, Math.min(60, (w * 0.40) / spread)) }
-    setZoomLabel(cam.current.zoom)
   }, [data])
 
   // Loading a face has to be able to ask for another frame once it arrives.
@@ -218,9 +216,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     const css = getComputedStyle(document.documentElement)
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
+    const here = `hsl(${css.getPropertyValue("--here")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
     const c = cam.current
-    const P = (x: number, y: number, hh: number) => project(x, y, hh, w, h, c)
+    const cx = data.self.x, cy0 = data.self.y, ch = norm(data.self.h)
+    selfRef.current = { x: cx, y: cy0, h: ch }
+    const P = (x: number, y: number, hh: number) =>
+      project(x, y, hh, w, h, c, cx, cy0, ch)
 
     // Ground: the plane of the corpus centroid.
     ctx.strokeStyle = muted; ctx.globalAlpha = 0.16; ctx.lineWidth = 1
@@ -374,15 +376,18 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // height reading is not ambiguous.
     const me = P(data.self.x, data.self.y, norm(data.self.h))
     const ground = P(data.self.x, data.self.y, 0)
-    ctx.strokeStyle = burg; ctx.globalAlpha = 0.35
+    ctx.strokeStyle = here; ctx.globalAlpha = 0.4
     ctx.setLineDash([2, 3])
     ctx.beginPath(); ctx.moveTo(me.sx, me.sy); ctx.lineTo(ground.sx, ground.sy)
     ctx.stroke(); ctx.setLineDash([])
+    ctx.globalAlpha = 0.5
+    ctx.beginPath(); ctx.ellipse(ground.sx, ground.sy, 5, 2.4, 0, 0, Math.PI * 2)
+    ctx.stroke()
     ctx.globalAlpha = 1
     ctx.save()
     ctx.translate(me.sx, me.sy)
     ctx.scale(SELF_PX, -SELF_PX)
-    ctx.fillStyle = burg
+    ctx.fillStyle = here
     let sdx = 0
     for (const gl of data.self.glyphs) {
       const key = `self:${gl.char}:${gl.path.length}`
@@ -437,10 +442,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const sp = Math.sin(c.pitch)
     // Looking along the plane edge-on, a screen point names no ground point.
     if (Math.abs(sp) < 0.08) return null
+    const self = selfRef.current
+    const cp = Math.cos(c.pitch)
     const rx = (sx - w / 2) / c.zoom
-    const ry = ((sy - hgt * 0.62) / c.zoom) / sp
+    // Undo the traveller's own height: the view is centred on it.
+    const ry = ((sy - hgt * 0.5) / c.zoom - self.h * HEIGHT_SCALE * cp) / sp
     const cy = Math.cos(c.yaw), sy2 = Math.sin(c.yaw)
-    return { x: rx * cy + ry * sy2, y: -rx * sy2 + ry * cy }
+    return { x: rx * cy + ry * sy2 + self.x, y: -rx * sy2 + ry * cy + self.y }
   }, [])
 
   // Zoom without a wheel: a trackpad pinch is not obvious, and reaching the
@@ -451,14 +459,24 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     draw()
   }, [draw])
 
-  const refit = useCallback(() => {
-    if (!data || !box.current) return
-    const spread = Math.max(
-      ...data.points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))), 1)
-    setZoom((box.current.clientWidth * 0.40) / spread)
-    cam.current = { ...cam.current, yaw: 0.6, pitch: 0.62 }
+  // Back to the view you started in: your own neighbourhood, at the angle it
+  // is first shown at.
+  const reset = useCallback(() => {
+    cam.current = { ...DEFAULT_CAM }
+    setZoomLabel(DEFAULT_CAM.zoom)
     draw()
-  }, [data, setZoom, draw])
+  }, [draw])
+
+  const fitAll = useCallback(() => {
+    if (!data || !box.current) return
+    const self = selfRef.current
+    const spread = Math.max(...data.points.map((p) =>
+      Math.max(Math.abs(p.x - self.x), Math.abs(p.y - self.y))), 1)
+    cam.current = { ...cam.current,
+      zoom: Math.max(4, Math.min(120, (box.current.clientWidth * 0.42) / spread)) }
+    setZoomLabel(cam.current.zoom)
+    draw()
+  }, [data, draw])
 
   // New data and resizes draw straight away. Only interaction goes through the
   // frame cap: requestAnimationFrame does not fire while a tab is hidden, so
@@ -521,8 +539,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              const next = mode.current === "letters" ? "names"
-                : mode.current === "names" ? "off" : "letters"
+              const next = mode.current === "names" ? "letters"
+                : mode.current === "letters" ? "off" : "names"
               mode.current = next
               setModeOn(next)
               LABELS.clear()
@@ -624,7 +642,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       <div className="absolute bottom-2 left-2 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
-           ["⤢", refit, "Fit the whole corpus"]] as const).map(([label, fn, tip]) => (
+           ["⌖", reset, "Back to the default view, centred on you"],
+           ["⤢", fitAll, "Fit the whole corpus"]] as const).map(([label, fn, tip]) => (
           <button
             key={label}
             title={tip}

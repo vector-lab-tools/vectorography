@@ -197,6 +197,7 @@ class AtlasReq(Z):
     ride: list[float] | None = None
     sprites: int = Field(14, ge=0, le=40)
     height: str = "density"
+    axis_c: int = 2
     colour_by: str = "serif"
     trail: list[list[float]] = []
 
@@ -220,7 +221,20 @@ def atlas(req: AtlasReq):
     # Height arrives already normalised to 0..1. Raw log density has a long
     # tail, so plotting it directly makes the corpus a spike with everything
     # bunched at the bottom; the percentile spreads the same ordering evenly.
-    if req.height == "centroid":
+    h_min, h_max = 0.0, 1.0
+    if req.height == "axis":
+        # A third latent axis, so the vertical is a direction you can travel
+        # along rather than a reading taken of where you already are.
+        wv = np.zeros(s.dims)
+        wv[min(req.axis_c, s.dims - 1)] = 1.0
+        raw = s.Z @ wv
+        self_raw = float(z @ wv)
+        h_min = float(min(raw.min(), self_raw))
+        h_max = float(max(raw.max(), self_raw))
+        span = max(h_max - h_min, 1e-6)
+        hs = (raw - h_min) / span
+        self_h = (self_raw - h_min) / span
+    elif req.height == "centroid":
         raw = np.linalg.norm(s.Z - s.centroid, axis=1)
         top = float(raw.max()) or 1.0
         hs = raw / top
@@ -262,7 +276,7 @@ def atlas(req: AtlasReq):
                     "low": legend[1], "high": legend[2]} if legend else None),
         "axes": {"x": req.axis_a + 1, "y": req.axis_b + 1,
                  "x_evr": s.evr[req.axis_a], "y_evr": s.evr[req.axis_b],
-                 "height": req.height,
+                 "height": req.height, "c": req.axis_c + 1,
                  "ride": req.ride is not None},
         "points": [{"i": i, "name": s.names[i], "x": float(xs[i]),
                     "y": float(ys[i]), "h": float(hs[i]), "d": float(d[i]),
@@ -274,9 +288,47 @@ def atlas(req: AtlasReq):
         "trail": [{"x": float(np.asarray(t) @ u), "y": float(np.asarray(t) @ v),
                    "h": _height_of(s, np.asarray(t), req.height)}
                   for t in req.trail],
-        "range": {"h_min": float(min(hs.min(), self_h)),
-                  "h_max": float(max(hs.max(), self_h))},
+        # For the axis height these are latent units, so a screen position can
+        # be turned back into a coordinate; otherwise they are the 0..1 the
+        # normalisation already produced.
+        "range": {"h_min": h_min, "h_max": h_max},
     }
+
+
+class BasisReq(BaseModel):
+    axis_a: int = 0
+    axis_b: int = 1
+    axis_c: int = 2
+    ride: list[float] | None = None
+
+
+@app.post("/api/basis")
+def basis(req: BasisReq):
+    """The vectors spanning the view, so the client can place itself.
+
+    Dragging a specimen across the map has to feel like moving it, not like
+    waiting for a server. With the basis in hand the client computes the new
+    position itself and asks only for the outlines to draw.
+    """
+    s = space()
+    u, v = s.heading_basis(req.axis_a, req.axis_b,
+                           np.asarray(req.ride) if req.ride else None)
+    w = np.zeros(s.dims)
+    w[min(req.axis_c, s.dims - 1)] = 1.0
+    # Third direction independent of the ground plane, or it is not a third
+    # dimension at all.
+    w = w - (w @ u) * u - (w @ v) * v
+    n = float(np.linalg.norm(w))
+    if n < 1e-9:
+        for i in range(s.dims):
+            cand = np.zeros(s.dims)
+            cand[i] = 1.0
+            cand = cand - (cand @ u) * u - (cand @ v) * v
+            if np.linalg.norm(cand) > 1e-6:
+                w = cand
+                break
+        n = float(np.linalg.norm(w)) or 1.0
+    return {"u": u.tolist(), "v": v.tolist(), "w": (w / n).tolist()}
 
 
 @app.post("/api/travel")
