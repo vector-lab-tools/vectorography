@@ -329,31 +329,34 @@ export default function App() {
 
       <main className="flex-1 min-h-0 flex flex-col">
         {/* Top: the space itself. Letterforms, not numbers. */}
-        <section className="min-h-0 flex gap-3 px-3 pt-3"
+        <section className="min-h-0 flex flex-col gap-3 px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
-          <div className="flex-1 min-w-0 flex flex-col gap-3">
-            <div className="panel shrink-0 px-5 py-2 flex items-center
-                            justify-center h-[104px]">
-              <Specimen glyphs={location?.glyphs ?? []} text={text}
-                        height={84} className="text-ink" />
-            </div>
-            <div className="flex-1 min-h-0">
+          <div className="panel shrink-0 px-5 py-2 flex items-center
+                          justify-center h-[104px]">
+            <Specimen glyphs={location?.glyphs ?? []} text={text}
+                      height={84} className="text-ink" />
+          </div>
+
+          {/* Atlas and rose on one line: a picture of the space beside the
+              controls that move you through it. */}
+          <div className="flex-1 min-h-0 flex gap-3">
+            <div className="flex-1 min-w-0">
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
                      directions={directions}
                      colourBy={colourBy} setColourBy={setColourBy}
                      waypoint={waypoint} setWaypoint={setWaypoint}
                      onToward={goToward} radius={radius} />
             </div>
-          </div>
-          <div className="w-[250px] shrink-0 min-h-0 hidden xl:block">
-            <CompassRose
-              points={compass}
-              centre={location?.glyphs ?? []}
-              compassText={compassText}
-              radius={radius}
-              onTravel={(p) => walk(p.bearing)}
-              busy={busy}
-            />
+            <div className="w-[210px] lg:w-[250px] shrink-0 min-h-0">
+              <CompassRose
+                points={compass}
+                centre={location?.glyphs ?? []}
+                compassText={compassText}
+                radius={radius}
+                onTravel={(p) => walk(p.bearing)}
+                busy={busy}
+              />
+            </div>
           </div>
         </section>
 

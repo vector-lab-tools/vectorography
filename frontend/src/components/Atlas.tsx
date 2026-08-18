@@ -81,7 +81,13 @@ function labelImage(name: string, rgb: [number, number, number],
   cx.fillStyle = `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
   cx.fillText(name, 0, hpx / 2)
 
-  if (LABELS.size > 600) LABELS.clear()
+  // Evict the oldest rather than wiping. The cap was below the number of keys
+  // in play (a name has a plain entry and a typeface entry), so the whole cache
+  // was being cleared and every label re-rasterised, over and over.
+  if (LABELS.size > 1400) {
+    const oldest = LABELS.keys().next().value
+    if (oldest !== undefined) LABELS.delete(oldest)
+  }
   LABELS.set(key, cv)
   return cv
 }
@@ -135,6 +141,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // a hard toggle that reads as names blinking on and off. Easing turns the
   // same decision into a fade.
   const labelAlpha = useRef(new Map<number, number>())
+  const dirty = useRef(false)
   const showNames = useRef(true)
   const [namesOn, setNamesOn] = useState(true)
   const [zoomLabel, setZoomLabel] = useState(22)
@@ -249,11 +256,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       proj.push({ p, sx: q.sx, sy: q.sy, depth: q.depth, on })
     }
 
-    // Which names get drawn. Five hundred labels over one another is not more
-    // information than fifty, it is less, so the plane is divided into cells
-    // and the nearest font in each takes the cell.
+    // Names are not selected or drawn while the camera is moving. Deciding
+    // which of five hundred labels survive, and blitting them, is the bulk of a
+    // frame, and none of it is worth doing at a moment when the map is sliding
+    // under the pointer and nobody is reading. They fade back the instant the
+    // drag stops.
     const labelled = new Set<number>()
-    if (names) {
+    if (names && !drag.current) {
       const taken = new Set<string>()
       for (const q of [...proj].sort((a, b) => a.p.d - b.p.d)) {
         if (!q.on || q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
@@ -274,11 +283,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     let animating = false
     const alphas = labelAlpha.current
     for (const q of proj) {
+      if (!q.on) { alphas.delete(q.p.i); continue }
       const target = labelled.has(q.p.i) ? 1 : 0
-      const prev = alphas.get(q.p.i) ?? target
-      const next = prev + (target - prev) * 0.18
-      if (Math.abs(target - next) > 0.01) animating = true
-      alphas.set(q.p.i, Math.abs(target - next) < 0.005 ? target : next)
+      const prev = alphas.get(q.p.i) ?? 0
+      if (prev === target) continue
+      const next = prev + (target - prev) * 0.22
+      const settled = Math.abs(target - next) < 0.01
+      alphas.set(q.p.i, settled ? target : next)
+      if (!settled) animating = true
     }
 
     const rank = { dot: 0, sprite: 1 } as const
@@ -422,6 +434,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // canvas dirty and the loop coalesces them.
   const MAX_FPS = 60
   const scheduleImpl = useCallback(() => {
+    // Nothing is scheduled against a hidden window: requestAnimationFrame does
+    // not fire there, and the frame id would stay set, so every later request
+    // would return early and the canvas would never come back.
+    if (document.hidden) { dirty.current = true; return }
     if (frame.current) return
     frame.current = requestAnimationFrame((t) => {
       frame.current = 0
@@ -476,8 +492,25 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     draw()
     const ro = new ResizeObserver(() => draw())
     if (box.current) ro.observe(box.current)
+
+    // Coming back from another window: drop any frame that was queued and
+    // never ran, forget a drag whose pointerup was delivered elsewhere, and
+    // paint once directly rather than waiting for a frame that may not come.
+    const revive = () => {
+      if (document.hidden) return
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0 }
+      drag.current = null
+      dirty.current = false
+      draw()
+    }
+    document.addEventListener("visibilitychange", revive)
+    window.addEventListener("focus", revive)
+    window.addEventListener("pointerup", () => { drag.current = null })
+
     return () => {
       ro.disconnect()
+      document.removeEventListener("visibilitychange", revive)
+      window.removeEventListener("focus", revive)
       if (frame.current) cancelAnimationFrame(frame.current)
     }
   }, [draw])
@@ -570,9 +603,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            pending.current = { mx: e.clientX - r.left, my: e.clientY - r.top }
            schedule()
          }}
-         onPointerUp={() => { drag.current = null }}
+         onPointerUp={() => { drag.current = null; schedule() }}
+         onPointerCancel={() => { drag.current = null; schedule() }}
          onPointerLeave={() => {
            drag.current = null
+           schedule()
            pending.current = null
            if (hoverName.current) { hoverName.current = null; setHover(null) }
          }}
@@ -667,10 +702,12 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         </div>
       )}
 
-      <div className="absolute bottom-2 right-2 font-mono text-[9px]
-                      text-muted-foreground/70 pointer-events-none">
-        drag to orbit · click a font to travel · click the ground to aim
-      </div>
+      {!waypoint && (
+        <div className="absolute bottom-2 right-2 font-mono text-[9px]
+                        text-muted-foreground/70 pointer-events-none">
+          drag to orbit · click a font to travel · click the ground to aim
+        </div>
+      )}
     </div>
   )
 }

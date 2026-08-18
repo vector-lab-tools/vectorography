@@ -10,6 +10,10 @@
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index/api/:path*" }
-  ]
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "framework": "vite"
 }
