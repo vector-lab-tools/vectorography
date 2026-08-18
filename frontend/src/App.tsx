@@ -102,8 +102,10 @@ export default function App() {
     Promise.all([
       api.location(z, text),
       api.compass(z, compassText, radius, axisA, axisB, ride?.vec ?? null),
+      // The map is drawn from the families' own font files, so the server
+      // only has to decode the traveller's own specimen.
       api.atlas({ z, text: atlasChar, axis_a: axisA, axis_b: axisB,
-                  ride: ride?.vec ?? null, height: atlasHeight,
+                  ride: ride?.vec ?? null, height: atlasHeight, sprites: 0,
                   colour_by: colourBy, trail: trailRef.current }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
@@ -338,7 +340,7 @@ export default function App() {
                    directions={directions}
                    colourBy={colourBy} setColourBy={setColourBy}
                    waypoint={waypoint} setWaypoint={setWaypoint}
-                   onToward={goToward} radius={radius} />
+                   onToward={goToward} radius={radius} sample={atlasChar} />
           </div>
 
           <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0

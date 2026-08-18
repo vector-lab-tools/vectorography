@@ -112,10 +112,19 @@ projection of the space, and height is crowding, which makes REPEL visibly
 downhill. Coordinates are absolute with the centroid at the origin, so the map
 holds still while you move across it.
 
-Every family is named, and **each name is set in its own typeface**, so the map
-doubles as a specimen catalogue. Labels are decluttered by an occupancy grid,
-nearest first. Colour runs along whichever measured property you choose, with a
-legend naming it and saying which way it runs.
+Every family is drawn as **the same letters set in that family's own typeface**,
+so the map is a field of comparable specimens rather than a scatter of labels: a
+name tells you what a typeface is called, its letters tell you what it is. The
+mark can be switched to the family name, or turned off. Marks are decluttered by
+an occupancy grid, nearest first, and fade rather than blink as the selection
+changes.
+
+Colour runs along whichever measured property you choose, with a legend naming
+it and saying which way it runs.
+
+Your own position is the one mark drawn from the model rather than from a font
+file, in the accent colour: everything else on the map is a real typeface, and
+you are a location in the space.
 
 A click on open ground names two coordinates, not a position: the other 126 are
 unspecified, and are left exactly as they are. Travelling to a spot on the map

@@ -59,18 +59,22 @@ export const LABEL_PX = 22
 export const LABEL_DPR = 2
 const LABELS = new Map<string, HTMLCanvasElement>()
 
-function labelImage(name: string, rgb: [number, number, number],
+function labelImage(name: string, text: string, rgb: [number, number, number],
                     onReady: () => void): HTMLCanvasElement | null {
-  const face = faceFor(name, () => { LABELS.delete(labelKey(name, rgb)); onReady() })
-  const key = labelKey(name, rgb)
+  const face = faceFor(name, () => {
+    LABELS.delete(labelKey(name, text, rgb)); onReady()
+  })
+  // Nothing is drawn until the family's own file is here: the mark is the
+  // typeface, and set in a fallback face it would be a mark of nothing.
+  if (!face) return null
+  const key = labelKey(name, text, rgb)
   const hit = LABELS.get(key)
   if (hit) return hit
 
-  const font = `${LABEL_PX * LABEL_DPR}px ${face
-    ? `"${face}", ui-monospace, monospace` : "ui-monospace, Menlo, monospace"}`
+  const font = `${LABEL_PX * LABEL_DPR}px "${face}", ui-monospace, monospace`
   const probe = document.createElement("canvas").getContext("2d")!
   probe.font = font
-  const wpx = Math.ceil(probe.measureText(name).width) + 4
+  const wpx = Math.ceil(probe.measureText(text).width) + 4
   const hpx = Math.ceil(LABEL_PX * LABEL_DPR * 1.5)
 
   const cv = document.createElement("canvas")
@@ -79,7 +83,7 @@ function labelImage(name: string, rgb: [number, number, number],
   cx.font = font
   cx.textBaseline = "middle"
   cx.fillStyle = `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
-  cx.fillText(name, 0, hpx / 2)
+  cx.fillText(text, 0, hpx / 2)
 
   // Evict the oldest rather than wiping. The cap was below the number of keys
   // in play (a name has a plain entry and a typeface entry), so the whole cache
@@ -92,8 +96,9 @@ function labelImage(name: string, rgb: [number, number, number],
   return cv
 }
 
-function labelKey(name: string, rgb: [number, number, number]) {
-  return `${name}|${Math.round(rgb[0])},${Math.round(rgb[1])},${Math.round(rgb[2])}`
+function labelKey(name: string, text: string, rgb: [number, number, number]) {
+  return `${name}|${text}|${Math.round(rgb[0])},${Math.round(rgb[1])},${
+    Math.round(rgb[2])}`
 }
 
 function faceFor(name: string, onReady: () => void): string | null {
@@ -110,7 +115,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 }
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
-                        waypoint, setWaypoint, onToward, radius }: {
+                        waypoint, setWaypoint, onToward, radius, sample }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -121,6 +126,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   setWaypoint: (w: Waypoint | null) => void
   onToward: (w: Waypoint, amount: number | null) => void
   radius: number
+  /** What each family is set in, so every mark on the map is comparable. */
+  sample: string
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -142,15 +149,17 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // same decision into a fade.
   const labelAlpha = useRef(new Map<number, number>())
   const dirty = useRef(false)
-  const showNames = useRef(true)
-  const [namesOn, setNamesOn] = useState(true)
+  // What a family is drawn as. "letters" sets the same sample in that family's
+  // own face, which is the thing a designer can actually read off a map; the
+  // name is a string that happens to be attached to it.
+  const mode = useRef<"letters" | "names" | "off">("letters")
+  const [modeOn, setModeOn] = useState<"letters" | "names" | "off">("letters")
   const [zoomLabel, setZoomLabel] = useState(22)
 
   const HEIGHT_SCALE = 5.5
-  // Letterforms are sized in screen pixels, not world units. Tying them to the
-  // zoom made them a pixel and a half across at the fitted view, which is the
+  // Sized in screen pixels, not world units. Tied to the zoom, the traveller's
+  // own specimen was a pixel and a half across at the fitted view, which is the
   // one view every user sees first.
-  const SPRITE_PX = 30
   const SELF_PX = 46
 
   const project = useCallback((x: number, y: number, h: number,
@@ -198,7 +207,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const draw = useCallback(() => {
     const cv = canvas.current, bx = box.current
     if (!cv || !bx || !data) return
-    const names = showNames.current
+    const marks = mode.current
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const w = bx.clientWidth, h = bx.clientHeight
     cv.width = w * dpr; cv.height = h * dpr
@@ -208,10 +217,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     ctx.clearRect(0, 0, w, h)
 
     const css = getComputedStyle(document.documentElement)
-    const ink = `hsl(${css.getPropertyValue("--ink")})`
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
-    const card = `hsl(${css.getPropertyValue("--card")})`
     const c = cam.current
     const P = (x: number, y: number, hh: number) => project(x, y, hh, w, h, c)
 
@@ -239,7 +246,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const probe = drag.current ? null : pending.current
     let hit: { name: string; sx: number; sy: number; dist: number } | null = null
 
-    type Item = { depth: number; kind: "dot" | "sprite"; sx: number; sy: number
+    type Item = { depth: number; sx: number; sy: number
                   p: typeof data.points[0] }
     const items: Item[] = []
     const proj: { p: typeof data.points[0]; sx: number; sy: number
@@ -262,11 +269,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // under the pointer and nobody is reading. They fade back the instant the
     // drag stops.
     const labelled = new Set<number>()
-    if (names && !drag.current) {
+    if (marks !== "off" && !drag.current) {
       const taken = new Set<string>()
       for (const q of [...proj].sort((a, b) => a.p.d - b.p.d)) {
         if (!q.on || q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
-        const key = `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
+        const key = marks === "names"
+          ? `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
+          : `${Math.round(q.sx / 30)}:${Math.round(q.sy / 20)}`
         if (taken.has(key)) continue
         taken.add(key)
         labelled.add(q.p.i)
@@ -275,8 +284,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     for (const q of proj) {
       if (!q.on) continue
-      items.push({ depth: q.depth, kind: data.sprites[q.p.i] ? "sprite" : "dot",
-                   sx: q.sx, sy: q.sy, p: q.p })
+      items.push({ depth: q.depth, sx: q.sx, sy: q.sy, p: q.p })
     }
 
     // Ease every label toward on or off, and keep drawing while any is moving.
@@ -293,8 +301,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       if (!settled) animating = true
     }
 
-    const rank = { dot: 0, sprite: 1 } as const
-    items.sort((a, b) => rank[a.kind] - rank[b.kind] || b.depth - a.depth)
+    items.sort((a, b) => b.depth - a.depth)
 
     // The waypoint, and the line you would travel along to reach it.
     if (waypoint) {
@@ -337,58 +344,27 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       const near = Math.max(0, 1 - it.p.d / 16)
       const [r, g, b] = ramp(it.p.c)
 
-      if (it.kind === "dot") {
-        ctx.fillStyle = `rgb(${r} ${g} ${b})`
-        ctx.globalAlpha = 0.25 + 0.6 * near
-        ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.globalAlpha = 1
-      } else {
-        const glyphs = data.sprites[it.p.i]
-        ctx.save()
-        ctx.globalAlpha = 0.75
-        ctx.fillStyle = card
-        ctx.beginPath()
-        ctx.ellipse(it.sx + SPRITE_PX * 0.5, it.sy - SPRITE_PX * 0.22,
-                    SPRITE_PX * 0.95, SPRITE_PX * 0.5, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.restore()
+      ctx.fillStyle = `rgb(${r} ${g} ${b})`
+      ctx.globalAlpha = 0.25 + 0.6 * near
+      ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
 
-        ctx.save()
-        ctx.translate(it.sx, it.sy)
-        ctx.scale(SPRITE_PX, -SPRITE_PX)
-        ctx.fillStyle = ink
-        ctx.globalAlpha = Math.max(0.35, 1 - it.p.d / 12)
-        let dx = 0
-        for (const gl of glyphs) {
-          const key = `${it.p.i}:${gl.char}`
-          let path = paths.current.get(key)
-          if (!path) { path = new Path2D(gl.path); paths.current.set(key, path) }
-          ctx.save(); ctx.translate(dx, 0); ctx.fill(path, "evenodd"); ctx.restore()
-          dx += gl.advance
-        }
-        ctx.restore()
-        ctx.globalAlpha = 1
-      }
-
-      // Labels are blitted, not typeset. Shaping and rasterising dozens of
-      // different faces on every frame is what made this crawl; each label is
+      // Marks are blitted, not typeset. Shaping and rasterising dozens of
+      // different faces on every frame is what made this crawl; each mark is
       // drawn once into its own canvas and copied thereafter.
       const fade = alphas.get(it.p.i) ?? 0
       if (fade > 0.02) {
-        const img = labelImage(it.p.name, [r, g, b], schedule)
+        const text = marks === "names" ? it.p.name : sample
+        const img = labelImage(it.p.name, text, [r, g, b], schedule)
         if (img) {
-          const scale = (it.kind === "sprite" ? 12 : 9 + 3 * near) / LABEL_PX
+          const px = marks === "names" ? 9 + 3 * near : 13 + 11 * near
+          const scale = px / LABEL_PX
           const iw = (img.width / LABEL_DPR) * scale
           const ih = (img.height / LABEL_DPR) * scale
-          ctx.globalAlpha = fade *
-            (it.kind === "sprite" ? 0.95 : 0.25 + 0.7 * near)
-          if (it.kind === "sprite") {
-            ctx.drawImage(img, it.sx + SPRITE_PX * 0.5 - iw / 2,
-                          it.sy + 4, iw, ih)
-          } else {
-            ctx.drawImage(img, it.sx + 4, it.sy - ih * 0.72, iw, ih)
-          }
+          ctx.globalAlpha = fade * (0.3 + 0.65 * near)
+          if (marks === "names") ctx.drawImage(img, it.sx + 4, it.sy - ih * 0.72, iw, ih)
+          else ctx.drawImage(img, it.sx - iw / 2, it.sy - ih * 0.55, iw, ih)
           ctx.globalAlpha = 1
         }
       }
@@ -427,7 +403,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     }
 
     if (animating) schedule()
-  }, [data, norm, project, waypoint, schedule])
+  }, [data, norm, project, waypoint, schedule, sample])
 
   // One draw per frame at most, and never faster than MAX_FPS. Pointer events
   // arrive far more often than the screen can show them, so they only mark the
@@ -520,7 +496,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
         <span className="font-mono text-[9px] uppercase tracking-[0.12em]
                          text-muted-foreground pointer-events-none truncate
-                         max-w-[52%]"
+                         max-w-[62%]"
               title={`Ground plane: ${data.axes.ride ? "ride heading"
                 : `axis ${data.axes.x}`} by axis ${data.axes.y}. Height: ${
                 data.axes.height === "density"
@@ -545,16 +521,20 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              showNames.current = !showNames.current
-              setNamesOn(showNames.current)
+              const next = mode.current === "letters" ? "names"
+                : mode.current === "names" ? "off" : "letters"
+              mode.current = next
+              setModeOn(next)
+              LABELS.clear()
               schedule()
             }}
+            title="What each family is drawn as"
             className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                        transition-colors ${namesOn
+                        transition-colors ${modeOn !== "off"
                           ? "border-burgundy text-burgundy"
                           : "border-border text-muted-foreground"}`}
           >
-            names
+            {modeOn === "letters" ? `“${sample}”` : modeOn}
           </button>
         </div>
       </div>
