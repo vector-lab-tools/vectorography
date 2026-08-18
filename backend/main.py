@@ -15,7 +15,8 @@ from pydantic import BaseModel, Field
 
 from corpus.outlines import CACHE, GLYPHS, build_corpus
 from render import decode_to_glyphs, specimen_sheet_svg
-from space.style_space import MODEL, StyleSpace
+from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
+                               StyleSpace)
 
 # One source of version, at the repository root. Everything else inherits it.
 VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
@@ -95,6 +96,9 @@ def corpus_info():
         "explained_variance": s.evr,
         "glyphs": GLYPHS,
         "version": VERSION,
+        "model": {"name": MODEL_NAME, "version": MODEL_VERSION,
+                  "kind": "whitened principal subspace",
+                  "id": f"{MODEL_NAME} {MODEL_VERSION}"},
         "licence": "OFL-1.1 (Google Fonts, ofl/ tree only)",
         "centroid_distances": s._centroid_dists.tolist(),
         "centroid_max": float(s._centroid_dists.max()),
@@ -197,7 +201,8 @@ def export_journey(req: JourneyReq):
     journey = {
         "format": "vectorography-journey/1",
         "family": req.family,
-        "space": {"kind": "whitened-pca", "dims": s.dims,
+        "space": {"model": MODEL_NAME, "model_version": MODEL_VERSION,
+                  "kind": "whitened principal subspace", "dims": s.dims,
                   "corpus": "google-fonts-ofl", "corpus_size": len(s.names)},
         "trail": req.trail,
         "masters": [{"file": n, "t": float(t / cum[-1])}

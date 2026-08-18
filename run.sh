@@ -12,7 +12,7 @@ fi
 
 # The fitted space ships with the repository, so a clone can travel straight
 # away. The corpus is only fetched when the space has to be rebuilt.
-if [ ! -f backend/data/space.npz ]; then
+if ! ls backend/data/vectormodel-*.npz >/dev/null 2>&1; then
   echo "· no fitted space found, fetching the OFL corpus (a few minutes)"
   .venv/bin/python backend/corpus/fetch.py "${VG_CORPUS_SIZE:-500}"
 fi

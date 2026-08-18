@@ -57,8 +57,9 @@ buried.
 
 Then open http://localhost:5173.
 
-**The fitted space ships with the repository** (`backend/data/space.npz`, 7 MB),
-so a fresh clone can travel immediately: no corpus download, no fitting. The run
+**The fitted space ships with the repository** as
+[**VectorModel 0.1**](MODEL.md) (`backend/data/vectormodel-0.1.npz`, 7 MB), so a
+fresh clone can travel immediately: no corpus download, no fitting. The run
 script only installs dependencies.
 
 Everything is local. No accounts, no telemetry, and after `npm install` and `pip
@@ -132,7 +133,8 @@ every font. That correspondence is what makes the space walkable. Without it the
 average of two fonts is noise rather than a letter, which is worth stating plainly
 because it was the single change that made this work at all.
 
-**The space.** A whitened 128-dimensional principal subspace of the corpus,
+**The space.** [VectorModel 0.1](MODEL.md): a whitened 128-dimensional principal
+subspace of the corpus,
 retaining 96% of variance. It was chosen for traversability rather than fidelity:
 encode and decode are exact linear maps, so every point in the space decodes to
 well-formed contours and every move is continuous. Whitening makes one unit of
@@ -197,6 +199,7 @@ backend/
   corpus/fetch.py       OFL-only corpus download and manifest
   corpus/outlines.py    outline extraction, resampling, corpus alignment
   space/style_space.py  the latent space, density, and travel primitives
+  data/vectormodel-*.npz  the fitted space, see MODEL.md
   export/fontfile.py    master and variable font compilation
   render.py             contours to SVG
   main.py               FastAPI: location, compass, travel, export
@@ -219,6 +222,11 @@ DESIGN.md               design of record, including the pre-build review
 ```
 
 ## Versioning
+
+`VERSION` at the repository root is the single source for the **application**
+version. The fitted space carries its own version (see [MODEL.md](MODEL.md)),
+because refitting invalidates saved journey coordinates even when no code has
+changed.
 
 `VERSION` at the repository root is the single source. The backend reads it at
 import, the frontend inherits it at build time through `vite.config.ts`, and

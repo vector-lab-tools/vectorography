@@ -24,7 +24,14 @@ import numpy as np
 DENSITY_DIMS = 8
 
 DATA = Path(__file__).resolve().parents[1] / "data"
-MODEL = DATA / "space.npz"
+
+# The fitted space is a named, versioned artefact in its own right: it is what
+# other people actually travel through, and it is what a journey's coordinates
+# refer to. Its version is independent of the application's, because refitting
+# the space invalidates saved coordinates even when no code has changed.
+MODEL_NAME = "VectorModel"
+MODEL_VERSION = "0.1"
+MODEL = DATA / f"vectormodel-{MODEL_VERSION}.npz"
 
 
 class StyleSpace:
@@ -83,7 +90,12 @@ class StyleSpace:
         np.savez_compressed(
             path, mean=self.mean, components=self.components, scale=self.scale,
             Z=self.Z, names=np.array(self.names), evr=np.array(self.evr),
-            metas=np.array([json.dumps(m) for m in self.metas]))
+            metas=np.array([json.dumps(m) for m in self.metas]),
+            model_name=np.array(MODEL_NAME), model_version=np.array(MODEL_VERSION))
+
+    @property
+    def model_id(self) -> str:
+        return f"{MODEL_NAME} {MODEL_VERSION}"
 
     @classmethod
     def load(cls, path=MODEL):
