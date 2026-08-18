@@ -6,6 +6,9 @@ type Props = {
   text: string
   className?: string
   colour?: string
+  /** Explicit pixel height. An SVG sized by percentage inside a flex parent
+   *  collapses to nothing in some engines, so height is always definite. */
+  height: number
   /** Fixed viewBox width, so sibling specimens stay at one scale. */
   fixedWidth?: number
 }
@@ -15,7 +18,8 @@ type Props = {
  * Nothing here knows how the outlines were produced, which is deliberate: a
  * location decodes to contours, and the specimen only shows what is there.
  */
-export function Specimen({ glyphs, text, className, colour, fixedWidth }: Props) {
+export function Specimen({ glyphs, text, className, colour, height,
+                          fixedWidth }: Props) {
   const { body, width } = useMemo(() => {
     const by = new Map(glyphs.map((g) => [g.char, g]))
     let x = 0
@@ -39,6 +43,7 @@ export function Specimen({ glyphs, text, className, colour, fixedWidth }: Props)
   return (
     <svg
       className={className}
+      style={{ width: "100%", height }}
       viewBox={`0 ${-0.88} ${w.toFixed(4)} ${1.16}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"

@@ -14,6 +14,19 @@ export type NamedDirection = {
   key: string; label: string; minus: string; plus: string; spread: number
 }
 
+export type AtlasPoint = { i: number; name: string; x: number; y: number
+                           h: number; d: number }
+
+export type AtlasData = {
+  axes: { x: number; y: number; x_evr: number; y_evr: number
+          height: string; ride: boolean }
+  points: AtlasPoint[]
+  sprites: Record<string, Glyph[]>
+  self: { x: number; y: number; h: number; glyphs: Glyph[] }
+  trail: { x: number; y: number; h: number }[]
+  range: { h_min: number; h_max: number }
+}
+
 export type Neighbour = { family: string; distance: number; index: number }
 
 export type CorpusInfo = {
@@ -57,6 +70,9 @@ export const api = {
 
   directions: () => fetch("/api/directions")
     .then((r) => r.json() as Promise<{ directions: NamedDirection[] }>),
+
+  atlas: (body: Record<string, unknown>) =>
+    post<AtlasData>("/api/atlas", body),
 
   location: (z: number[], text: string, full = false) =>
     post<Location>("/api/location", { z, text, full }),

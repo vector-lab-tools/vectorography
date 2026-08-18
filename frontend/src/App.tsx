@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, type CompassPoint, type CorpusInfo, type Location,
-         type NamedDirection } from "./api"
+import { api, type AtlasData, type CompassPoint, type CorpusInfo,
+         type Location, type NamedDirection } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
+import { Atlas } from "./components/Atlas"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
@@ -11,7 +12,7 @@ import { Specimen } from "./components/Specimen"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
 
-const DEFAULT_TEXT = "Hamburgefonstiv"
+const DEFAULT_TEXT = "Vectorography"
 
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
@@ -31,6 +32,9 @@ export default function App() {
   const [family, setFamily] = useState("Journey")
   const [testing, setTesting] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
+  const [atlas, setAtlas] = useState<AtlasData | null>(null)
+  const [atlasHeight, setAtlasHeight] = useState<"density" | "centroid">("density")
+  const [split, setSplit] = useState(0.56)
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -39,6 +43,9 @@ export default function App() {
   const here = trail.find((c) => c.id === cursor) ?? null
   const z = here?.z ?? null
   const seq = useRef(0)
+  // The atlas draws the route taken to get here; kept in a ref so that the
+  // fetch effect does not re-run every time a crumb is appended.
+  const trailRef = useRef<number[][]>([])
 
   // Every journey begins at the centroid: the average of every font in the
   // corpus. Getting away from it is the work.
@@ -57,6 +64,13 @@ export default function App() {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
 
+  // The atlas draws one or two letters per font: five hundred simultaneous
+  // typefaces is not a map.
+  const atlasChar = useMemo(() => {
+    const t = [...text].filter((c) => /[A-Za-z0-9]/.test(c)).slice(0, 2).join("")
+    return t || "Ra"
+  }, [text])
+
   const compassText = useMemo(() => {
     const t = [...text].filter((c) => c !== " ").slice(0, 3).join("")
     return t || "ag"
@@ -71,13 +85,17 @@ export default function App() {
     Promise.all([
       api.location(z, text),
       api.compass(z, compassText, radius, axisA, axisB, ride?.vec ?? null),
-    ]).then(([loc, comp]) => {
+      api.atlas({ z, text: atlasChar, axis_a: axisA, axis_b: axisB,
+                  ride: ride?.vec ?? null, height: atlasHeight,
+                  trail: trailRef.current }),
+    ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
       setLocation(loc)
       setCompass(comp.points)
+      setAtlas(atl)
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
-  }, [z, text, compassText, radius, axisA, axisB, ride])
+  }, [z, text, compassText, atlasChar, radius, axisA, axisB, ride, atlasHeight])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -156,6 +174,8 @@ export default function App() {
     return out
   }, [trail, cursor])
 
+  useEffect(() => { trailRef.current = ancestry.map((c) => c.z) }, [ancestry])
+
   const exportJourney = useCallback(async () => {
     if (ancestry.length < 2) return
     setBusy(true)
@@ -219,9 +239,18 @@ export default function App() {
       items: [
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
           onSelect: () => setDark((d) => !d) },
+        { kind: "sep" },
+        { kind: "item",
+          label: atlasHeight === "density"
+            ? "Atlas height: crowding" : "Atlas height: distance from centroid",
+          hint: "toggle",
+          onSelect: () => setAtlasHeight((h) =>
+            h === "density" ? "centroid" : "density"),
+          title: "What the vertical axis of the atlas measures" },
       ],
     },
-  ], [z, busy, dark, ancestry.length, exportFont, exportJourney, exportSvg])
+  ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
+      exportJourney, exportSvg])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -254,84 +283,118 @@ export default function App() {
         />
       </header>
 
-      <main className="flex-1 min-h-0 grid grid-cols-[196px_minmax(0,1fr)_215px] gap-4 p-4">
-        <aside className="min-h-0 min-w-0 flex flex-col gap-4 overflow-y-auto">
-          <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
-          {directions.length > 0 && (
-            <div className="border-t border-border pt-3">
-              <DirectionPad directions={directions} onSteer={steer} busy={busy} />
+      <main className="flex-1 min-h-0 flex flex-col">
+        {/* Top: the space itself. Letterforms, not numbers. */}
+        <section className="min-h-0 flex gap-3 px-3 pt-3"
+                 style={{ flex: `${split} 1 0%` }}>
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            <div className="panel shrink-0 px-5 py-2 flex items-center
+                            justify-center h-[104px]">
+              <Specimen glyphs={location?.glyphs ?? []} text={text}
+                        height={84} className="text-ink" />
             </div>
-          )}
-        </aside>
-
-        <section className="min-h-0 min-w-0 flex flex-col gap-3">
-          {/* The location itself, at reading size. Everything else on this
-              screen is about deciding where to go from here. */}
-          <div className="panel shrink-0 px-5 py-3 flex items-center
-                          justify-center h-[130px]">
-            <Specimen glyphs={location?.glyphs ?? []} text={text}
-                      className="w-full h-full text-ink" />
+            <div className="flex-1 min-h-0">
+              <Atlas data={atlas} busy={busy} onPick={goToFamily} />
+            </div>
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="w-[250px] shrink-0 min-h-0 hidden xl:block">
             <CompassRose
               points={compass}
               centre={location?.glyphs ?? []}
-
               compassText={compassText}
               radius={radius}
               onTravel={(p) => walk(p.bearing)}
               busy={busy}
             />
           </div>
-          <TravelBar
-            corpus={corpus}
-            radius={radius} setRadius={setRadius}
-            temperature={temperature} setTemperature={setTemperature}
-            step={step} setStep={setStep}
-            axisA={axisA} axisB={axisB}
-            setPlane={(a, b) => { setAxisA(a); setAxisB(b) }}
-            ride={ride} orbit={orbit}
-            onDrift={() => travel({ mode: "drift" }, "drift",
-                                  `drift t${temperature.toFixed(2)}`)}
-            onRepel={() => travel({ mode: "repel" }, "repel",
-                                  `repel s${step.toFixed(2)}`)}
-            onOrbit={() => orbit && travel(
-              { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
-              `orbit ${orbit.name} +20°`)}
-            onSetRide={async (a, b) => {
-              try {
-                const [za, zb] = await Promise.all(
-                  [api.fontPosition(a), api.fontPosition(b)])
-                setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
-              } catch (e) { setError(String(e)) }
-            }}
-            onClearRide={() => setRide(null)}
-            onSetOrbit={async (name) => {
-              try {
-                const r = await api.fontPosition(name)
-                setOrbit({ name, z: r.z })
-              } catch (e) { setError(String(e)) }
-            }}
-            onClearOrbit={() => setOrbit(null)}
-            busy={busy}
-          />
         </section>
 
-        <aside className="min-h-0 min-w-0 flex flex-col gap-4">
-          <Neighbours neighbours={location?.neighbours ?? []} onPick={goToFamily} />
-          <div className="border-t border-border pt-3 flex flex-col min-h-0 flex-1">
+        {/* The divider is draggable: how much room the space gets against how
+            much the instruments get is the user's call, not ours. */}
+        <div
+          className="h-3 shrink-0 mx-3 my-1 cursor-row-resize group flex
+                     items-center"
+          onPointerDown={(e) => {
+            const startY = e.clientY
+            const start = split
+            const host = (e.currentTarget.parentElement as HTMLElement)
+            const total = host.clientHeight
+            const move = (ev: PointerEvent) => {
+              const d = (ev.clientY - startY) / Math.max(total, 1)
+              setSplit(Math.max(0.25, Math.min(0.78, start + d)))
+            }
+            const up = () => {
+              window.removeEventListener("pointermove", move)
+              window.removeEventListener("pointerup", up)
+            }
+            window.addEventListener("pointermove", move)
+            window.addEventListener("pointerup", up)
+          }}
+        >
+          <div className="h-px w-full bg-border group-hover:bg-burgundy
+                          transition-colors" />
+        </div>
+
+        {/* Bottom: readings and controls. */}
+        <section className="min-h-0 overflow-y-auto px-3 pb-3
+                            grid gap-4 grid-cols-2
+                            xl:grid-cols-[180px_190px_minmax(0,1fr)_210px]"
+                 style={{ flex: `${1 - split} 1 0%` }}>
+          <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
+
+          {directions.length > 0
+            ? <DirectionPad directions={directions} onSteer={steer} busy={busy} />
+            : <div />}
+
+          <div className="min-w-0 flex flex-col gap-3">
+            <TravelBar
+              corpus={corpus}
+              radius={radius} setRadius={setRadius}
+              temperature={temperature} setTemperature={setTemperature}
+              step={step} setStep={setStep}
+              axisA={axisA} axisB={axisB}
+              setPlane={(a, b) => { setAxisA(a); setAxisB(b) }}
+              ride={ride} orbit={orbit}
+              onDrift={() => travel({ mode: "drift" }, "drift",
+                                    `drift t${temperature.toFixed(2)}`)}
+              onRepel={() => travel({ mode: "repel" }, "repel",
+                                    `repel s${step.toFixed(2)}`)}
+              onOrbit={() => orbit && travel(
+                { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
+                `orbit ${orbit.name} +20°`)}
+              onSetRide={async (a, b) => {
+                try {
+                  const [za, zb] = await Promise.all(
+                    [api.fontPosition(a), api.fontPosition(b)])
+                  setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
+                } catch (e) { setError(String(e)) }
+              }}
+              onClearRide={() => setRide(null)}
+              onSetOrbit={async (name) => {
+                try {
+                  const r = await api.fontPosition(name)
+                  setOrbit({ name, z: r.z })
+                } catch (e) { setError(String(e)) }
+              }}
+              onClearOrbit={() => setOrbit(null)}
+              busy={busy}
+            />
+            <Neighbours neighbours={location?.neighbours ?? []} onPick={goToFamily} />
+          </div>
+
+          <div className="min-h-0 flex flex-col">
             <input
               value={family}
               onChange={(e) => setFamily(e.target.value)}
               className="font-mono text-[11px] w-full bg-background border
                          border-border rounded-sm px-2 py-1 mb-3"
-              title="Family name for the exported variable font"
+              title="Family name for the exported typeface"
             />
             <Trail trail={trail} cursor={cursor} onGo={setCursor}
                    onExport={exportJourney} onTest={() => setTesting(true)}
                    canCompile={ancestry.length >= 2} busy={busy} />
           </div>
-        </aside>
+        </section>
       </main>
 
       {testing && ancestry.length >= 2 && (

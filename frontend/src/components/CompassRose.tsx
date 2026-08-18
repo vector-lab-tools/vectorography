@@ -34,7 +34,17 @@ export function CompassRose({
   busy: boolean
 }) {
   return (
-    <div className="grid grid-cols-3 grid-rows-3 gap-2.5 h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0">
+      {/* The rose is a control surface, so it is framed as one. The atlas next
+          to it is a picture of the space; these are buttons that move you. */}
+      <div className="flex items-baseline gap-2 mb-1.5 shrink-0">
+        <span className="rail-label">Walk</span>
+        <span className="font-mono text-[9px] text-muted-foreground/70">
+          click a direction
+        </span>
+      </div>
+      <div className="grid grid-cols-3 grid-rows-3 gap-1.5 flex-1 min-h-0
+                      rounded-md bg-muted/40 border border-border p-1.5">
       {points.map((p) => {
         const d = DIRS[p.bearing]
         return (
@@ -43,12 +53,13 @@ export function CompassRose({
             onClick={() => onTravel(p)}
             disabled={busy}
             title={`Walk ${d.arrow} bearing ${p.bearing}°, ${radius.toFixed(2)} units`}
-            className={`${d.cell} group relative overflow-hidden rounded-md
-                        flex items-center justify-center px-2 pt-4 pb-2
-                        bg-card border-2 border-border shadow-editorial
-                        hover:border-burgundy hover:bg-burgundy/[0.04]
-                        hover:shadow-editorial-md
-                        active:translate-y-px active:shadow-editorial
+            className={`${d.cell} group relative overflow-hidden rounded-sm
+                        flex items-center justify-center px-1.5 pt-3.5 pb-1.5
+                        bg-card border border-ink/25
+                        shadow-[0_1px_0_0_hsl(var(--ink)/0.18)]
+                        hover:border-burgundy hover:bg-burgundy/[0.05]
+                        hover:shadow-[0_2px_0_0_hsl(var(--burgundy)/0.5)]
+                        active:translate-y-[1px] active:shadow-none
                         focus-visible:outline-none focus-visible:border-burgundy
                         disabled:opacity-50 disabled:cursor-wait
                         transition-all duration-100`}
@@ -62,8 +73,8 @@ export function CompassRose({
             <Specimen
               glyphs={p.glyphs}
               text={compassText}
-              className="w-full h-full max-h-[86px] text-ink
-                         group-hover:text-burgundy transition-colors"
+              height={46}
+              className="text-ink group-hover:text-burgundy transition-colors"
             />
             {/* how crowded the destination is: a full bar means this step
                 walks you back into the middle of the distribution */}
@@ -76,15 +87,16 @@ export function CompassRose({
 
       {/* The centre shows where you already are, at the same scale as the eight
           around it, so the comparison is like for like. It is not a control. */}
-      <div className="col-start-2 row-start-2 rounded-md flex items-center
-                      justify-center px-2 pt-4 pb-2 relative bg-muted/70
-                      border-2 border-dashed border-ink/25">
-        <Specimen glyphs={centre} text={compassText}
-                  className="w-full h-full max-h-[86px] text-ink" />
+      <div className="col-start-2 row-start-2 rounded-sm flex items-center
+                      justify-center px-1.5 pt-3.5 pb-1.5 relative
+                      bg-transparent border border-dashed border-ink/20">
+        <Specimen glyphs={centre} text={compassText} height={46}
+                  className="text-ink" />
         <span className="absolute top-1 left-1/2 -translate-x-1/2 font-mono
                          text-[9px] uppercase tracking-[0.14em] text-burgundy">
           here
         </span>
+      </div>
       </div>
     </div>
   )

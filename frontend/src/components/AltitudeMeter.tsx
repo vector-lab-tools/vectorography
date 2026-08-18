@@ -31,13 +31,14 @@ export function AltitudeMeter({ altitude, corpus }:
   const beyond = cd > max
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-3">
       <div className="rail-label">Altitude</div>
 
-      <div className="flex gap-3 flex-1 min-h-0">
-        {/* corpus histogram, vertical: bottom = centroid, top = furthest font */}
-        <div className="relative w-16 bg-muted/60 border border-border rounded-sm
-                        overflow-hidden">
+      <div className="flex gap-3">
+        {/* corpus histogram, vertical: bottom = centroid, top = furthest font.
+            Height is definite: in a grid cell there is nothing to fill. */}
+        <div className="relative w-14 h-[132px] bg-muted/60 border border-border
+                        rounded-sm overflow-hidden shrink-0">
           <div className="absolute inset-0 flex flex-col-reverse">
             {bins.map((v, i) => (
               <div key={i} className="flex-1 flex items-center">
@@ -57,11 +58,17 @@ export function AltitudeMeter({ altitude, corpus }:
                           border-muted-foreground/40" />
         </div>
 
-        <div className="flex flex-col justify-between py-0.5 text-[10px]
-                        font-mono text-muted-foreground">
-          <span>{max.toFixed(1)}</span>
-          <span className="text-burgundy">you</span>
-          <span>0 centroid</span>
+        {/* The marker label tracks the marker. Sitting statically at mid-height
+            it read as a position, and was wrong everywhere but the middle. */}
+        <div className="relative h-[132px] flex-1 text-[10px] font-mono
+                        text-muted-foreground">
+          <span className="absolute top-0 left-0">{max.toFixed(1)}</span>
+          <span className="absolute bottom-0 left-0">0 centroid</span>
+          <span className={`absolute left-0 -translate-y-1/2
+                            ${beyond ? "text-gold" : "text-burgundy"}`}
+                style={{ bottom: `${Math.min(frac, 1) * 100}%` }}>
+            you
+          </span>
         </div>
       </div>
 

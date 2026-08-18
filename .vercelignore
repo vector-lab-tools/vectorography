@@ -1,0 +1,6 @@
+.venv
+backend/data/fonts
+backend/data/corpus.npz
+backend/data/ofl-tree.json
+frontend/node_modules
+docs

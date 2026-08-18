@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import zipfile
 from pathlib import Path
 
@@ -32,6 +33,9 @@ def space() -> StyleSpace:
     global _space
     if _space is None:
         if not MODEL.exists():
+            if os.environ.get("VERCEL"):
+                raise HTTPException(500, "no fitted space in the deployment: "
+                                    "commit backend/data/vectormodel-*.npz")
             if not CACHE.exists():
                 build_corpus()
             d = np.load(CACHE, allow_pickle=False)
@@ -87,6 +91,14 @@ class JourneyReq(BaseModel):
     trail: list[list[float]]
     family: str = "Journey"
     masters: int = Field(5, ge=2, le=12)
+
+
+def _height_of(s, t, mode: str) -> float:
+    if mode == "centroid":
+        top = float(np.linalg.norm(s.Z - s.centroid, axis=1).max()) or 1.0
+        return float(np.linalg.norm(t - s.centroid)) / top
+    ref = np.sort(s._corpus_density)
+    return float(np.searchsorted(ref, s.log_density(t))) / max(len(ref) - 1, 1)
 
 
 def _sample_trail(trail: list[list[float]], n: int) -> np.ndarray:
@@ -156,6 +168,87 @@ def compass(req: CompassReq):
         p["altitude"] = {"density_percentile":
                          s.altitude(p["z"])["density_percentile"]}
     return {"points": pts}
+
+
+class AtlasReq(Z):
+    text: str = "a"
+    axis_a: int = 0
+    axis_b: int = 1
+    ride: list[float] | None = None
+    sprites: int = Field(14, ge=0, le=40)
+    height: str = "density"
+    trail: list[list[float]] = []
+
+
+@app.post("/api/atlas")
+def atlas(req: AtlasReq):
+    """The corpus as a chart you can stand in.
+
+    Both horizontal axes are the plane the compass turns in, so what is drawn
+    is the surface actually being steered on rather than some other projection
+    of the space. Coordinates are absolute, with the corpus centroid at the
+    origin, so the map stays still while you move across it.
+    """
+    s = space()
+    u, v = s.heading_basis(req.axis_a, req.axis_b,
+                           np.asarray(req.ride) if req.ride else None)
+    z = np.asarray(req.z, dtype=np.float64)
+
+    xs = s.Z @ u
+    ys = s.Z @ v
+    # Height arrives already normalised to 0..1. Raw log density has a long
+    # tail, so plotting it directly makes the corpus a spike with everything
+    # bunched at the bottom; the percentile spreads the same ordering evenly.
+    if req.height == "centroid":
+        raw = np.linalg.norm(s.Z - s.centroid, axis=1)
+        top = float(raw.max()) or 1.0
+        hs = raw / top
+        self_h = float(np.linalg.norm(z - s.centroid)) / top
+    else:
+        ref = np.sort(s._corpus_density)
+        hs = np.searchsorted(ref, s._corpus_density) / max(len(ref) - 1, 1)
+        self_h = float(np.searchsorted(ref, s.log_density(z))) / max(len(ref) - 1, 1)
+
+    d = np.linalg.norm(s.Z - z, axis=1)
+
+    # Which fonts get drawn as letterforms rather than dots. Picking the
+    # nearest in the full space piles them all on one spot: near the centroid
+    # the closest neighbours share almost the same plane coordinates, and
+    # fourteen typefaces stack into one smudge. So the plane is divided into
+    # cells and each contributes its closest font, which spreads the labels
+    # across the map the way a map wants them, nearest cells first.
+    sprites = {}
+    if req.sprites:
+        span = max(float(np.ptp(xs)), float(np.ptp(ys)), 1e-6)
+        cell = span / 7.0
+        gx = np.floor((xs - xs.min()) / cell).astype(int)
+        gy = np.floor((ys - ys.min()) / cell).astype(int)
+        best: dict[tuple[int, int], int] = {}
+        for i in range(len(s.names)):
+            key = (int(gx[i]), int(gy[i]))
+            if key not in best or d[i] < d[best[key]]:
+                best[key] = i
+        chosen = sorted(best.values(), key=lambda i: d[i])[: req.sprites]
+        for i in chosen:
+            sprites[int(i)] = _glyph_subset(s.decode(s.Z[i]), req.text)
+
+    return {
+        "axes": {"x": req.axis_a + 1, "y": req.axis_b + 1,
+                 "x_evr": s.evr[req.axis_a], "y_evr": s.evr[req.axis_b],
+                 "height": req.height,
+                 "ride": req.ride is not None},
+        "points": [{"i": i, "name": s.names[i], "x": float(xs[i]),
+                    "y": float(ys[i]), "h": float(hs[i]), "d": float(d[i])}
+                   for i in range(len(s.names))],
+        "sprites": sprites,
+        "self": {"x": float(z @ u), "y": float(z @ v), "h": self_h,
+                 "glyphs": _glyph_subset(s.decode(z), req.text)},
+        "trail": [{"x": float(np.asarray(t) @ u), "y": float(np.asarray(t) @ v),
+                   "h": _height_of(s, np.asarray(t), req.height)}
+                  for t in req.trail],
+        "range": {"h_min": float(min(hs.min(), self_h)),
+                  "h_max": float(max(hs.max(), self_h))},
+    }
 
 
 @app.post("/api/travel")
