@@ -163,6 +163,17 @@ LABELS: dict[str, tuple[str, str, str]] = {
 }
 
 
+def percentiles(X: np.ndarray) -> dict[str, list[float]]:
+    """Each font's rank on each measure, 0..1. Small enough to ship in the model,
+    which is the point: colouring the map needs the measurements, and a clone
+    only has the fitted space."""
+    out = {}
+    for key, v in measure(X).items():
+        order = np.argsort(np.argsort(v))
+        out[key] = (order / max(len(v) - 1, 1)).astype(float).tolist()
+    return out
+
+
 def build(Z: np.ndarray, X: np.ndarray, decile: float = 0.15) -> dict[str, dict]:
     """Direction per measurement: bottom decile mean to top decile mean."""
     scores = measure(X)

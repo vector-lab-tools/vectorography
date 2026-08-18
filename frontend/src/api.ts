@@ -15,9 +15,10 @@ export type NamedDirection = {
 }
 
 export type AtlasPoint = { i: number; name: string; x: number; y: number
-                           h: number; d: number }
+                           h: number; d: number; c: number }
 
 export type AtlasData = {
+  colour: { key: string; label: string; low: string; high: string } | null
   axes: { x: number; y: number; x_evr: number; y_evr: number
           height: string; ride: boolean }
   points: AtlasPoint[]

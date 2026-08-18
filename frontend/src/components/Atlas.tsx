@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { AtlasData } from "../api"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { AtlasData, NamedDirection } from "../api"
 
 /**
  * The corpus as a place, drawn with letterforms rather than with numbers.
@@ -16,18 +16,55 @@ import type { AtlasData } from "../api"
 
 type Cam = { yaw: number; pitch: number; zoom: number }
 
-export function Atlas({ data, onPick, busy }: {
+/**
+ * Colour runs along whichever measured property is selected: a diverging ramp
+ * from one end of the measurement to the other, through a neutral middle. It is
+ * a reading of the corpus, not decoration, so the legend always says which
+ * property is being shown and which way it runs.
+ */
+const RAMP: [number, number, number][] = [
+  [124, 45, 54],    // burgundy: the low end
+  [176, 122, 84],
+  [150, 146, 128],  // neutral middle
+  [86, 130, 133],
+  [30, 74, 106],    // deep blue: the high end
+]
+
+function ramp(t: number): [number, number, number] {
+  const x = Math.max(0, Math.min(1, t)) * (RAMP.length - 1)
+  const i = Math.min(Math.floor(x), RAMP.length - 2)
+  const f = x - i
+  const a = RAMP[i], b = RAMP[i + 1]
+  return [a[0] + (b[0] - a[0]) * f,
+          a[1] + (b[1] - a[1]) * f,
+          a[2] + (b[2] - a[2]) * f]
+}
+
+export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
+  directions: NamedDirection[]
+  colourBy: string
+  setColourBy: (k: string) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [cam, setCam] = useState<Cam>({ yaw: 0.6, pitch: 0.62, zoom: 22 })
+  // The camera is a ref, not state. Held as state, every pointer event during
+  // a drag re-rendered the tree before it drew a frame, which is most of what
+  // made orbiting feel heavy.
+  const cam = useRef<Cam>({ yaw: 0.6, pitch: 0.62, zoom: 22 })
   const fitted = useRef(false)
   const [hover, setHover] = useState<{ name: string; sx: number; sy: number } | null>(null)
+  const hoverName = useRef<string | null>(null)
   const drag = useRef<{ x: number; y: number; cam: Cam } | null>(null)
+  const pending = useRef<{ mx: number; my: number } | null>(null)
   const paths = useRef(new Map<string, Path2D>())
+  const frame = useRef(0)
+  const lastDraw = useRef(0)
+  const showNames = useRef(true)
+  const [namesOn, setNamesOn] = useState(true)
+  const [zoomLabel, setZoomLabel] = useState(22)
 
   const HEIGHT_SCALE = 5.5
   // Letterforms are sized in screen pixels, not world units. Tying them to the
@@ -52,27 +89,31 @@ export function Atlas({ data, onPick, busy }: {
   // Height already arrives normalised to 0..1 from the server.
   const norm = useCallback((h: number) => h, [])
 
-  // Fit the view to the corpus once, so the first sight of the space is the
-  // whole of it rather than a speck in the middle.
+  useEffect(() => { paths.current.clear() }, [data])
+
+  // Fit to the corpus once, so the first sight of the space is the whole of it.
+  // Guarded on a measured width: run before layout settles and the fit is
+  // computed against a box of nothing.
   useEffect(() => {
-    if (!data || fitted.current || !box.current) return
+    if (!data || fitted.current) return
+    const w = box.current?.clientWidth ?? 0
+    if (w < 50) return
     const spread = Math.max(
       ...data.points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))), 1)
-    const w = box.current.clientWidth
     fitted.current = true
-    setCam((c) => ({ ...c, zoom: Math.max(7, Math.min(60, (w * 0.40) / spread)) }))
+    cam.current = { ...cam.current, zoom: Math.max(7, Math.min(60, (w * 0.40) / spread)) }
+    setZoomLabel(cam.current.zoom)
   }, [data])
-
-  useEffect(() => { paths.current.clear() }, [data])
 
   const draw = useCallback(() => {
     const cv = canvas.current, bx = box.current
     if (!cv || !bx || !data) return
+    const names = showNames.current
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const w = bx.clientWidth, h = bx.clientHeight
     cv.width = w * dpr; cv.height = h * dpr
     cv.style.width = `${w}px`; cv.style.height = `${h}px`
-    const ctx = cv.getContext("2d")!
+    const ctx = cv.getContext("2d", { alpha: true })!
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, w, h)
 
@@ -80,7 +121,14 @@ export function Atlas({ data, onPick, busy }: {
     const ink = `hsl(${css.getPropertyValue("--ink")})`
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
-    const P = (x: number, y: number, hh: number) => project(x, y, hh, w, h, cam)
+    const c = cam.current
+    const P = (x: number, y: number, hh: number) => project(x, y, hh, w, h, c)
+
+    // Hover is resolved here rather than on every pointer event: the points are
+    // being projected anyway, so the hit test is a comparison rather than a
+    // second pass, and it runs once a frame instead of once an event.
+    const probe = drag.current ? null : pending.current
+    let hit: { name: string; sx: number; sy: number; dist: number } | null = null
 
     // Ground: the plane of the corpus centroid.
     ctx.strokeStyle = muted; ctx.globalAlpha = 0.16; ctx.lineWidth = 1
@@ -101,11 +149,34 @@ export function Atlas({ data, onPick, busy }: {
     ctx.beginPath(); ctx.arc(o.sx, o.sy, 4, 0, Math.PI * 2); ctx.stroke()
     ctx.globalAlpha = 1
 
+    // Which names get drawn. Five hundred labels over one another is not more
+    // information than fifty, it is less, so the plane is divided into cells
+    // and the nearest font in each takes the cell. Nearest first, so the labels
+    // that survive are the ones in the country being travelled.
+    const taken = new Set<string>()
+    const labelled = new Set<number>()
+    if (names) {
+      const order = [...data.points].sort((a, b) => a.d - b.d)
+      for (const p of order) {
+        const q = P(p.x, p.y, norm(p.h))
+        if (q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
+        const key = `${Math.round(q.sx / 62)}:${Math.round(q.sy / 12)}`
+        if (taken.has(key)) continue
+        taken.add(key)
+        labelled.add(p.i)
+      }
+    }
+
     type Item = { depth: number; kind: "dot" | "sprite" | "self"
                   sx: number; sy: number; p?: typeof data.points[0] }
     const items: Item[] = []
     for (const p of data.points) {
       const q = P(p.x, p.y, norm(p.h))
+      if (probe) {
+        const dd = Math.hypot(q.sx - probe.mx, q.sy - probe.my)
+        if (dd < 16 && (!hit || dd < hit.dist))
+          hit = { name: p.name, sx: q.sx, sy: q.sy, dist: dd }
+      }
       if (q.sx < -200 || q.sx > w + 200 || q.sy < -200 || q.sy > h + 200) continue
       items.push({ depth: q.depth, kind: data.sprites[p.i] ? "sprite" : "dot",
                    sx: q.sx, sy: q.sy, p })
@@ -137,11 +208,21 @@ export function Atlas({ data, onPick, busy }: {
 
     for (const it of items) {
       if (it.kind === "dot" && it.p) {
+        // Fades with distance, so the near country reads clearly and the far
+        // country stays as context rather than competing with it.
         const near = Math.max(0, 1 - it.p.d / 16)
-        ctx.fillStyle = ink
-        ctx.globalAlpha = 0.22 + 0.55 * near
+        const [r, g, b] = ramp(it.p.c)
+        ctx.fillStyle = `rgb(${r} ${g} ${b})`
+        ctx.globalAlpha = 0.25 + 0.6 * near
         ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
         ctx.fill()
+        if (names && labelled.has(it.p.i)) {
+          ctx.globalAlpha = 0.2 + 0.7 * near
+          ctx.font = `${7 + 2 * near}px ui-monospace, Menlo, monospace`
+          ctx.textAlign = "left"
+          ctx.fillText(it.p.name, it.sx + 4, it.sy + 2.5)
+        }
+        ctx.globalAlpha = 1
       } else if (it.kind === "sprite" && it.p) {
         const glyphs = data.sprites[it.p.i]
         const scale = SPRITE_PX
@@ -173,6 +254,15 @@ export function Atlas({ data, onPick, busy }: {
         }
         ctx.restore()
         ctx.globalAlpha = 1
+        if (names && it.p) {
+          const [r, g, b] = ramp(it.p.c)
+          ctx.fillStyle = `rgb(${r} ${g} ${b})`
+          ctx.globalAlpha = 0.9
+          ctx.font = "8px ui-monospace, Menlo, monospace"
+          ctx.textAlign = "center"
+          ctx.fillText(it.p.name, it.sx + SPRITE_PX * 0.5, it.sy + 11)
+          ctx.globalAlpha = 1
+        }
       } else {
         // You: drawn last within its depth, in the accent, with a drop line to
         // the ground so the height reading is not ambiguous.
@@ -198,70 +288,163 @@ export function Atlas({ data, onPick, busy }: {
         ctx.restore()
       }
     }
-  }, [data, cam, norm, project])
 
-  useEffect(() => {
-    draw()
-    const ro = new ResizeObserver(draw)
-    if (box.current) ro.observe(box.current)
-    return () => ro.disconnect()
+    if (probe) {
+      pending.current = null
+      const name = hit?.name ?? null
+      // Only disturb React when the hovered font actually changes.
+      if (name !== hoverName.current) {
+        hoverName.current = name
+        setHover(hit ? { name: hit.name, sx: hit.sx, sy: hit.sy } : null)
+      }
+    }
+  }, [data, norm, project])
+
+  // One draw per frame at most, and never faster than MAX_FPS. Pointer events
+  // arrive far more often than the screen can show them, so they only mark the
+  // canvas dirty and the loop coalesces them.
+  const MAX_FPS = 60
+  const schedule = useCallback(() => {
+    if (frame.current) return
+    frame.current = requestAnimationFrame((t) => {
+      frame.current = 0
+      if (t - lastDraw.current < 1000 / MAX_FPS - 1) { schedule(); return }
+      lastDraw.current = t
+      draw()
+    })
   }, [draw])
 
-  const pointAt = useCallback((mx: number, my: number) => {
-    const bx = box.current
-    if (!bx || !data) return null
-    const w = bx.clientWidth, h = bx.clientHeight
-    let best: { name: string; dist: number; sx: number; sy: number } | null = null
-    for (const p of data.points) {
-      const q = project(p.x, p.y, norm(p.h), w, h, cam)
-      const d = Math.hypot(q.sx - mx, q.sy - my)
-      if (d < 16 && (!best || d < best.dist))
-        best = { name: p.name, dist: d, sx: q.sx, sy: q.sy }
-    }
-    return best
-  }, [data, cam, norm, project])
+  // Zoom without a wheel: a trackpad pinch is not obvious, and reaching the
+  // far country by scrolling is tedious.
+  const setZoom = useCallback((next: number) => {
+    cam.current = { ...cam.current, zoom: Math.max(4, Math.min(120, next)) }
+    setZoomLabel(cam.current.zoom)
+    draw()
+  }, [draw])
 
-  const controls = useMemo(() => data && (
-    <div className="absolute top-2 left-2 flex flex-col gap-0.5 pointer-events-none">
-      <span className="font-mono text-[9px] uppercase tracking-[0.12em]
-                       text-muted-foreground">
-        {data.axes.ride ? "ride heading" : `axis ${data.axes.x}`}
-        {" × "}axis {data.axes.y}
-        {" · height: "}{data.axes.height === "density" ? "crowding" : "from centroid"}
-      </span>
-    </div>
-  ), [data])
+  const refit = useCallback(() => {
+    if (!data || !box.current) return
+    const spread = Math.max(
+      ...data.points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))), 1)
+    setZoom((box.current.clientWidth * 0.40) / spread)
+    cam.current = { ...cam.current, yaw: 0.6, pitch: 0.62 }
+    draw()
+  }, [data, setZoom, draw])
+
+  // New data and resizes draw straight away. Only interaction goes through the
+  // frame cap: requestAnimationFrame does not fire while a tab is hidden, so
+  // scheduling the first paint through it leaves the canvas blank until
+  // something moves, which for an offscreen or backgrounded pane is never.
+  useEffect(() => {
+    draw()
+    const ro = new ResizeObserver(() => draw())
+    if (box.current) ro.observe(box.current)
+    return () => {
+      ro.disconnect()
+      if (frame.current) cancelAnimationFrame(frame.current)
+    }
+  }, [draw])
+
+  const controls = data && (
+    <>
+      <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em]
+                         text-muted-foreground pointer-events-none">
+          {data.axes.ride ? "ride heading" : `axis ${data.axes.x}`}
+          {" × "}axis {data.axes.y}
+          {" · height: "}
+          {data.axes.height === "density" ? "crowding" : "from centroid"}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={colourBy}
+            onChange={(e) => setColourBy(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="font-mono text-[9px] bg-card border border-border
+                       rounded-sm px-1 py-0.5"
+            title="Which measured property the colour shows"
+          >
+            {directions.map((d) => (
+              <option key={d.key} value={d.key}>colour: {d.label}</option>
+            ))}
+          </select>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              showNames.current = !showNames.current
+              setNamesOn(showNames.current)
+              schedule()
+            }}
+            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                        transition-colors ${namesOn
+                          ? "border-burgundy text-burgundy"
+                          : "border-border text-muted-foreground"}`}
+          >
+            names
+          </button>
+        </div>
+      </div>
+
+      {data.colour && (
+        <div className="absolute top-2 right-2 flex items-center gap-1.5
+                        pointer-events-none">
+          <span className="font-mono text-[9px] text-muted-foreground">
+            {data.colour.low}
+          </span>
+          <span className="h-2 w-20 rounded-sm" style={{
+            background: `linear-gradient(90deg, ${
+              [0, 0.25, 0.5, 0.75, 1].map((t) => {
+                const [r, g, b] = ramp(t)
+                return `rgb(${r} ${g} ${b})`
+              }).join(", ")})`,
+          }} />
+          <span className="font-mono text-[9px] text-muted-foreground">
+            {data.colour.high}
+          </span>
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div ref={box}
          className="relative w-full h-full rounded-md border border-border
                     bg-card overflow-hidden select-none"
          onPointerDown={(e) => {
-           drag.current = { x: e.clientX, y: e.clientY, cam }
+           drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
+           if (hoverName.current) { hoverName.current = null; setHover(null) }
            ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
          }}
          onPointerMove={(e) => {
            if (drag.current) {
              const dx = e.clientX - drag.current.x
              const dy = e.clientY - drag.current.y
-             setCam({
+             cam.current = {
                yaw: drag.current.cam.yaw + dx * 0.006,
                pitch: Math.max(0.06, Math.min(1.45,
                  drag.current.cam.pitch + dy * 0.005)),
                zoom: drag.current.cam.zoom,
-             })
-             setHover(null)
+             }
+             schedule()
              return
            }
            const r = box.current!.getBoundingClientRect()
-           const hit = pointAt(e.clientX - r.left, e.clientY - r.top)
-           setHover(hit ? { name: hit.name, sx: hit.sx, sy: hit.sy } : null)
+           pending.current = { mx: e.clientX - r.left, my: e.clientY - r.top }
+           schedule()
          }}
          onPointerUp={() => { drag.current = null }}
-         onPointerLeave={() => { drag.current = null; setHover(null) }}
+         onPointerLeave={() => {
+           drag.current = null
+           pending.current = null
+           if (hoverName.current) { hoverName.current = null; setHover(null) }
+         }}
          onWheel={(e) => {
-           setCam((c) => ({ ...c,
-             zoom: Math.max(7, Math.min(90, c.zoom * (e.deltaY > 0 ? 0.9 : 1.11))) }))
+           const c = cam.current
+           cam.current = { ...c,
+             zoom: Math.max(4, Math.min(120, c.zoom * (e.deltaY > 0 ? 0.9 : 1.11))) }
+           setZoomLabel(cam.current.zoom)
+           schedule()
          }}
          onClick={() => { if (hover && !busy) onPick(hover.name) }}
     >
@@ -275,9 +458,38 @@ export function Atlas({ data, onPick, busy }: {
           {hover.name}
         </div>
       )}
+      <div className="absolute bottom-2 left-2 flex items-center gap-1">
+        {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
+           ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
+           ["⤢", refit, "Fit the whole corpus"]] as const).map(([label, fn, tip]) => (
+          <button
+            key={label}
+            title={tip}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); fn() }}
+            className="w-6 h-6 flex items-center justify-center rounded-sm
+                       border border-border bg-card font-mono text-[11px]
+                       leading-none hover:border-burgundy hover:text-burgundy
+                       active:translate-y-px transition-colors"
+          >
+            {label}
+          </button>
+        ))}
+        <input
+          type="range" min={4} max={120} step={1} value={zoomLabel}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => setZoom(Number(e.target.value))}
+          className="w-24 accent-burgundy ml-1"
+          title="Zoom"
+        />
+        <span className="font-mono text-[9px] text-muted-foreground w-8">
+          {Math.round(zoomLabel)}
+        </span>
+      </div>
+
       <div className="absolute bottom-2 right-2 font-mono text-[9px]
                       text-muted-foreground/70 pointer-events-none">
-        drag to orbit · wheel to zoom · click a font to travel there
+        drag to orbit · click a font to travel there
       </div>
     </div>
   )

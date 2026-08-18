@@ -12,7 +12,22 @@ import { Specimen } from "./components/Specimen"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
 
-const DEFAULT_TEXT = "Vectorography"
+const DEFAULT_TEXT = "Hamburgefonstiv"
+
+/**
+ * Proofs, not pangrams. Hamburgefonstiv is the standard control string because
+ * it gathers the shape-defining forms in one glance: straight stems, round
+ * bowls, arches, junctions, a diagonal. adhesion is the classic lowercase
+ * spacing test. The pangram is for reading running text, which is a different
+ * judgement from reading a shape.
+ */
+const PROOFS = [
+  "Hamburgefonstiv",
+  "Vectorography",
+  "adhesion",
+  "HHOOHO nnoonn",
+  "Sphinx of black quartz, judge my vow",
+]
 
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
@@ -34,6 +49,7 @@ export default function App() {
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
   const [atlasHeight, setAtlasHeight] = useState<"density" | "centroid">("density")
+  const [colourBy, setColourBy] = useState("serif")
   const [split, setSplit] = useState(0.56)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -87,7 +103,7 @@ export default function App() {
       api.compass(z, compassText, radius, axisA, axisB, ride?.vec ?? null),
       api.atlas({ z, text: atlasChar, axis_a: axisA, axis_b: axisB,
                   ride: ride?.vec ?? null, height: atlasHeight,
-                  trail: trailRef.current }),
+                  colour_by: colourBy, trail: trailRef.current }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
       setLocation(loc)
@@ -95,7 +111,8 @@ export default function App() {
       setAtlas(atl)
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
-  }, [z, text, compassText, atlasChar, radius, axisA, axisB, ride, atlasHeight])
+  }, [z, text, compassText, atlasChar, radius, axisA, axisB, ride,
+      atlasHeight, colourBy])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -273,14 +290,33 @@ export default function App() {
           {corpus.model?.name} {corpus.model?.version} · {corpus.count} OFL
           families · {corpus.dims}d
         </span>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          spellCheck={false}
-          className="self-center font-mono text-[11px] w-52 bg-background
-                     border border-border rounded-sm px-2 py-1"
-          title="Specimen text. Reading the letters is how you decide where to go."
-        />
+        <div className="self-center flex items-center gap-1">
+          {PROOFS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setText(t)}
+              title={t}
+              className={`font-mono text-[9px] px-1.5 py-1 rounded-sm border
+                          transition-colors
+                          ${text === t
+                            ? "border-burgundy text-burgundy bg-burgundy/5"
+                            : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {t === "Vectorography" ? "Vg"
+                : t === "Hamburgefonstiv" ? "Ham"
+                : t === "adhesion" ? "adh"
+                : t.startsWith("HHOO") ? "HHOO" : "pangram"}
+            </button>
+          ))}
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            spellCheck={false}
+            className="font-mono text-[11px] w-48 bg-background
+                       border border-border rounded-sm px-2 py-1 ml-1"
+            title="Specimen text. Reading the letters is how you decide where to go."
+          />
+        </div>
       </header>
 
       <main className="flex-1 min-h-0 flex flex-col">
@@ -294,7 +330,9 @@ export default function App() {
                         height={84} className="text-ink" />
             </div>
             <div className="flex-1 min-h-0">
-              <Atlas data={atlas} busy={busy} onPick={goToFamily} />
+              <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                     directions={directions}
+                     colourBy={colourBy} setColourBy={setColourBy} />
             </div>
           </div>
           <div className="w-[250px] shrink-0 min-h-0 hidden xl:block">

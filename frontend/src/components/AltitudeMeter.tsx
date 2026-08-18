@@ -60,11 +60,13 @@ export function AltitudeMeter({ altitude, corpus }:
 
         {/* The marker label tracks the marker. Sitting statically at mid-height
             it read as a position, and was wrong everywhere but the middle. */}
-        <div className="relative h-[132px] flex-1 text-[10px] font-mono
-                        text-muted-foreground">
+        <div className="relative h-[132px] w-[74px] shrink-0 text-[10px]
+                        font-mono text-muted-foreground">
           <span className="absolute top-0 left-0">{max.toFixed(1)}</span>
           <span className="absolute bottom-0 left-0">0 centroid</span>
-          <span className={`absolute left-0 -translate-y-1/2
+          {/* Right-aligned, so it never collides with the end labels when the
+              traveller is sitting at the centroid or out past the last font. */}
+          <span className={`absolute right-0 -translate-y-1/2
                             ${beyond ? "text-gold" : "text-burgundy"}`}
                 style={{ bottom: `${Math.min(frac, 1) * 100}%` }}>
             you

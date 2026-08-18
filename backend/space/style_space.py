@@ -36,7 +36,7 @@ MODEL = DATA / f"vectormodel-{MODEL_VERSION}.npz"
 
 class StyleSpace:
     def __init__(self, mean, components, scale, Z, names, metas, evr,
-                 directions=None):
+                 directions=None, scores=None):
         self.mean = mean                  # (D,)
         self.components = components      # (k, D)
         self.scale = scale                # (k,)
@@ -48,6 +48,8 @@ class StyleSpace:
         # Measured named axes, computed at fit time and carried in the model,
         # because measuring them needs the raw corpus and a clone only has this.
         self.directions = directions or {}
+        # Each font's rank on each measured property, for colouring the atlas.
+        self.scores = scores or {}
         # Relative weight of each axis in the unwhitened corpus. Whitening makes
         # distance mean the same thing on every axis, which is what a compass
         # radius needs, but it also means a uniformly random direction in 128
@@ -88,9 +90,9 @@ class StyleSpace:
         scale[scale <= 0] = 1.0
         Z = raw / scale
         evr = (S[:k] ** 2 / np.sum(S**2)).tolist()
-        from space.directions import build as build_directions
+        from space.directions import build as build_directions, percentiles
         return cls(mean, components, scale, Z, names, metas, evr,
-                   directions=build_directions(Z, X))
+                   directions=build_directions(Z, X), scores=percentiles(X))
 
     def save(self, path=MODEL):
         np.savez_compressed(
@@ -98,6 +100,7 @@ class StyleSpace:
             Z=self.Z, names=np.array(self.names), evr=np.array(self.evr),
             metas=np.array([json.dumps(m) for m in self.metas]),
             directions=np.array(json.dumps(self.directions)),
+            scores=np.array(json.dumps(self.scores)),
             model_name=np.array(MODEL_NAME), model_version=np.array(MODEL_VERSION))
 
     @property
@@ -109,8 +112,9 @@ class StyleSpace:
         d = np.load(path, allow_pickle=False)
         metas = [json.loads(m) for m in d["metas"]]
         dirs = json.loads(str(d["directions"])) if "directions" in d else {}
+        scores = json.loads(str(d["scores"])) if "scores" in d else {}
         return cls(d["mean"], d["components"], d["scale"], d["Z"],
-                   d["names"].tolist(), metas, d["evr"].tolist(), dirs)
+                   d["names"].tolist(), metas, d["evr"].tolist(), dirs, scores)
 
     # --------------------------------------------------------------- geometry
 

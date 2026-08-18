@@ -12,3 +12,5 @@ backend/data/ofl-tree.json
 
 # The fitted space IS committed (backend/data/vectormodel-*.npz) so that a clone
 # can travel immediately without downloading the corpus and refitting.
+.vercel
+.env*

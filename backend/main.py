@@ -177,6 +177,7 @@ class AtlasReq(Z):
     ride: list[float] | None = None
     sprites: int = Field(14, ge=0, le=40)
     height: str = "density"
+    colour_by: str = "serif"
     trail: list[list[float]] = []
 
 
@@ -232,13 +233,20 @@ def atlas(req: AtlasReq):
         for i in chosen:
             sprites[int(i)] = _glyph_subset(s.decode(s.Z[i]), req.text)
 
+    from space.directions import LABELS
+    cs = s.scores.get(req.colour_by)
+    legend = LABELS.get(req.colour_by)
+
     return {
+        "colour": ({"key": req.colour_by, "label": legend[0],
+                    "low": legend[1], "high": legend[2]} if legend else None),
         "axes": {"x": req.axis_a + 1, "y": req.axis_b + 1,
                  "x_evr": s.evr[req.axis_a], "y_evr": s.evr[req.axis_b],
                  "height": req.height,
                  "ride": req.ride is not None},
         "points": [{"i": i, "name": s.names[i], "x": float(xs[i]),
-                    "y": float(ys[i]), "h": float(hs[i]), "d": float(d[i])}
+                    "y": float(ys[i]), "h": float(hs[i]), "d": float(d[i]),
+                    "c": (float(cs[i]) if cs else 0.5)}
                    for i in range(len(s.names))],
         "sprites": sprites,
         "self": {"x": float(z @ u), "y": float(z @ v), "h": self_h,
