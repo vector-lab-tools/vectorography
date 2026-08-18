@@ -17,17 +17,17 @@ export function DirectionPad({ directions, onSteer, busy }: {
 }) {
   return (
     <div>
-      <div className="rail-label mb-2">Steer</div>
-      <div className="space-y-1">
+      <div className="rail-label mb-1.5">Steer</div>
+      <div className="space-y-0.5">
         {directions.map((d) => (
           <div key={d.key} className="flex items-center gap-1">
-            <span className="flex-1 text-[11px] font-display truncate"
+            <span className="flex-1 text-[10.5px] font-display truncate"
                   title={`${d.minus} ← ${d.label} → ${d.plus}`}>
               {d.label}
             </span>
             <button
-              className="w-7 h-6 border border-border rounded-sm bg-card
-                         font-mono text-[11px] leading-none
+              className="w-6 h-[19px] border border-border rounded-sm bg-card
+                         font-mono text-[10px] leading-none
                          hover:border-burgundy hover:text-burgundy
                          active:translate-y-px
                          disabled:opacity-40 transition-colors"
@@ -38,8 +38,8 @@ export function DirectionPad({ directions, onSteer, busy }: {
               −
             </button>
             <button
-              className="w-7 h-6 border border-border rounded-sm bg-card
-                         font-mono text-[11px] leading-none
+              className="w-6 h-[19px] border border-border rounded-sm bg-card
+                         font-mono text-[10px] leading-none
                          hover:border-burgundy hover:text-burgundy
                          active:translate-y-px
                          disabled:opacity-40 transition-colors"

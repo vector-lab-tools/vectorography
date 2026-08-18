@@ -51,7 +51,7 @@ export default function App() {
   const [atlasHeight, setAtlasHeight] = useState<"density" | "centroid">("density")
   const [colourBy, setColourBy] = useState("serif")
   const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
-  const [split, setSplit] = useState(0.56)
+  const [split, setSplit] = useState(0.7)
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -331,10 +331,10 @@ export default function App() {
         {/* Top: the space itself. Letterforms, not numbers. */}
         <section className="min-h-0 flex flex-col gap-3 px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
-          <div className="panel shrink-0 px-5 py-2 flex items-center
-                          justify-center h-[104px]">
+          <div className="panel shrink-0 px-5 py-1.5 flex items-center
+                          justify-center h-[92px]">
             <Specimen glyphs={location?.glyphs ?? []} text={text}
-                      height={84} className="text-ink" />
+                      height={76} className="text-ink" />
           </div>
 
           {/* Atlas and rose on one line: a picture of the space beside the
@@ -347,15 +347,26 @@ export default function App() {
                      waypoint={waypoint} setWaypoint={setWaypoint}
                      onToward={goToward} radius={radius} />
             </div>
-            <div className="w-[210px] lg:w-[250px] shrink-0 min-h-0">
-              <CompassRose
-                points={compass}
-                centre={location?.glyphs ?? []}
-                compassText={compassText}
-                radius={radius}
-                onTravel={(p) => walk(p.bearing)}
-                busy={busy}
-              />
+            {/* Walk and steer together: the eight directions the space offers
+                here, and the eight properties you can name. */}
+            <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
+                            flex flex-col gap-3">
+              <div className="flex-1 min-h-[168px]">
+                <CompassRose
+                  points={compass}
+                  centre={location?.glyphs ?? []}
+                  compassText={compassText}
+                  radius={radius}
+                  onTravel={(p) => walk(p.bearing)}
+                  busy={busy}
+                />
+              </div>
+              {directions.length > 0 && (
+                <div className="shrink-0 border-t border-border pt-2">
+                  <DirectionPad directions={directions} onSteer={steer}
+                                busy={busy} />
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -389,13 +400,9 @@ export default function App() {
         {/* Bottom: readings and controls. */}
         <section className="min-h-0 overflow-y-auto px-3 pb-3
                             grid gap-4 grid-cols-2
-                            xl:grid-cols-[180px_190px_minmax(0,1fr)_210px]"
+                            xl:grid-cols-[180px_minmax(0,1fr)_210px]"
                  style={{ flex: `${1 - split} 1 0%` }}>
           <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
-
-          {directions.length > 0
-            ? <DirectionPad directions={directions} onSteer={steer} busy={busy} />
-            : <div />}
 
           <div className="min-w-0 flex flex-col gap-3">
             <TravelBar
