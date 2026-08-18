@@ -17,7 +17,10 @@ from corpus.outlines import CACHE, GLYPHS, build_corpus
 from render import decode_to_glyphs, specimen_sheet_svg
 from space.style_space import MODEL, StyleSpace
 
-app = FastAPI(title="Vectorography", version="0.01")
+# One source of version, at the repository root. Everything else inherits it.
+VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
+
+app = FastAPI(title="Vectorography", version=VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -91,6 +94,7 @@ def corpus_info():
         "dims": s.dims,
         "explained_variance": s.evr,
         "glyphs": GLYPHS,
+        "version": VERSION,
         "licence": "OFL-1.1 (Google Fonts, ofl/ tree only)",
         "centroid_distances": s._centroid_dists.tolist(),
         "centroid_max": float(s._centroid_dists.max()),

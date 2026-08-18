@@ -1,9 +1,14 @@
 .venv/
 __pycache__/
 *.pyc
-backend/data/fonts/
-backend/data/*.npz
-backend/data/ofl-tree.json
 node_modules/
 dist/
 .DS_Store
+
+# Raw corpus: large and fully regenerable from fetch.py + the manifest.
+backend/data/fonts/
+backend/data/corpus.npz
+backend/data/ofl-tree.json
+
+# The fitted space IS committed (backend/data/space.npz) so that a clone can
+# travel immediately without downloading the corpus and refitting.

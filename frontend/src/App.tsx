@@ -162,6 +162,9 @@ export default function App() {
                          bg-card/60 shrink-0">
         <h1 className="font-display text-base tracking-tight">
           Vectorography
+          <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+            {__APP_VERSION__}
+          </span>
         </h1>
         <span className="font-mono text-[10px] text-muted-foreground hidden md:inline">
           {corpus.count} OFL families · {corpus.dims}-dim space ·

@@ -10,8 +10,10 @@ if [ ! -d .venv ]; then
   .venv/bin/pip install -q -r backend/requirements.txt
 fi
 
-if [ ! -d backend/data/fonts ] || [ -z "$(ls -A backend/data/fonts 2>/dev/null)" ]; then
-  echo "· fetching the OFL corpus (first run only, a few minutes)"
+# The fitted space ships with the repository, so a clone can travel straight
+# away. The corpus is only fetched when the space has to be rebuilt.
+if [ ! -f backend/data/space.npz ]; then
+  echo "· no fitted space found, fetching the OFL corpus (a few minutes)"
   .venv/bin/python backend/corpus/fetch.py "${VG_CORPUS_SIZE:-500}"
 fi
 

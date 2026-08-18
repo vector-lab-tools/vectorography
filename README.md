@@ -16,7 +16,7 @@
 
 **Author:** David M. Berry
 **Institution:** University of Sussex
-**Version:** 0.01
+**Version:** see [`VERSION`](VERSION)
 **Licence:** GPL-3.0
 **Corpus:** Google Fonts, OFL-1.1 families only
 
@@ -57,12 +57,28 @@ buried.
 
 Then open http://localhost:5173.
 
-The first run downloads around 500 OFL families from the Google Fonts `ofl/`
-tree, extracts outlines, and fits the space. That takes a few minutes. Every run
-after that starts in seconds. Everything is local: no accounts, no telemetry, no
-network calls once the corpus is cached.
+**The fitted space ships with the repository** (`backend/data/space.npz`, 7 MB),
+so a fresh clone can travel immediately: no corpus download, no fitting. The run
+script only installs dependencies.
 
-Set `VG_CORPUS_SIZE=120 ./run.sh` for a smaller and faster first run.
+Everything is local. No accounts, no telemetry, and after `npm install` and `pip
+install` there are no network calls at all.
+
+To rebuild the space from scratch, for a different corpus size or a different
+glyph set:
+
+```bash
+.venv/bin/python backend/corpus/fetch.py 500      # download OFL families
+.venv/bin/python backend/corpus/outlines.py       # extract and align outlines
+.venv/bin/python -c "import sys; sys.path.insert(0,'backend'); \
+  import json, numpy as np; from space.style_space import StyleSpace; \
+  d=np.load('backend/data/corpus.npz'); \
+  StyleSpace.fit(d['X'], d['names'].tolist(), \
+                 [json.loads(m) for m in d['metas']]).save()"
+```
+
+The raw corpus and the intermediate `corpus.npz` are not committed: they are
+large and fully regenerable from `fetch.py` and the manifest.
 
 ## Travelling
 
@@ -204,4 +220,10 @@ DESIGN.md               design of record, including the pre-build review
 
 ## Versioning
 
-Versions move in steps of 0.01, and only when agreed. Current: **0.01**.
+`VERSION` at the repository root is the single source. The backend reads it at
+import, the frontend inherits it at build time through `vite.config.ts`, and
+`tools/sync_version.py` stamps it into `CITATION.cff`, which needs a literal
+because citation metadata has to stand alone. `frontend/package.json` carries no
+version of its own.
+
+Versions move in steps of 0.01, and only when agreed.
