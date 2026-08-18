@@ -12,14 +12,17 @@ export type Orbit = { name: string; z: number[] } | null
  */
 export function TravelBar({
   corpus, radius, setRadius, temperature, setTemperature, step, setStep,
-  axisA, axisB, setPlane, ride, orbit, onDrift, onRepel, onOrbit,
+  axisA, axisB, axisC, setPlane, setAxisC, ride, orbit,
+  onDrift, onRepel, onOrbit,
   onSetRide, onClearRide, onSetOrbit, onClearOrbit, busy,
 }: {
   corpus: CorpusInfo | null
   radius: number; setRadius: (v: number) => void
   temperature: number; setTemperature: (v: number) => void
   step: number; setStep: (v: number) => void
-  axisA: number; axisB: number; setPlane: (a: number, b: number) => void
+  axisA: number; axisB: number; axisC: number
+  setPlane: (a: number, b: number) => void
+  setAxisC: (c: number) => void
   ride: Ride; orbit: Orbit
   onDrift: () => void; onRepel: () => void; onOrbit: () => void
   onSetRide: (a: string, b: string) => void; onClearRide: () => void
@@ -55,12 +58,14 @@ export function TravelBar({
 
       {/* the heading plane is a choice, so the choice is shown */}
       <div>
-        <div className="rail-label mb-1">heading plane</div>
+        <div className="rail-label mb-1">heading plane · third axis</div>
         <div className="flex items-center gap-1">
           <AxisPick value={axisA} evr={evr} onChange={(v) => setPlane(v, axisB)}
                     disabled={!!ride} />
           <span className="font-mono text-[10px] text-muted-foreground">x</span>
           <AxisPick value={axisB} evr={evr} onChange={(v) => setPlane(axisA, v)} />
+          <span className="font-mono text-[10px] text-muted-foreground">x</span>
+          <AxisPick value={axisC} evr={evr} onChange={setAxisC} />
         </div>
       </div>
 

@@ -20,7 +20,7 @@ export type AtlasPoint = { i: number; name: string; x: number; y: number
 export type AtlasData = {
   colour: { key: string; label: string; low: string; high: string } | null
   axes: { x: number; y: number; x_evr: number; y_evr: number
-          height: string; ride: boolean }
+          height: string; c: number; ride: boolean }
   points: AtlasPoint[]
   sprites: Record<string, Glyph[]>
   self: { x: number; y: number; h: number; glyphs: Glyph[] }
@@ -71,6 +71,11 @@ export const api = {
 
   directions: () => fetch("/api/directions")
     .then((r) => r.json() as Promise<{ directions: NamedDirection[] }>),
+
+  basis: (axis_a: number, axis_b: number, axis_c: number,
+          ride: number[] | null) =>
+    post<{ u: number[]; v: number[]; w: number[] }>("/api/basis",
+      { axis_a, axis_b, axis_c, ride }),
 
   atlas: (body: Record<string, unknown>) =>
     post<AtlasData>("/api/atlas", body),

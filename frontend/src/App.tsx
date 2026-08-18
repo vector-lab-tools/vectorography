@@ -48,9 +48,17 @@ export default function App() {
   const [testing, setTesting] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
-  const [atlasHeight, setAtlasHeight] = useState<"density" | "centroid">("density")
+  const [atlasHeight, setAtlasHeight] =
+    useState<"density" | "centroid" | "axis">("density")
   const [colourBy, setColourBy] = useState("serif")
   const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
+  const [axisC, setAxisC] = useState(2)
+  // The vectors spanning the view. With these the client can work out where a
+  // dragged specimen has landed without asking the server, which is the
+  // difference between moving something and waiting for it to move.
+  const basis = useRef<{ u: number[]; v: number[]; w: number[] } | null>(null)
+  const dragZ = useRef<number[] | null>(null)
+  const dragPending = useRef(false)
   const [split, setSplit] = useState(0.7)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -76,6 +84,12 @@ export default function App() {
     }).catch((e) => setError(String(e)))
     api.directions().then((d) => setDirections(d.directions)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    api.basis(axisA, axisB, axisC, ride?.vec ?? null)
+      .then((b) => { basis.current = b })
+      .catch(() => { basis.current = null })
+  }, [axisA, axisB, axisC, ride])
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -105,8 +119,8 @@ export default function App() {
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
       api.atlas({ z, text: atlasChar, axis_a: axisA, axis_b: axisB,
-                  ride: ride?.vec ?? null, height: atlasHeight, sprites: 0,
-                  colour_by: colourBy, trail: trailRef.current }),
+                  axis_c: axisC, ride: ride?.vec ?? null, height: atlasHeight,
+                  sprites: 0, colour_by: colourBy, trail: trailRef.current }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
       setLocation(loc)
@@ -115,7 +129,7 @@ export default function App() {
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, atlasChar, radius, axisA, axisB, ride,
-      atlasHeight, colourBy])
+      atlasHeight, colourBy, axisC])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -156,6 +170,43 @@ export default function App() {
     return travel({ mode: "steer", direction: key, sign }, "steer",
                   `${way ?? key}`)
   }, [travel, directions])
+
+  /**
+   * Dragging the specimen. The position is computed here from the basis, so
+   * the mark follows the pointer at once; the outlines to draw it with are
+   * asked for at whatever rate the server can answer, and the last answer is
+   * what gets shown. Nothing is recorded until the drag ends.
+   */
+  const grabMove = useCallback((x: number, y: number, dh: number) => {
+    const b = basis.current
+    const from = dragZ.current ?? z
+    if (!b || !from) return
+    const dot = (a: number[], c: number[]) =>
+      a.reduce((t, ai, i) => t + ai * c[i], 0)
+
+    let nz: number[]
+    if (Number.isNaN(x)) {
+      // Up and down the third axis, leaving the ground position alone.
+      nz = from.map((c, i) => c + dh * b.w[i])
+    } else {
+      const cu = dot(from, b.u), cv = dot(from, b.v)
+      nz = from.map((c, i) => c - cu * b.u[i] - cv * b.v[i] + x * b.u[i] + y * b.v[i])
+    }
+    dragZ.current = nz
+
+    if (dragPending.current) return
+    dragPending.current = true
+    api.location(nz, text)
+      .then((loc) => setLocation(loc))
+      .catch(() => {})
+      .finally(() => { dragPending.current = false })
+  }, [z, text])
+
+  const grabEnd = useCallback(() => {
+    const nz = dragZ.current
+    dragZ.current = null
+    if (nz) push(nz, "drag", "dragged")
+  }, [push])
 
   const goToward = useCallback((w: Waypoint, amount: number | null) =>
     travel({ mode: "toward", target_x: w.x, target_y: w.y, amount },
@@ -268,12 +319,15 @@ export default function App() {
           onSelect: () => setDark((d) => !d) },
         { kind: "sep" },
         { kind: "item",
-          label: atlasHeight === "density"
-            ? "Atlas height: crowding" : "Atlas height: distance from centroid",
-          hint: "toggle",
+          label: `Atlas height: ${
+            atlasHeight === "density" ? "crowding"
+              : atlasHeight === "centroid" ? "distance from centroid"
+              : `axis ${axisC + 1}`}`,
+          hint: "cycle",
           onSelect: () => setAtlasHeight((h) =>
-            h === "density" ? "centroid" : "density"),
-          title: "What the vertical axis of the atlas measures" },
+            h === "density" ? "centroid" : h === "centroid" ? "axis" : "density"),
+          title: "What the vertical axis measures. On a latent axis it becomes "
+                 + "a direction you can drag along." },
       ],
     },
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
@@ -340,7 +394,8 @@ export default function App() {
                    directions={directions}
                    colourBy={colourBy} setColourBy={setColourBy}
                    waypoint={waypoint} setWaypoint={setWaypoint}
-                   onToward={goToward} radius={radius} sample={atlasChar} />
+                   onToward={goToward} radius={radius} sample={atlasChar}
+                   onGrabMove={grabMove} onGrabEnd={grabEnd} />
           </div>
 
           <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0
@@ -410,8 +465,9 @@ export default function App() {
               radius={radius} setRadius={setRadius}
               temperature={temperature} setTemperature={setTemperature}
               step={step} setStep={setStep}
-              axisA={axisA} axisB={axisB}
+              axisA={axisA} axisB={axisB} axisC={axisC}
               setPlane={(a, b) => { setAxisA(a); setAxisB(b) }}
+              setAxisC={setAxisC}
               ride={ride} orbit={orbit}
               onDrift={() => travel({ mode: "drift" }, "drift",
                                     `drift t${temperature.toFixed(2)}`)}

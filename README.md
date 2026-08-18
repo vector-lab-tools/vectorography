@@ -93,6 +93,7 @@ large and fully regenerable from `fetch.py` and the manifest.
 | **Ride** | make the difference between two families a heading usable from anywhere |
 | **Orbit** | circle a chosen family at fixed radius |
 | **Atlas** | click a family to travel to it; click open ground to drop a waypoint, then step toward it or go |
+| **Drag the specimen** | grab your own mark and pull it through the space; the letterforms change as it moves. Alt-drag anywhere does the same without leaving orbit mode, and shift while dragging moves along the third axis instead of across the ground |
 | **Steer** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on |
 | **Trail** | click any stop to return; moving from an earlier stop opens a branch |
 | **Backspace** | back to the previous stop |
@@ -129,6 +130,16 @@ you are a location in the space.
 A click on open ground names two coordinates, not a position: the other 126 are
 unspecified, and are left exactly as they are. Travelling to a spot on the map
 therefore moves within the plane you are steering in and changes nothing else.
+
+The same holds when the specimen is dragged. The client is given the basis
+vectors spanning the view, so it works out where the specimen has landed itself
+and asks the server only for the outlines to draw it with: the mark follows the
+pointer rather than waiting on a round trip. Nothing is recorded on the trail
+until the drag ends, so a move is one stop rather than a hundred.
+
+Set the atlas height to a latent axis and the vertical becomes a direction as
+well, rather than a reading of where you already are, which is what makes
+dragging up and down mean anything.
 
 ## Export
 

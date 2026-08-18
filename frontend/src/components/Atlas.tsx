@@ -117,7 +117,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 }
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
-                        waypoint, setWaypoint, onToward, radius, sample }: {
+                        waypoint, setWaypoint, onToward, radius, sample, onGrabMove, onGrabEnd }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -130,6 +130,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   radius: number
   /** What each family is set in, so every mark on the map is comparable. */
   sample: string
+  /** Dragged to a new place in the plane, or up and down the third axis.
+   *  Called continuously while the specimen is being moved. */
+  onGrabMove: (x: number, y: number, dh: number) => void
+  /** Released: the move becomes a stop on the trail. */
+  onGrabEnd: () => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -140,6 +145,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const [hover, setHover] = useState<{ name: string; sx: number; sy: number } | null>(null)
   const hoverName = useRef<string | null>(null)
   const drag = useRef<{ x: number; y: number; cam: Cam } | null>(null)
+  // Moving the specimen rather than the camera. Grab it directly, or hold the
+  // modifier and drag anywhere; hold shift as well to move up and down the
+  // third axis instead of across the ground.
+  const grab = useRef<{ x: number; y: number; sx: number; sy: number } | null>(null)
+  const [mode2, setMode2] = useState<"orbit" | "move">("orbit")
+  const moveMode = useRef<"orbit" | "move">("orbit")
+  const [grabbing, setGrabbing] = useState(false)
+  const selfScreen = useRef({ sx: 0, sy: 0 })
   const pending = useRef<{ mx: number; my: number } | null>(null)
   const paths = useRef(new Map<string, Path2D>())
   const frame = useRef(0)
@@ -376,6 +389,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // height reading is not ambiguous.
     const me = P(data.self.x, data.self.y, norm(data.self.h))
     const ground = P(data.self.x, data.self.y, 0)
+    selfScreen.current = { sx: me.sx, sy: me.sy }
     ctx.strokeStyle = here; ctx.globalAlpha = 0.4
     ctx.setLineDash([2, 3])
     ctx.beginPath(); ctx.moveTo(me.sx, me.sy); ctx.lineTo(ground.sx, ground.sy)
@@ -396,6 +410,19 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ctx.save(); ctx.translate(sdx, 0); ctx.fill(path, "evenodd"); ctx.restore()
       sdx += gl.advance
     }
+    if (moveMode.current === "move" || grab.current) {
+      ctx.strokeStyle = here
+      ctx.globalAlpha = grab.current ? 0.9 : 0.45
+      ctx.lineWidth = grab.current ? 2 : 1
+      ctx.setLineDash(grab.current ? [] : [3, 3])
+      ctx.beginPath()
+      ctx.arc(me.sx + SELF_PX * 0.35, me.sy - SELF_PX * 0.28,
+              SELF_PX * 0.92, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+    }
+
     ctx.restore()
 
     if (probe) {
@@ -580,14 +607,41 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
   return (
     <div ref={box}
-         className="relative w-full h-full rounded-md border border-border
-                    bg-card overflow-hidden select-none"
+         className={`relative w-full h-full rounded-md border bg-card
+                     overflow-hidden select-none
+                     ${grabbing ? "cursor-grabbing border-here"
+                       : mode2 === "move" ? "cursor-grab border-here/50"
+                       : "border-border"}`}
          onPointerDown={(e) => {
-           drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
+           const r = box.current!.getBoundingClientRect()
+           const mx = e.clientX - r.left, my = e.clientY - r.top
+           const s0 = selfScreen.current
+           const onSpecimen = Math.hypot(mx - (s0.sx + 20), my - (s0.sy - 14)) < 52
+           // The specimen is taken hold of by grabbing it, or by holding the
+           // modifier anywhere: alt for move, alt+shift to go up and down.
+           if (onSpecimen || e.altKey || moveMode.current === "move") {
+             grab.current = { x: e.clientX, y: e.clientY, sx: mx, sy: my }
+             setGrabbing(true)
+           } else {
+             drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
+           }
            if (hoverName.current) { hoverName.current = null; setHover(null) }
            ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
          }}
          onPointerMove={(e) => {
+           if (grab.current) {
+             const r = box.current!.getBoundingClientRect()
+             if (e.shiftKey) {
+               // Up and down the third axis. Screen up is further along it.
+               const dy = grab.current.y - e.clientY
+               grab.current = { ...grab.current, y: e.clientY }
+               onGrabMove(NaN, NaN, dy / (cam.current.zoom * HEIGHT_SCALE))
+             } else {
+               const g = unproject(e.clientX - r.left, e.clientY - r.top)
+               if (g) onGrabMove(g.x, g.y, 0)
+             }
+             return
+           }
            if (drag.current) {
              const dx = e.clientX - drag.current.x
              const dy = e.clientY - drag.current.y
@@ -604,8 +658,16 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            pending.current = { mx: e.clientX - r.left, my: e.clientY - r.top }
            schedule()
          }}
-         onPointerUp={() => { drag.current = null; schedule() }}
-         onPointerCancel={() => { drag.current = null; schedule() }}
+         onPointerUp={() => {
+           drag.current = null
+           if (grab.current) { grab.current = null; setGrabbing(false); onGrabEnd() }
+           schedule()
+         }}
+         onPointerCancel={() => {
+           drag.current = null
+           if (grab.current) { grab.current = null; setGrabbing(false); onGrabEnd() }
+           schedule()
+         }}
          onPointerLeave={() => {
            drag.current = null
            schedule()
@@ -620,7 +682,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            schedule()
          }}
          onClick={(e) => {
-           if (busy) return
+           if (busy || moveMode.current === "move") return
            // A font under the pointer is a place with a name; anywhere else is
            // a bearing on the map.
            if (hover) { onPick(hover.name); return }
@@ -639,6 +701,28 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           {hover.name}
         </div>
       )}
+      <div className="absolute top-2 right-2 flex items-center gap-1">
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            const next = moveMode.current === "orbit" ? "move" : "orbit"
+            moveMode.current = next
+            setMode2(next)
+            schedule()
+          }}
+          title={"Orbit turns the model. Move drags the specimen through it. "
+                 + "Hold alt to move without switching, and shift while moving "
+                 + "to go up and down the third axis."}
+          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                      transition-colors ${mode2 === "move"
+                        ? "border-here text-here bg-here/10"
+                        : "border-border text-muted-foreground"}`}
+        >
+          {mode2 === "move" ? "move ✥" : "orbit ⟳"}
+        </button>
+      </div>
+
       <div className="absolute bottom-2 left-2 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
@@ -707,7 +791,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       {!waypoint && (
         <div className="absolute bottom-2 right-2 font-mono text-[9px]
                         text-muted-foreground/70 pointer-events-none">
-          drag to orbit · click a font to travel · click the ground to aim
+          {grabbing ? "shift: up and down the third axis"
+            : mode2 === "move"
+              ? "drag the specimen · shift for the third axis"
+              : "drag to orbit · alt-drag to move the specimen · click a font to travel"}
         </div>
       )}
     </div>
