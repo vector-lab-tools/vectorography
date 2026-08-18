@@ -19,6 +19,14 @@ type Cam = { yaw: number; pitch: number; zoom: number }
 const DEFAULT_CAM: Cam = { yaw: 0.6, pitch: 0.62, zoom: 52 }
 
 /**
+ * Waypoints are off while direct dragging is being worked on: clicking the
+ * ground to aim and dragging the specimen there are two answers to the same
+ * question, and having both at once makes the map ambiguous to click.
+ * Flip this back on to restore aiming; nothing else needs changing.
+ */
+const WAYPOINTS = false
+
+/**
  * Colour runs along whichever measured property is selected: a diverging ramp
  * from one end of the measurement to the other, through a neutral middle. It is
  * a reading of the corpus, not decoration, so the legend always says which
@@ -319,7 +327,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     items.sort((a, b) => b.depth - a.depth)
 
     // The waypoint, and the line you would travel along to reach it.
-    if (waypoint) {
+    if (WAYPOINTS && waypoint) {
       const wp = P(waypoint.x, waypoint.y, 0)
       const from = P(data.self.x, data.self.y, 0)
       ctx.strokeStyle = burg
@@ -686,6 +694,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            // A font under the pointer is a place with a name; anywhere else is
            // a bearing on the map.
            if (hover) { onPick(hover.name); return }
+           if (!WAYPOINTS) return
            const r = box.current!.getBoundingClientRect()
            const g = unproject(e.clientX - r.left, e.clientY - r.top)
            if (g) setWaypoint(g)
@@ -753,7 +762,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         </span>
       </div>
 
-      {waypoint && data && (
+      {WAYPOINTS && waypoint && data && (
         <div className="absolute bottom-10 right-2 flex items-center gap-1.5
                         bg-card border border-border rounded-sm px-2 py-1.5
                         shadow-editorial">
@@ -788,13 +797,16 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         </div>
       )}
 
-      {!waypoint && (
-        <div className="absolute bottom-2 right-2 font-mono text-[9px]
-                        text-muted-foreground/70 pointer-events-none">
-          {grabbing ? "shift: up and down the third axis"
-            : mode2 === "move"
-              ? "drag the specimen · shift for the third axis"
-              : "drag to orbit · alt-drag to move the specimen · click a font to travel"}
+      {(!WAYPOINTS || !waypoint) && (
+        <div className="absolute bottom-2 right-2 max-w-[46%] truncate
+                        font-mono text-[9px] text-muted-foreground/70
+                        pointer-events-none text-right"
+             title="Drag to orbit. Alt-drag, or the move toggle, drags the
+                    specimen through the space. Shift while moving goes up and
+                    down the third axis. Click a family to travel to it.">
+          {grabbing ? "shift: third axis"
+            : mode2 === "move" ? "drag specimen · shift: third axis"
+            : "drag: orbit · alt-drag: move · click: travel"}
         </div>
       )}
     </div>
