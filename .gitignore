@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+backend/data/fonts/
+backend/data/*.npz
+backend/data/ofl-tree.json
+node_modules/
+dist/
+.DS_Store
