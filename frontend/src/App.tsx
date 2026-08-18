@@ -3,6 +3,7 @@ import { api, type CompassPoint, type CorpusInfo, type Location } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
 import { CompassRose } from "./components/CompassRose"
 import { Neighbours } from "./components/Neighbours"
+import { Specimen } from "./components/Specimen"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
 
@@ -180,17 +181,24 @@ export default function App() {
                 title="Toggle dark">{dark ? "Light" : "Dark"}</button>
       </header>
 
-      <main className="flex-1 min-h-0 grid grid-cols-[190px_1fr_230px] gap-4 p-4">
-        <aside className="min-h-0">
+      <main className="flex-1 min-h-0 grid grid-cols-[180px_minmax(0,1fr)_215px] gap-4 p-4">
+        <aside className="min-h-0 min-w-0">
           <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
         </aside>
 
-        <section className="min-h-0 flex flex-col gap-4">
+        <section className="min-h-0 min-w-0 flex flex-col gap-3">
+          {/* The location itself, at reading size. Everything else on this
+              screen is about deciding where to go from here. */}
+          <div className="panel shrink-0 px-5 py-3 flex items-center
+                          justify-center h-[130px]">
+            <Specimen glyphs={location?.glyphs ?? []} text={text}
+                      className="w-full h-full text-ink" />
+          </div>
           <div className="flex-1 min-h-0">
             <CompassRose
               points={compass}
               centre={location?.glyphs ?? []}
-              text={text}
+
               compassText={compassText}
               onTravel={(p) => walk(p.bearing)}
               busy={busy}
@@ -230,7 +238,7 @@ export default function App() {
           />
         </section>
 
-        <aside className="min-h-0 flex flex-col gap-4">
+        <aside className="min-h-0 min-w-0 flex flex-col gap-4">
           <Neighbours neighbours={location?.neighbours ?? []} onPick={goToFamily} />
           <div className="border-t border-border pt-3 flex flex-col min-h-0 flex-1">
             <input

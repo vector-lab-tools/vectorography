@@ -32,7 +32,7 @@ export function TravelBar({
   const evr = corpus?.explained_variance ?? []
 
   return (
-    <div className="panel p-3 flex flex-wrap items-end gap-x-5 gap-y-3">
+    <div className="panel p-3 flex flex-wrap items-end gap-x-4 gap-y-3 overflow-hidden">
       <Slider label="radius" value={radius} min={0.05} max={3} step={0.05}
               onChange={setRadius} />
 
@@ -141,7 +141,7 @@ function FamilyInput({ value, onChange, corpus, placeholder }: {
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="font-mono text-[11px] w-24 bg-card border border-border
+        className="font-mono text-[11px] w-20 min-w-0 bg-card border border-border
                    rounded-sm px-1.5 py-1.5"
       />
       <datalist id="vg-families">

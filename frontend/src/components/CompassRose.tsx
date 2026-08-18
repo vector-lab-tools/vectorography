@@ -18,11 +18,10 @@ const CELL: Record<number, string> = {
 }
 
 export function CompassRose({
-  points, centre, text, compassText, onTravel, busy,
+  points, centre, compassText, onTravel, busy,
 }: {
   points: CompassPoint[]
   centre: Glyph[]
-  text: string
   compassText: string
   onTravel: (p: CompassPoint) => void
   busy: boolean
@@ -59,13 +58,14 @@ export function CompassRose({
         </button>
       ))}
 
+      {/* The centre shows where you already are, at the same scale as the
+          eight around it, so the comparison is like for like. */}
       <div className="col-start-2 row-start-2 panel flex items-center
-                      justify-center p-3 border-ink/30">
-        <Specimen
-          glyphs={centre}
-          text={text}
-          className="w-full h-full max-h-[130px] text-ink"
-        />
+                      justify-center p-2 relative border-ink/40 bg-muted/40">
+        <Specimen glyphs={centre} text={compassText}
+                  className="w-full h-full max-h-[90px] text-ink" />
+        <span className="absolute top-1 left-1.5 font-mono text-[9px]
+                         text-burgundy">here</span>
       </div>
     </div>
   )

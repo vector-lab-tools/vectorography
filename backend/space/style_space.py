@@ -20,6 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
+# Dimensions used for the density estimate. See the note in __init__.
+DENSITY_DIMS = 8
+
 DATA = Path(__file__).resolve().parents[1] / "data"
 MODEL = DATA / "space.npz"
 
@@ -45,8 +48,16 @@ class StyleSpace:
 
         self.centroid = self.Z.mean(axis=0)
         self._centroid_dists = np.linalg.norm(self.Z - self.centroid, axis=1)
-        # Bandwidth by the median nearest-neighbour distance in the corpus.
-        d = self._pairwise(self.Z)
+
+        # Density is estimated in the dominant style directions, not in all 128.
+        # In the full whitened space distances concentrate, the kernel goes flat,
+        # the meter pins at the top wherever you stand, and the gradient REPEL
+        # descends becomes noise. The crowding this instrument exists to show is
+        # crowding in the directions along which typefaces actually vary, so the
+        # estimate is taken there.
+        self.dens_dims = min(DENSITY_DIMS, self.dims)
+        Zd = self.Z[:, : self.dens_dims]
+        d = self._pairwise(Zd)
         np.fill_diagonal(d, np.inf)
         self.h = float(np.median(np.sort(d, axis=1)[:, :8].mean(axis=1)))
         self._corpus_density = np.array([self.log_density(z) for z in self.Z])
@@ -110,7 +121,8 @@ class StyleSpace:
     # ------------------------------------------------- density and its gradient
 
     def _weights(self, z):
-        d2 = np.sum((self.Z - np.asarray(z)) ** 2, axis=1)
+        zd = np.asarray(z, dtype=np.float64)[: self.dens_dims]
+        d2 = np.sum((self.Z[:, : self.dens_dims] - zd) ** 2, axis=1)
         e = -d2 / (2 * self.h**2)
         m = float(e.max())
         w = np.exp(e - m)
@@ -122,12 +134,15 @@ class StyleSpace:
 
     def density_gradient(self, z):
         """grad of log p(z) under a Gaussian KDE. Points uphill, into the crowd."""
+        z = np.asarray(z, dtype=np.float64)
         w, _ = self._weights(z)
         s = w.sum()
+        g = np.zeros(self.dims)
         if s <= 0:
-            return np.zeros_like(np.asarray(z, dtype=np.float64))
-        return ((w[:, None] * (self.Z - np.asarray(z))).sum(axis=0)
-                / s / self.h**2)
+            return g
+        k = self.dens_dims
+        g[:k] = ((w[:, None] * (self.Z[:, :k] - z[:k])).sum(axis=0) / s / self.h**2)
+        return g
 
     def altitude(self, z) -> dict:
         z = np.asarray(z, dtype=np.float64)

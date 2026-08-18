@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "Vectorography: Type Design by Traversal"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Berry
+    given-names: David M.
+    affiliation: University of Sussex
+repository-code: "https://github.com/vector-lab-tools/vectorography"
+license: GPL-3.0
+version: 0.1.0
+date-released: "2026-08-18"
