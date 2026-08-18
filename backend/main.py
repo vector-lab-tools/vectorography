@@ -75,6 +75,9 @@ class TravelReq(Z):
     ride: list[float] | None = None
     temperature: float = 0.5
     step: float = 0.5
+    direction: str | None = None
+    sign: float = 1.0
+    amount: float | None = None
     centre: list[float] | None = None
     angle: float = 20.0
     seed: int | None = None
@@ -123,6 +126,15 @@ def corpus_info():
     }
 
 
+@app.get("/api/directions")
+def directions():
+    """Measured named axes: properties read off the outlines, not eigendirections."""
+    s = space()
+    return {"directions": [
+        {k: v for k, v in d.items() if k != "vector"}
+        for d in s.directions.values()]}
+
+
 @app.post("/api/location")
 def location(req: LocationReq):
     s = space()
@@ -162,6 +174,13 @@ def travel(req: TravelReq):
         nz = np.asarray(s.drift(z, req.temperature, rng))
     elif req.mode == "repel":
         nz = np.asarray(s.repel(z, req.step))
+    elif req.mode == "steer":
+        if not req.direction:
+            raise HTTPException(400, "steer needs a direction")
+        try:
+            nz = np.asarray(s.steer(z, req.direction, req.sign, req.amount))
+        except KeyError:
+            raise HTTPException(404, f"no direction {req.direction!r}") from None
     elif req.mode == "orbit":
         if req.centre is None:
             raise HTTPException(400, "orbit needs a centre")

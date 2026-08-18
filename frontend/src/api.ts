@@ -10,6 +10,10 @@ export type Altitude = {
   corpus_centroid_max: number
 }
 
+export type NamedDirection = {
+  key: string; label: string; minus: string; plus: string; spread: number
+}
+
 export type Neighbour = { family: string; distance: number; index: number }
 
 export type CorpusInfo = {
@@ -50,6 +54,9 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 
 export const api = {
   corpus: () => fetch("/api/corpus").then((r) => r.json() as Promise<CorpusInfo>),
+
+  directions: () => fetch("/api/directions")
+    .then((r) => r.json() as Promise<{ directions: NamedDirection[] }>),
 
   location: (z: number[], text: string, full = false) =>
     post<Location>("/api/location", { z, text, full }),

@@ -35,7 +35,8 @@ MODEL = DATA / f"vectormodel-{MODEL_VERSION}.npz"
 
 
 class StyleSpace:
-    def __init__(self, mean, components, scale, Z, names, metas, evr):
+    def __init__(self, mean, components, scale, Z, names, metas, evr,
+                 directions=None):
         self.mean = mean                  # (D,)
         self.components = components      # (k, D)
         self.scale = scale                # (k,)
@@ -44,6 +45,9 @@ class StyleSpace:
         self.metas = list(metas)
         self.evr = evr
         self.dims = components.shape[0]
+        # Measured named axes, computed at fit time and carried in the model,
+        # because measuring them needs the raw corpus and a clone only has this.
+        self.directions = directions or {}
         # Relative weight of each axis in the unwhitened corpus. Whitening makes
         # distance mean the same thing on every axis, which is what a compass
         # radius needs, but it also means a uniformly random direction in 128
@@ -84,13 +88,16 @@ class StyleSpace:
         scale[scale <= 0] = 1.0
         Z = raw / scale
         evr = (S[:k] ** 2 / np.sum(S**2)).tolist()
-        return cls(mean, components, scale, Z, names, metas, evr)
+        from space.directions import build as build_directions
+        return cls(mean, components, scale, Z, names, metas, evr,
+                   directions=build_directions(Z, X))
 
     def save(self, path=MODEL):
         np.savez_compressed(
             path, mean=self.mean, components=self.components, scale=self.scale,
             Z=self.Z, names=np.array(self.names), evr=np.array(self.evr),
             metas=np.array([json.dumps(m) for m in self.metas]),
+            directions=np.array(json.dumps(self.directions)),
             model_name=np.array(MODEL_NAME), model_version=np.array(MODEL_VERSION))
 
     @property
@@ -101,9 +108,9 @@ class StyleSpace:
     def load(cls, path=MODEL):
         d = np.load(path, allow_pickle=False)
         metas = [json.loads(m) for m in d["metas"]]
-        s = cls(d["mean"], d["components"], d["scale"], d["Z"],
-                d["names"].tolist(), metas, d["evr"].tolist())
-        return s
+        dirs = json.loads(str(d["directions"])) if "directions" in d else {}
+        return cls(d["mean"], d["components"], d["scale"], d["Z"],
+                   d["names"].tolist(), metas, d["evr"].tolist(), dirs)
 
     # --------------------------------------------------------------- geometry
 
@@ -201,6 +208,15 @@ class StyleSpace:
                       + radius * (np.cos(th) * u + np.sin(th) * v)).tolist(),
             })
         return out
+
+    def steer(self, z, key: str, sign: float, amount: float | None = None):
+        """Travel along a measured named axis, from wherever you are."""
+        d = self.directions.get(key)
+        if d is None:
+            raise KeyError(key)
+        v = np.asarray(d["vector"], dtype=np.float64)
+        step = amount if amount is not None else 0.15 * float(d["spread"])
+        return (np.asarray(z, dtype=np.float64) + sign * step * v).tolist()
 
     def repel(self, z, step=0.5):
         g = self.density_gradient(z)

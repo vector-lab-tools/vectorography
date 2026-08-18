@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, type CompassPoint, type CorpusInfo, type Location } from "./api"
+import { api, type CompassPoint, type CorpusInfo, type Location,
+         type NamedDirection } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
 import { CompassRose } from "./components/CompassRose"
+import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
 import { MenuBar, type Menu } from "./components/MenuBar"
 import { Neighbours } from "./components/Neighbours"
@@ -28,6 +30,7 @@ export default function App() {
   const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Journey")
   const [testing, setTesting] = useState(false)
+  const [directions, setDirections] = useState<NamedDirection[]>([])
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -42,10 +45,12 @@ export default function App() {
   useEffect(() => {
     api.corpus().then((c) => {
       setCorpus(c)
+      nextId.current = 1
       setTrail([{ id: 0, z: new Array(c.dims).fill(0), mode: "origin",
                   label: "origin · the centroid", parent: null, depth: 0 }])
       setCursor(0)
     }).catch((e) => setError(String(e)))
+    api.directions().then((d) => setDirections(d.directions)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -74,15 +79,20 @@ export default function App() {
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, radius, axisA, axisB, ride])
 
+  // Ids come from a counter rather than from the trail's length, and the
+  // updater stays pure. Setting the cursor inside it made the update a side
+  // effect, which React is free to run twice, and it duplicated crumbs.
+  const nextId = useRef(1)
+
   const push = useCallback((nz: number[], mode: string, label: string) => {
+    const id = nextId.current++
     setTrail((prev) => {
       const parent = prev.find((c) => c.id === cursor)
       const isTip = prev.length > 0 && prev[prev.length - 1].id === cursor
       const depth = parent ? (isTip ? parent.depth : parent.depth + 1) : 0
-      const id = prev.length ? Math.max(...prev.map((c) => c.id)) + 1 : 0
-      setCursor(id)
       return [...prev, { id, z: nz, mode, label, parent: cursor, depth }]
     })
+    setCursor(id)
   }, [cursor])
 
   const travel = useCallback(async (body: Record<string, unknown>,
@@ -101,6 +111,13 @@ export default function App() {
     travel({ mode: "walk", bearing }, "walk",
            `walk ${String(bearing).padStart(3, "0")}° r${radius.toFixed(2)}`),
     [travel, radius])
+
+  const steer = useCallback((key: string, sign: number) => {
+    const d = directions.find((x) => x.key === key)
+    const way = sign > 0 ? d?.plus : d?.minus
+    return travel({ mode: "steer", direction: key, sign }, "steer",
+                  `${way ?? key}`)
+  }, [travel, directions])
 
   const goToFamily = useCallback(async (name: string) => {
     try {
@@ -237,9 +254,14 @@ export default function App() {
         />
       </header>
 
-      <main className="flex-1 min-h-0 grid grid-cols-[180px_minmax(0,1fr)_215px] gap-4 p-4">
-        <aside className="min-h-0 min-w-0">
+      <main className="flex-1 min-h-0 grid grid-cols-[196px_minmax(0,1fr)_215px] gap-4 p-4">
+        <aside className="min-h-0 min-w-0 flex flex-col gap-4 overflow-y-auto">
           <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
+          {directions.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <DirectionPad directions={directions} onSteer={steer} busy={busy} />
+            </div>
+          )}
         </aside>
 
         <section className="min-h-0 min-w-0 flex flex-col gap-3">
