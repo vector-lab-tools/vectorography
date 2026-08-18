@@ -1,4 +1,4 @@
-export type Glyph = { char: string; paths: string[]; advance: number }
+export type Glyph = { char: string; path: string; advance: number }
 
 export type Altitude = {
   centroid_distance: number

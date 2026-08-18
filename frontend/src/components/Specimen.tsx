@@ -25,11 +25,10 @@ export function Specimen({ glyphs, text, className, colour, fixedWidth }: Props)
       if (ch === " ") { x += 0.3; continue }
       const g = by.get(ch)
       if (!g) { x += 0.3; continue }
-      const at = x
+      // One path per glyph, all contours as subpaths of it, so evenodd cuts
+      // the counters out instead of painting them over the letter.
       parts.push(
-        <g key={i} transform={`translate(${at.toFixed(4)},0)`}>
-          {g.paths.map((d, j) => <path key={j} d={d} />)}
-        </g>,
+        <path key={i} transform={`translate(${x.toFixed(4)},0)`} d={g.path} />,
       )
       x += g.advance
     }

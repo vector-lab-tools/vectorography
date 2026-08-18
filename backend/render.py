@@ -31,8 +31,14 @@ def contour_path(pts: np.ndarray) -> str:
     return "".join(d)
 
 
-def glyph_paths(contours: np.ndarray) -> list[str]:
-    return [contour_path(c) for c in contours if _area(c) > MIN_AREA]
+def glyph_path(contours: np.ndarray) -> str:
+    """All contours of a glyph as subpaths of ONE path.
+
+    They have to share a path element: fill-rule applies within a path, not
+    across siblings, so a counter emitted as its own element paints a filled
+    blob over the letter instead of cutting a hole in it.
+    """
+    return "".join(contour_path(c) for c in contours if _area(c) > MIN_AREA)
 
 
 def decode_to_glyphs(vec: np.ndarray) -> list[dict]:
@@ -42,7 +48,7 @@ def decode_to_glyphs(vec: np.ndarray) -> list[dict]:
     for i, ch in enumerate(GLYPHS):
         out.append({
             "char": ch,
-            "paths": glyph_paths(dec["contours"][i]),
+            "path": glyph_path(dec["contours"][i]),
             "advance": float(dec["advances"][i]),
         })
     return out
@@ -62,8 +68,7 @@ def specimen_svg(glyphs: list[dict], text: str, size: float = 1.0,
         g = by.get(ch)
         if not g:
             continue
-        inner = "".join(f'<path d="{p}"/>' for p in g["paths"])
-        body.append(f'<g transform="translate({x:.4f},0)">{inner}</g>')
+        body.append(f'<path transform="translate({x:.4f},0)" d="{g["path"]}"/>')
         x += g["advance"]
     w = max(x, 0.001)
     h = asc + 0.28
@@ -84,8 +89,7 @@ def _line(glyphs_by: dict, text: str, size: float, baseline: float) -> tuple[str
         if ch == " " or not g:
             x += 0.3
             continue
-        inner = "".join(f'<path d="{p}"/>' for p in g["paths"])
-        parts.append(f'<g transform="translate({x:.4f},0)">{inner}</g>')
+        parts.append(f'<path transform="translate({x:.4f},0)" d="{g["path"]}"/>')
         x += g["advance"]
     body = (f'<g transform="translate(0,{baseline:.4f}) scale({size:.5f},{-size:.5f})">'
             f'{"".join(parts)}</g>')

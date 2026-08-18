@@ -16,7 +16,7 @@
 
 **Author:** David M. Berry
 **Institution:** University of Sussex
-**Version:** 0.1.0
+**Version:** 0.01
 **Licence:** GPL-3.0
 **Corpus:** Google Fonts, OFL-1.1 families only
 
@@ -201,3 +201,7 @@ DESIGN.md               design of record, including the pre-build review
   license = {GPL-3.0}
 }
 ```
+
+## Versioning
+
+Versions move in steps of 0.01, and only when agreed. Current: **0.01**.

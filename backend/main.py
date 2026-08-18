@@ -17,7 +17,7 @@ from corpus.outlines import CACHE, GLYPHS, build_corpus
 from render import decode_to_glyphs, specimen_sheet_svg
 from space.style_space import MODEL, StyleSpace
 
-app = FastAPI(title="Vectorography", version="0.1.0")
+app = FastAPI(title="Vectorography", version="0.01")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
