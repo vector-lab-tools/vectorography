@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { Altitude, AtlasData, CorpusInfo, Glyph, NamedDirection } from "../api"
 import { AltitudeStrip } from "./AltitudeMeter"
+import { familyFace } from "./familyFonts"
 
 /**
  * The corpus as a place, drawn with letterforms rather than with numbers.
@@ -90,8 +91,6 @@ function axisName(spec: string, dirs: NamedDirection[]) {
  * that fails, or that is missing because the corpus was never downloaded,
  * falls back to the plain face without comment.
  */
-const LOADED = new Map<string, boolean>()   // name -> usable
-const MAX_FACES = 90
 
 // Labels are rendered once into their own canvas and blitted thereafter.
 export const LABEL_PX = 22
@@ -100,7 +99,7 @@ const LABELS = new Map<string, HTMLCanvasElement>()
 
 function labelImage(name: string, text: string, rgb: [number, number, number],
                     onReady: () => void): HTMLCanvasElement | null {
-  const face = faceFor(name, () => {
+  const face = familyFace(name, () => {
     LABELS.delete(labelKey(name, text, rgb)); onReady()
   })
   // Nothing is drawn until the family's own file is here: the mark is the
@@ -140,18 +139,6 @@ function labelKey(name: string, text: string, rgb: [number, number, number]) {
     Math.round(rgb[2])}`
 }
 
-function faceFor(name: string, onReady: () => void): string | null {
-  const known = LOADED.get(name)
-  if (known === true) return `vg-${name}`
-  if (known === false) return null
-  if (LOADED.size >= MAX_FACES) return null
-  LOADED.set(name, false)
-  const face = new FontFace(`vg-${name}`, `url(/api/fontfile/${name})`)
-  face.load()
-    .then((f) => { document.fonts.add(f); LOADED.set(name, true); onReady() })
-    .catch(() => { LOADED.set(name, false) })
-  return null
-}
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
