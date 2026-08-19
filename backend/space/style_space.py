@@ -30,7 +30,7 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 # refer to. Its version is independent of the application's, because refitting
 # the space invalidates saved coordinates even when no code has changed.
 MODEL_NAME = "VectorModel"
-MODEL_VERSION = "0.1"
+MODEL_VERSION = "0.2"
 MODEL = DATA / f"vectormodel-{MODEL_VERSION}.npz"
 
 

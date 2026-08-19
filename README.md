@@ -178,12 +178,11 @@ drawing the larger number would put every font inside a sphere it does not fill.
 Not quite, and the difference is worth knowing. After whitening the corpus is an
 isotropic cloud, so the space is a ball rather than a cone or a sphere. But in
 128 dimensions almost all of a cloud's mass sits in a thin shell, and the corpus
-does exactly that: the nearest family to the centroid is 2.4 units away, the
-median is 7.1, and the furthest is 22.2, with only three of 495 families inside
-three units.
+does exactly that: the median family is 8.5 units from the centroid and the
+furthest is 21.0, with **not one of the 445 families inside three units**.
 
 So the centre of the space, the average of every font in the corpus, is a place
-where almost no font actually is. That is the anti-normalisation argument in one
+where no font is at all. That is the anti-normalisation argument in one
 measurement: the pull is toward a point the distribution itself has largely
 vacated.
 

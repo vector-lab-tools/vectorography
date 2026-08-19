@@ -31,9 +31,16 @@ Provenance is a design decision: no other source is permitted, and a manifest
 records every family used.
 
 ### Style vector (built, verified)
-Each font is one vector of 14,942 floats: 62 glyphs (A-Z a-z 0-9), 3 contours
-each, 40 points per contour resampled at uniform arc length, plus 62 advance
-widths. Contours are sorted by area, wound consistently, and phase-aligned so
+Each font is one vector of 63,759 floats: 159 glyphs, up to 5 contours each, 40
+points per contour resampled at uniform arc length, plus one advance width per
+glyph. The character set is ASCII printable, the typographic marks a page needs,
+and the Latin-1 letters; every font in the corpus must carry all of it or it
+cannot be encoded at all, which is what bounds the set.
+
+Contours are ordered so that the same slot means the same part of a letter in
+every font. Marks are kept apart from the shapes they sit over: the acute on an
+e is about the size of the e's counter, so ordering by area alone let the two
+swap between fonts and the space would interpolate a counter into an accent. Contours are sorted by area, wound consistently, and phase-aligned so
 that point *i* means roughly the same place on the letter in every font. That
 alignment is the thing that makes the space walkable; without it, the average of
 two fonts is noise rather than a letter. Missing counters are padded with a

@@ -19,8 +19,21 @@ import numpy as np
 from fontTools.pens.basePen import BasePen
 from fontTools.ttLib import TTFont
 
-GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-N_CONTOURS = 3          # contours kept per glyph, by descending area
+# The character set every font in the corpus must carry in full, since a font
+# missing one glyph cannot be encoded at all. Measured against the 500 families
+# downloaded: this set costs ten per cent of them. The ellipsis is left out
+# deliberately. It is missing from twenty-five families that have everything
+# else here, which is a tenth of the loss for one character, and three periods
+# will do.
+GLYPHS = (
+    "".join(chr(c) for c in range(33, 127))          # ASCII printable
+    + "‘’“”–—£€"                                     # what typesetting needs
+    + "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ"                # Latin-1, lower
+    + "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ"                 # Latin-1, upper
+)
+# Five, not three: per cent needs five, and an accented letter needs room for
+# its mark on top of the base and its counters.
+N_CONTOURS = 5
 N_POINTS = 40           # resampled points per contour
 CURVE_STEPS = 16        # subdivisions when flattening a cubic
 
@@ -108,6 +121,50 @@ def _canonical(pts: np.ndarray, outer: bool) -> np.ndarray:
     return _align_phase(pts)
 
 
+def _x_height(glyphset, cmap, upem: float) -> float:
+    """Top of a lowercase x, in em. Marks are what sits above it."""
+    name = cmap.get(ord("x"))
+    if name is None:
+        return 0.5
+    try:
+        pen = FlattenPen(glyphset)
+        glyphset[name].draw(pen)
+        top = max((max(p[1] for p in c) for c in pen.done()), default=0.5 * upem)
+        return float(top) / upem
+    except Exception:  # noqa: BLE001
+        return 0.5
+
+
+def _order(contours: list[np.ndarray], x_height: float, upem: float):
+    """Contours in an order that means the same thing in every font.
+
+    Sorting by area alone was enough while the set was letters and digits. It
+    is not enough for accents: the acute on an e is about the size of the e's
+    counter, so the two swap places between fonts and the space interpolates a
+    counter into an accent. Marks are therefore kept in their own slots, and
+    ties are broken by position rather than left to the sort.
+    """
+    base, marks = [], []
+    for c in contours:
+        ys = c[:, 1] / upem
+        (marks if ys.min() >= x_height * 0.98 else base).append(c)
+
+    def area(c):
+        return abs(_signed_area(c))
+
+    def centre(c):
+        return c.mean(axis=0)
+
+    base.sort(key=lambda c: (-area(c), -centre(c)[1], centre(c)[0]))
+    # Marks read left to right: two of them are often mirror images of one
+    # another, so their areas are equal and sorting by size decides nothing.
+    marks.sort(key=lambda c: (centre(c)[0], -centre(c)[1]))
+
+    keep_marks = marks[:2]
+    keep_base = base[:max(1, N_CONTOURS - len(keep_marks))]
+    return (keep_base + keep_marks)[:N_CONTOURS]
+
+
 def encode_font(path: Path) -> tuple[np.ndarray, dict] | None:
     """Return (style vector, metadata) or None if the font is unusable."""
     try:
@@ -118,6 +175,8 @@ def encode_font(path: Path) -> tuple[np.ndarray, dict] | None:
         hmtx = font["hmtx"]
     except Exception:  # noqa: BLE001
         return None
+
+    x_height = _x_height(glyphset, cmap, upem)
 
     glyph_block = np.zeros((len(GLYPHS), N_CONTOURS, N_POINTS, 2), dtype=np.float32)
     advances = np.zeros(len(GLYPHS), dtype=np.float32)
@@ -136,8 +195,7 @@ def encode_font(path: Path) -> tuple[np.ndarray, dict] | None:
         if not contours:
             return None
 
-        contours.sort(key=lambda c: abs(_signed_area(c)), reverse=True)
-        contours = contours[:N_CONTOURS]
+        contours = _order(contours, x_height, upem)
         kept = [_canonical(_resample(c, N_POINTS), outer=(i == 0))
                 for i, c in enumerate(contours)]
 
