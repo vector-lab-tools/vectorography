@@ -402,7 +402,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           if (prev) {
             const near = (q.depth + prev.depth) / 2
             const front = 1 / (1 + Math.exp(-near * 1.4))
-            ctx.globalAlpha = base * (0.28 + 0.72 * front)
+            ctx.globalAlpha = base * (0.22 + 0.78 * front)
             ctx.beginPath()
             ctx.moveTo(prev.sx, prev.sy)
             ctx.lineTo(q.sx, q.sy)
@@ -413,31 +413,31 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         ctx.globalAlpha = 1
       }
 
+      // One sphere: the edge of the space, where the furthest real family
+      // sits. Inner shells at the median and the ninetieth drew two more
+      // spheres inside this one, and three nested wireframes read as clutter
+      // rather than as a shape. Where the corpus actually sits is a number, and
+      // the readout beside the map already gives it.
       const hull = data.ball.max
-      const shells: [number, number, number][] = [
-        [hull, 0.30, 3], [data.ball.q90, 0.18, 2], [data.ball.q50, 0.13, 2]]
 
       ctx.strokeStyle = muted
       ctx.lineWidth = 1
 
-      for (const [r, alpha, lats] of shells) {
-        // Longitudes.
-        for (let k = 0; k < 4; k++) {
-          const a = (k / 4) * Math.PI
-          ring(r, (t) => [Math.cos(t) * Math.cos(a), Math.cos(t) * Math.sin(a),
-                          Math.sin(t)], alpha)
-        }
-        // Latitudes, evenly in angle so they crowd toward the poles as they
-        // should rather than being spaced evenly in height.
-        for (let k = 1; k <= lats; k++) {
-          const phi = (k / (lats + 1)) * Math.PI - Math.PI / 2
-          const rr = Math.cos(phi), zz = Math.sin(phi)
-          ring(r, (t) => [Math.cos(t) * rr, Math.sin(t) * rr, zz], alpha)
-        }
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * Math.PI
+        ring(hull, (t) => [Math.cos(t) * Math.cos(a), Math.cos(t) * Math.sin(a),
+                           Math.sin(t)], 0.13)
+      }
+      // Latitudes, spaced evenly in angle so they crowd toward the poles as
+      // they should rather than being spaced evenly in height.
+      for (let k = 1; k <= 3; k++) {
+        const phi = (k / 4) * Math.PI - Math.PI / 2
+        const rr = Math.cos(phi), zz = Math.sin(phi)
+        ring(hull, (t) => [Math.cos(t) * rr, Math.sin(t) * rr, zz], 0.13)
       }
 
-      // The edge of the known space, as a hard line.
-      ctx.globalAlpha = 0.5
+      // The edge of the known space.
+      ctx.globalAlpha = 0.22
       ctx.strokeStyle = muted
       ctx.beginPath()
       ctx.arc(centre.sx, centre.sy, hull * c.zoom, 0, Math.PI * 2)
@@ -731,10 +731,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
       {ballOn && data.ball && data.axes.height === "axis" && (
         <div className="absolute top-[52px] left-2 font-mono text-[9px]
-                        text-muted-foreground pointer-events-none">
-          shell: {data.ball.q50.toFixed(2)} / {data.ball.q90.toFixed(2)} ·
-          {" "}you {data.ball.self.toFixed(2)}
-          {" "}({data.ball.inside_q50.toFixed(0)}% of families are nearer in)
+                        text-muted-foreground pointer-events-none
+                        whitespace-nowrap"
+             title={`You are ${data.ball.self.toFixed(2)} from the average of `
+               + `every font. The furthest real family is `
+               + `${data.ball.max.toFixed(2)} out and half the corpus lies `
+               + `within ${data.ball.q50.toFixed(2)}.`}>
+          r {data.ball.self.toFixed(2)} of {data.ball.max.toFixed(2)} ·
+          {" "}{data.ball.inside_q50.toFixed(0)}% nearer in
         </div>
       )}
 
