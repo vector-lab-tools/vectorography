@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { Altitude, Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
+import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
 import { allHandles, handleAt, layout, lineWidth, xHeightOf,
          type Handle, type HandleKind } from "./handles"
@@ -34,7 +35,7 @@ const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
-  hasSnapshot, setText, proofs, neighbours, onGoToFamily, busy,
+  hasSnapshot, setText, proofs, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -57,6 +58,8 @@ export function SpecimenStage({
   onSnapshot: () => void
   onRecall: () => void
   hasSnapshot: boolean
+  /** Outlines for hit-testing, which arrive after the specimen does. */
+  geometry: Glyph[] | null
   /** The word being set, and the proofs worth setting it in. */
   setText: (t: string) => void
   proofs: string[]
@@ -81,10 +84,15 @@ export function SpecimenStage({
   const [points, setPoints] = useState<"on" | "minimal" | "off">(
     () => (localStorage.getItem("vg.points") as
       "on" | "minimal" | "off" | null) ?? "on")
-  const last = useRef<{ x: number; y: number } | null>(null)
-  const held = useRef<Handle | "plane" | null>(null)
+  // Where the tools sit. Kept, because it is a decision about the desk.
+  const [dock, setDock] = useState<Dock>(
+    () => (localStorage.getItem("vg.dock") as Dock | null) ?? "bottom-right")
 
   const placed = useMemo(() => layout(glyphs, text), [glyphs, text])
+  // Laid out from the outlines, which lag the specimen by a beat. The handles
+  // follow that copy; the letters are drawn from the fresh one.
+  const probed = useMemo(
+    () => layout(geometry ?? [], text), [geometry, text])
   const width = useMemo(() => lineWidth(placed), [placed])
   const xh = useMemo(() => xHeightOf(placed), [placed])
   // Cap height, read off a capital if the specimen has one.
@@ -97,13 +105,13 @@ export function SpecimenStage({
     }
     return top || xh * 1.35
   }, [placed, xh])
-  const hasGeometry = glyphs.some((g) => g.contours?.length)
+  const hasGeometry = probed.some((p) => p.g.contours?.length)
 
   // Every handle the letterform offers, drawn rather than waited for. Hidden
   // until the hand came near, nothing announced that the type could be
   // touched at all.
   const handles = useMemo(
-    () => (hasGeometry ? allHandles(placed, xh) : []), [placed, xh, hasGeometry])
+    () => (hasGeometry ? allHandles(probed, xh) : []), [probed, xh, hasGeometry])
 
   // The content group is flipped, so inside it coordinates are the font's own:
   // y up from the baseline. The viewBox is in the flipped frame, which is why
@@ -125,11 +133,55 @@ export function SpecimenStage({
   const probe = useCallback((cx: number, cy: number) => {
     const p = toEm(cx, cy)
     if (!p) return null
-    return handleAt(placed, p.x, p.y, xh)
-  }, [placed, toEm, xh])
+    return handleAt(probed, p.x, p.y, xh)
+  }, [probed, toEm, xh])
 
   const beyond = lost
     || (hullRadius != null && radius != null && radius > hullRadius)
+
+  const tools: Tool[] = [
+    {
+      key: "points", on: points !== "off", icon: ICONS.points,
+      label: `Grab points: ${points}`,
+      title: "all of them, only the one under the hand, or none",
+      onClick: () => {
+        const next = points === "on" ? "minimal"
+          : points === "minimal" ? "off" : "on"
+        setPoints(next)
+        localStorage.setItem("vg.points", next)
+      },
+    },
+    {
+      key: "guides", on: guides, icon: ICONS.guides, label: "Guides",
+      title: "baseline, x-height and cap height behind the letters",
+      onClick: () => {
+        const next = !guides
+        setGuides(next)
+        localStorage.setItem("vg.guides", next ? "1" : "0")
+      },
+    },
+    {
+      key: "keep", on: false, icon: ICONS.keep, label: "Keep this place",
+      title: "come back to it later without walking the trail",
+      onClick: onSnapshot,
+    },
+    {
+      key: "recall", on: false, icon: ICONS.recall,
+      label: hasSnapshot ? "Back to the place you kept"
+                         : "Back to the centroid",
+      title: hasSnapshot ? "the last place you kept"
+                         : "nothing kept yet, so the average of every font",
+      onClick: onRecall,
+    },
+    ...(beyond ? [{
+      key: "rescue", on: true, icon: ICONS.rescue,
+      label: "Back to the last sane position",
+      title: "the last stop still inside the corpus",
+      onClick: onReset,
+    }] : []),
+  ]
+  const last = useRef<{ x: number; y: number } | null>(null)
+  const held = useRef<Handle | "plane" | null>(null)
 
   const move = useCallback((e: React.PointerEvent) => {
     const grabbed = held.current
@@ -382,6 +434,9 @@ export function SpecimenStage({
         </div>
       )}
 
+      <StageToolbar tools={tools} dock={dock}
+                    setDock={(d) => { setDock(d); localStorage.setItem("vg.dock", d) }} />
+
       <div className="absolute bottom-1 left-2 flex items-center gap-1">
         {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
           <button
@@ -426,86 +481,6 @@ export function SpecimenStage({
               ))}
           </span>
         )}
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            const next = points === "on" ? "minimal"
-              : points === "minimal" ? "off" : "on"
-            setPoints(next)
-            localStorage.setItem("vg.points", next)
-          }}
-          title={"Grab points on the letterform: all of them, only the one "
-                 + "under the hand, or none. The type can still be grabbed "
-                 + "with them off."}
-          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                      ml-1 transition-colors ${points === "off"
-                        ? "border-border text-muted-foreground"
-                        : "border-here text-here bg-here/10"}`}
-        >
-          points: {points}
-        </button>
-
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            const next = !guides
-            setGuides(next)
-            localStorage.setItem("vg.guides", next ? "1" : "0")
-          }}
-          title="Baseline, x-height and cap height behind the letters"
-          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                      ml-1 transition-colors ${guides
-                        ? "border-here text-here bg-here/10"
-                        : "border-border text-muted-foreground"}`}
-        >
-          guides
-        </button>
-
-        {/* Keep this place, and go back to the place kept. Shaping runs ahead
-            of the trail: a designer tries twenty things and wants the good one
-            back, not the twentieth. Grouped as one small panel, which is where
-            it will be picked up from when these can be moved. */}
-        <span className="flex items-center gap-1 ml-2 pl-2 border-l
-                         border-border">
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-          onClick={onSnapshot}
-          title="Keep this place"
-          className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-muted-foreground
-                     hover:border-here hover:text-here active:translate-y-px
-                     transition-colors"
-        >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
-               stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-            <path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z" />
-            <path d="M5 2.5h5.5V6H5z" />
-            <path d="M4.5 9.5h7v4h-7z" />
-          </svg>
-        </button>
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-          onClick={onRecall}
-          title={hasSnapshot ? "Back to the place you kept"
-                             : "Nothing kept yet: back to the centroid"}
-          className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-muted-foreground
-                     hover:border-here hover:text-here active:translate-y-px
-                     transition-colors"
-        >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
-               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
-               strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 8a5 5 0 1 1 1.6 3.7" />
-            <path d="M2.4 4.6v3.2h3.2" />
-          </svg>
-        </button>
-        </span>
-        {depth === "handles" && !hasGeometry && (
-          <span className="font-mono text-[9px] text-gold ml-1">
-            waiting for outlines
-          </span>
-        )}
 
         {/* Departure, on the same line as the controls that cause it. A direct
             gesture is exactly when a designer stops watching the meters across
@@ -526,18 +501,6 @@ export function SpecimenStage({
           </span>
         )}
 
-        {beyond && (
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onReset}
-            className="font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                       border-gold text-gold hover:bg-gold/10 ml-1
-                       transition-colors whitespace-nowrap"
-            title="Walk back up the trail to the last stop still inside the corpus"
-          >
-            back
-          </button>
-        )}
       </div>
     </div>
   )

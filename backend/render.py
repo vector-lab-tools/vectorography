@@ -58,8 +58,11 @@ def decode_to_glyphs(vec: np.ndarray, geometry: bool = False) -> list[dict]:
             "advance": float(dec["advances"][i]),
         }
         if geometry:
+            # Three decimals of an em is a third of a unit at 1000upem, well
+            # under what any hit test cares about, and it takes a fifth off the
+            # payload that the specimen would otherwise wait behind.
             entry["contours"] = [
-                [[round(float(x), 4), round(float(y), 4)] for x, y in c]
+                [[round(float(x), 3), round(float(y), 3)] for x, y in c]
                 for c in dec["contours"][i] if _area(c) > MIN_AREA
             ]
         out.append(entry)

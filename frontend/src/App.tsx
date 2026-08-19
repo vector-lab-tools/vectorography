@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, type AtlasData, type CompassPoint, type CorpusInfo,
+import { api, type AtlasData, type CompassPoint, type CorpusInfo, type Glyph,
          type Location, type NamedDirection } from "./api"
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
@@ -154,6 +154,20 @@ export default function App() {
   const here = trail.find((c) => c.id === cursor) ?? null
   const z = here?.z ?? null
   const seq = useRef(0)
+  // Outlines follow the specimen rather than holding it up. Nothing waits on
+  // this: until it lands the type is drawn and read, and only the grab points
+  // are missing.
+  useEffect(() => {
+    if (!z) return
+    let dead = false
+    const t = setTimeout(() => {
+      api.location(z, text, false, true, 1)
+        .then((loc) => { if (!dead) setGeometry(loc.glyphs) })
+        .catch(() => {})
+    }, 90)
+    return () => { dead = true; clearTimeout(t) }
+  }, [z, text])
+
   const ancestry = useMemo(() => {
     const byId = new Map(trail.map((c) => [c.id, c]))
     const out: Crumb[] = []
@@ -212,7 +226,7 @@ export default function App() {
     const n = ++seq.current
     setBusy(true)
     Promise.all([
-      api.location(z, text, false, true, 24),
+      api.location(z, text, false, false, 24),
       api.compass(z, compassText, radius, axX, axY, ride?.vec ?? null),
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
@@ -311,6 +325,10 @@ export default function App() {
   /** Where a position sits in the atlas's own coordinates, so the mark can be
    *  moved before the server has been asked anything. */
   const [liveRadius, setLiveRadius] = useState<number | null>(null)
+  // Outlines for hit-testing, fetched apart from the specimen. Asked for in the
+  // same breath, the letters waited on a payload twenty times their size and
+  // the panel sat empty saying so.
+  const [geometry, setGeometry] = useState<Glyph[] | null>(null)
 
   const atlasPoint = useCallback((p: number[]) => {
     const b = basis.current
@@ -638,6 +656,7 @@ export default function App() {
           <div className="panel shrink-0 h-[168px] px-3 py-2 text-ink">
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
+              geometry={geometry}
               text={text}
               altitude={location?.altitude ?? null}
               hullRadius={atlas?.ball?.max ?? null}
