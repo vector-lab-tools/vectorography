@@ -3,6 +3,7 @@ import { api, type AtlasData, type CompassPoint, type CorpusInfo,
          type Location, type NamedDirection } from "./api"
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
+import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
@@ -22,6 +23,53 @@ const DEFAULT_TEXT = "Hamburgefonstiv"
  * spacing test. The pangram is for reading running text, which is a different
  * judgement from reading a shape.
  */
+/**
+ * The scales of work this instrument will grow into. A mode is what you are
+ * working on, which is why these are not in the View menu: view is how you
+ * look at what you already have.
+ */
+const PLANNED: Record<"glyph" | "set" | "compare", Planned> = {
+  glyph: {
+    title: "Edit a glyph",
+    blurb: "Work on one letter rather than the whole typeface. Travelling "
+      + "moves every glyph together, because a location in the space is a "
+      + "whole alphabet; a designer who wants this g and not that one needs to "
+      + "leave the space for a moment and come back with the change.",
+    needs: [
+      "A per-glyph position, so one letter can sit away from the location the "
+        + "rest share, and a rule for what that means when the journey is "
+        + "compiled.",
+      "Outline editing that survives the round trip: points moved by hand have "
+        + "to keep the point count the masters interpolate on.",
+      "A way to show that a glyph has been taken off the location, since the "
+        + "specimen would otherwise be quietly lying about where it is.",
+    ],
+  },
+  set: {
+    title: "The whole character set",
+    blurb: "Every glyph the model carries, laid out at once, so a location can "
+      + "be judged as an alphabet rather than as a word. The decode already "
+      + "produces all sixty-two.",
+    needs: [
+      "A grid that stays readable at sixty-two glyphs and redraws fast enough "
+        + "to keep up with a drag.",
+      "Somewhere to say which glyphs the space handles badly, since the pads "
+        + "for missing counters show up here first.",
+    ],
+  },
+  compare: {
+    title: "Compare two locations",
+    blurb: "Two positions side by side, or overlaid, with the difference "
+      + "between them named in measured properties. The instrument can say "
+      + "where you are; it cannot yet say how here differs from there.",
+    needs: [
+      "A second held position, which the keep control already provides.",
+      "A difference read out in the eight measured properties, which is the "
+        + "same arithmetic the ride heading uses.",
+    ],
+  },
+}
+
 const dot = (a: number[], c: number[]) =>
   a.reduce((t, ai, i) => t + ai * c[i], 0)
 
@@ -55,6 +103,11 @@ export default function App() {
   const [family, setFamily] = useState("Journey")
   const [testing, setTesting] = useState(false)
   const [about, setAbout] = useState(false)
+  // What is being worked on, as opposed to how it is being looked at. Travel
+  // is the whole typeface at once; the rest are the scales of work this will
+  // grow into, and they are listed now so the shape of the tool is visible
+  // before the parts exist.
+  const [planned, setPlanned] = useState<Planned | null>(null)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
   const [atlasHeight, setAtlasHeight] =
@@ -498,6 +551,22 @@ export default function App() {
       ],
     },
     {
+      label: "Mode",
+      items: [
+        { kind: "item", label: "Travel the space", hint: "\u2713",
+          onSelect: () => {},
+          title: "The whole typeface at once: a location in the space, read as "
+                 + "a specimen. This is the mode that works." },
+        { kind: "sep" },
+        { kind: "item", label: "Edit a glyph\u2026",
+          onSelect: () => setPlanned(PLANNED.glyph) },
+        { kind: "item", label: "The whole character set\u2026",
+          onSelect: () => setPlanned(PLANNED.set) },
+        { kind: "item", label: "Compare two locations\u2026",
+          onSelect: () => setPlanned(PLANNED.compare) },
+      ],
+    },
+    {
       label: "View",
       items: [
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
@@ -740,6 +809,10 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {planned && (
+        <ComingSoon item={planned} onClose={() => setPlanned(null)} />
+      )}
 
       {about && (
         <About

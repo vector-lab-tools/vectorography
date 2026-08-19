@@ -311,3 +311,33 @@ snapshot is a bookmark into it rather than a second history.
   furthest real family. Before this, a slip could send the specimen to four
   million units from the centroid, where the decode is meaningless. There is
   also a reset to the last stop that was still inside the corpus.
+
+
+## 8. Modes, and why they are not View
+
+The menu bar now carries **Mode** as well as View, and the difference is worth
+holding on to as the tool grows.
+
+**View** is how you look at what you already have: the theme, the guides behind
+the specimen, what the atlas puts on its vertical axis, whether the shell is
+drawn. Turning any of it on or off changes nothing about the artefact.
+
+**Mode** is what you are working on. Travel, the mode that exists, works on a
+whole typeface at once: a location in the space *is* an alphabet, and every
+glyph moves together because that is what a position means. The modes that
+follow each break that in a specific way, which is why each needs its own
+answer rather than a checkbox:
+
+- **Edit a glyph** takes one letter off the shared location. That is a
+  departure from traversal, not an extension of it, and it needs a rule for
+  what the journey compiles to once a glyph is no longer where the rest are.
+- **The whole character set** is the same location shown as sixty-two glyphs
+  rather than a word. The decode already produces them; the work is a grid that
+  stays readable and redraws fast enough to follow a drag.
+- **Compare two locations** needs a second held position, which the keep
+  control already provides, and a difference read out in the measured
+  properties, which is the arithmetic the ride heading already does.
+
+All three are stubbed in the Mode menu and open a note saying what they are for
+and what they need first. A stub that says "coming soon" and nothing else tells
+the reader less than an empty menu would.
