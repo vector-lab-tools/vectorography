@@ -232,9 +232,16 @@ half-loaded, since a trail is only meaningful in the space it was walked in.
 
 ## Export
 
-Everything is under **File** in the menu bar.
+**File → Export** (⇧⌘E) opens one panel, grouped by what you do with the
+file rather than by what the file is: fonts to install, source to carry on
+working on, outlines to draw with. That is the distinction people get wrong,
+since an OTF and a UFO look like alternatives and are not.
 
-**Export Typeface (OTF / TTF).** The current location as one installable static
+The typeface's name is set in the title bar and travels with everything: the
+name table of every font, the filenames, the UFO's `fontinfo`, and the share
+card. Export says so while it is still `Unnamed`.
+
+**OTF / TTF.** The current location as one installable static
 font. The OTF carries cubic Bezier outlines converted from the same Catmull-Rom
 construction the navigator draws with, so what you looked at is what you install:
 no requantisation, no second approximation. Metrics, x-height, cap-height and
@@ -345,6 +352,18 @@ evaluation. It pins `torch==1.4.0`, `numpy==1.16.1`, Python 3.7 and the withdraw
 `sklearn` shim package, none of which install on a current interpreter, and its
 font model depends on a paid dataset. The space here was built instead.
 
+## Settings
+
+**Edit → Settings** (⌘,) keeps what should outlast a session: the theme,
+with a System option that follows the machine; the text the specimen opens
+with; whether the corpus shell is drawn; and the licence and copyright holder
+that exports carry. Everything on the stage toolbar is a thing you flip while
+working and is not kept.
+
+It is all in this browser's local storage. There is no account, no server-side
+profile and no telemetry; **Clear settings** puts it back to the defaults
+without touching the journey.
+
 ## Provenance and licensing
 
 The corpus is drawn **only** from the `ofl/` tree of
@@ -354,6 +373,13 @@ design decision rather than a convenience: an instrument that shows you whose
 neighbourhood you are standing in should be able to say where its ground came
 from. `backend/data/corpus-manifest.json` records every family the space was
 fitted from, and travels inside every journey export.
+
+What comes *out* is yours to license. The outlines are produced by a linear
+transformation of a fitted space rather than by copying any face, so the terms
+are the author's to set: **Export → Change** offers OFL 1.1, MIT, CC BY 4.0,
+CC0, all rights reserved, or none. The choice is written into name IDs 13 and
+14, into the copyright field with whatever name you give, and into a
+`LICENSE.txt` beside the fonts.
 
 ## Deploying
 
@@ -389,11 +415,13 @@ backend/
   space/style_space.py  the vector space, density, and travel primitives
   data/vectormodel-*.npz  the fitted space, see MODEL.md
   export/fontfile.py    master and variable font compilation
+  export/ufo.py         UFO 3 and designspace source
   render.py             contours to SVG
   main.py               FastAPI: location, compass, travel, export
 frontend/src/
   App.tsx               the navigator
-  components/           compass rose, altitude meter, neighbours, trail, travel bar
+  components/           compass rose, altitude meter, atlas, specimen stage,
+                        export panel, settings, help, project files
 DESIGN.md               design of record, including the pre-build review
 ```
 
