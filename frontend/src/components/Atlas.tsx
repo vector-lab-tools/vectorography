@@ -154,7 +154,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
-  liveGlyphs, liveSelf, onWantAxisHeight }: {
+  liveGlyphs, liveSelf, ballOn, setBallOn }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -172,9 +172,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   /** Where the specimen actually is while dragging. The constraint decides
    *  this, not the pointer, so it is reported back rather than assumed. */
   liveSelf: { x: number; y: number; h: number } | null
-  /** The ball is only a true picture when all three view directions are real
-   *  axes, so asking for it asks for the height axis to become one. */
-  onWantAxisHeight: () => void
+  /** The sphere. Held by the parent, which also puts the height on a real
+   *  axis: the two have to move together or the ball is on and invisible. */
+  ballOn: boolean
+  setBallOn: (v: boolean) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -218,13 +219,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const mode = useRef<"off" | "names" | "letters">("off")
   const [modeOn, setModeOn] = useState<"off" | "names" | "letters">("off")
   const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
-  // Remembered, because it is a way of looking at the space rather than a
-  // momentary action, and having to switch it back on after every reload made
-  // it feel like something that had gone wrong.
-  // On by default: the shape of the space is the thing being read, and the
-  // shells are what make the map a place rather than a scatter.
-  const ball = useRef(localStorage.getItem("vg.ball") !== "0")
-  const [ballOn, setBallOn] = useState(ball.current)
+
 
   // How much screen a unit of height is worth. On a latent axis it is set so
   // that a unit up is the same size as a unit across: only then is the view
@@ -391,7 +386,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // inside it: rings of latitude and longitude, with the far half of every
     // ring fainter than the near half, which is what makes it read as a solid
     // shape rather than as a stack of ellipses.
-    if (ball.current && axisHeight && data.ball) {
+    if (ballOn && axisHeight && data.ball) {
       const hOf = (raw: number) => (raw - data.range.h_min) / span
       const centre = P(0, 0, hOf(0))
 
@@ -559,7 +554,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     }
 
     if (animating) schedule()
-  }, [data, norm, project, waypoint, schedule, sample, liveSelf])
+  }, [data, norm, project, waypoint, schedule, sample, liveSelf, ballOn])
 
   // One draw per frame at most, and never faster than MAX_FPS. Pointer events
   // arrive far more often than the screen can show them, so they only mark the
@@ -685,11 +680,9 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              const next = !ball.current
-              ball.current = next
+              const next = !ballOn
               setBallOn(next)
               localStorage.setItem("vg.ball", next ? "1" : "0")
-              if (next) onWantAxisHeight()
               schedule()
             }}
             title={"The corpus as it sits in the three directions on screen: "

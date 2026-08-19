@@ -61,11 +61,11 @@ export default function App() {
     useState<"density" | "centroid" | "axis">("density")
   const [colourBy, setColourBy] = useState("serif")
   const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
-  // What dragging is allowed to change. The drag is projected onto the span of
-  // these, so the chips aim it: with "shape" lit, pulling the specimen across
-  // the atlas changes how round or straight the letters are and nothing else.
-  // With none lit it moves freely, through every direction at once.
-  const [active, setActive] = useState<Set<string>>(new Set(["straightness"]))
+  // The sphere is a way of looking at the space, and it needs the height to be
+  // a real axis. Both are held here rather than negotiated between components,
+  // which left the ball switched on and invisible.
+  const [ballOn, setBallOn] = useState(
+    () => localStorage.getItem("vg.ball") !== "0")
   // The vectors spanning the view. With these the client can work out where a
   // dragged specimen has landed without asking the server, which is the
   // difference between moving something and waiting for it to move.
@@ -79,10 +79,6 @@ export default function App() {
   const [depth, setDepth] = useState<Depth>("handles")
   const [props3, setProps3] = useState<[HandleKind, HandleKind, HandleKind]>(
     ["weight", "x-height", "width"])
-  // A gesture on the type lights the properties it is about, and puts the
-  // previous selection back when the hand lets go, so the chips and the
-  // letterform agree rather than fight.
-  const chipsBefore = useRef<Set<string> | null>(null)
   // Every position passed through, not just where the hand stopped: a drag
   // from thin to fat is a weight axis drawn by hand, and the export should be
   // able to use it.
@@ -159,7 +155,8 @@ export default function App() {
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
       api.atlas({ z, text: atlasChar, ax: axX, ay: axY, az: axZ,
-                  ride: ride?.vec ?? null, height: atlasHeight,
+                  ride: ride?.vec ?? null,
+                  height: ballOn ? "axis" : atlasHeight,
                   sprites: 0, colour_by: colourBy, trail: trailRef.current }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
@@ -169,7 +166,7 @@ export default function App() {
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
-      atlasHeight, colourBy])
+      atlasHeight, colourBy, ballOn])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -254,19 +251,9 @@ export default function App() {
    * asked for at whatever rate the server can answer, and the last answer is
    * what gets shown. Nothing is recorded until the drag ends.
    */
-  const toggleActive = useCallback((key: string) => {
-    setActive((prev) => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }, [])
-
-  const dragStart = useCallback((aiming: HandleKind[]) => {
-    chipsBefore.current = new Set(active)
-    if (aiming.length) setActive(new Set(aiming))
+  const dragStart = useCallback((_aiming: HandleKind[]) => {
     strokePath.current = z ? [z] : []
-  }, [active, z])
+  }, [z])
 
   /** One step of a gesture on the letterform. */
   const dragMove = useCallback((r: DragReport) => {
@@ -322,16 +309,10 @@ export default function App() {
     dragZ.current = null
     strokePath.current = []
     setLiveSelf(null)
-    if (chipsBefore.current) {
-      setActive(chipsBefore.current)
-      chipsBefore.current = null
-    }
     // The whole gesture goes on the trail as one stop, with the path it took
     // kept alongside so it can be compiled as an axis of its own.
     if (nz) push(nz, "shape", "shaped by hand", path)
   }, [push])
-
-  const wantAxisHeight = useCallback(() => setAtlasHeight("axis"), [])
 
   const goToward = useCallback((w: Waypoint, amount: number | null) =>
     travel({ mode: "toward", target_x: w.x, target_y: w.y, amount },
@@ -339,6 +320,15 @@ export default function App() {
              ? `to ${w.x.toFixed(1)}, ${w.y.toFixed(1)}`
              : `toward ${w.x.toFixed(1)}, ${w.y.toFixed(1)}`),
     [travel])
+
+  /** A long push along one property, rather than a step. */
+  const steerHard = useCallback((key: string, sign: number) => {
+    const d = directions.find((x) => x.key === key)
+    const way = sign > 0 ? d?.plus : d?.minus
+    return travel({ mode: "steer", direction: key, sign,
+                    amount: (d?.spread ?? 3) * 0.75 },
+                  "steer", `hard ${way ?? key}`)
+  }, [travel, directions])
 
   const goToFamily = useCallback(async (name: string) => {
     try {
@@ -572,7 +562,7 @@ export default function App() {
                      onToward={goToward} radius={radius} sample={atlasChar}
                      liveGlyphs={location?.glyphs ?? null}
                      liveSelf={liveSelf}
-                     onWantAxisHeight={wantAxisHeight} />
+                     ballOn={ballOn} setBallOn={setBallOn} />
             </div>
 
             <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
@@ -590,8 +580,7 @@ export default function App() {
               {directions.length > 0 && (
                 <div className="shrink-0 border-t border-border pt-2">
                   <DirectionPad directions={directions} onSteer={steer}
-                                busy={busy} active={active}
-                                toggle={toggleActive} />
+                                onHard={steerHard} busy={busy} />
                 </div>
               )}
             </div>
