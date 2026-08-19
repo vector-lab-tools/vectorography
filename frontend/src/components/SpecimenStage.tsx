@@ -75,6 +75,12 @@ export function SpecimenStage({
   // word, so they come and go on their own switch, and the choice is kept.
   const [guides, setGuides] = useState(
     () => localStorage.getItem("vg.guides") !== "0")
+  // How much of the control surface the type carries. All of it while
+  // learning what the letters offer, one point at a time once that is known,
+  // none of it when the specimen is being judged as a specimen.
+  const [points, setPoints] = useState<"on" | "minimal" | "off">(
+    () => (localStorage.getItem("vg.points") as
+      "on" | "minimal" | "off" | null) ?? "on")
   const last = useRef<{ x: number; y: number } | null>(null)
   const held = useRef<Handle | "plane" | null>(null)
 
@@ -268,21 +274,26 @@ export function SpecimenStage({
             </g>
           </g>
 
-          {/* Every grab point, always. Blue until it is taken hold of, then
-              red: the colour says which one the hand has. */}
+          {/* Every grab point, always, each in its property's colour. Once one
+              is under the hand the rest fade back: the question has become
+              "this stem", and the other seventy points are no longer part of
+              it. */}
           <g pointerEvents="none">
-            {handles.map((h, i) => {
+            {(points === "off" ? [] : handles).map((h, i) => {
               const held = dragging !== "plane" && dragging?.kind === h.kind
                 && dragging.glyph === h.glyph
               const near = !dragging && hover?.kind === h.kind
                 && hover.glyph === h.glyph
+              const singled = !!dragging || !!hover
+              if (points === "minimal" && !held && !near) return null
+              const alpha = held || near ? 0.95 : singled ? 0.09 : 0.4
               return (
                 <circle
                   key={`${h.glyph}:${h.kind}:${i}`}
                   cx={h.at[0]} cy={h.at[1]}
-                  r={held ? 0.052 : near ? 0.044 : 0.032}
+                  r={held ? 0.052 : near ? 0.044 : 0.03}
                   fill={held ? "hsl(var(--burgundy))"
-                             : handleColour(h.kind, near ? 0.95 : 0.4)}
+                             : handleColour(h.kind, alpha)}
                 />
               )
             })}
@@ -371,45 +382,6 @@ export function SpecimenStage({
         </div>
       )}
 
-      {/* Keep this place, and go back to the place kept. Shaping runs ahead of
-          the trail: a designer tries twenty things and wants the good one
-          back, not the twentieth. */}
-      <div className="absolute bottom-1 right-2 flex items-center gap-1">
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onSnapshot}
-          title="Keep this place"
-          className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-muted-foreground
-                     hover:border-here hover:text-here active:translate-y-px
-                     transition-colors"
-        >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
-               stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-            <path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z" />
-            <path d="M5 2.5h5.5V6H5z" />
-            <path d="M4.5 9.5h7v4h-7z" />
-          </svg>
-        </button>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onRecall}
-          title={hasSnapshot ? "Back to the place you kept"
-                             : "Nothing kept yet: back to the centroid"}
-          className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-muted-foreground
-                     hover:border-here hover:text-here active:translate-y-px
-                     transition-colors"
-        >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
-               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
-               strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 8a5 5 0 1 1 1.6 3.7" />
-            <path d="M2.4 4.6v3.2h3.2" />
-          </svg>
-        </button>
-      </div>
-
       <div className="absolute bottom-1 left-2 flex items-center gap-1">
         {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
           <button
@@ -457,6 +429,25 @@ export function SpecimenStage({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => {
+            const next = points === "on" ? "minimal"
+              : points === "minimal" ? "off" : "on"
+            setPoints(next)
+            localStorage.setItem("vg.points", next)
+          }}
+          title={"Grab points on the letterform: all of them, only the one "
+                 + "under the hand, or none. The type can still be grabbed "
+                 + "with them off."}
+          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                      ml-1 transition-colors ${points === "off"
+                        ? "border-border text-muted-foreground"
+                        : "border-here text-here bg-here/10"}`}
+        >
+          points: {points}
+        </button>
+
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => {
             const next = !guides
             setGuides(next)
             localStorage.setItem("vg.guides", next ? "1" : "0")
@@ -470,6 +461,46 @@ export function SpecimenStage({
           guides
         </button>
 
+        {/* Keep this place, and go back to the place kept. Shaping runs ahead
+            of the trail: a designer tries twenty things and wants the good one
+            back, not the twentieth. Grouped as one small panel, which is where
+            it will be picked up from when these can be moved. */}
+        <span className="flex items-center gap-1 ml-2 pl-2 border-l
+                         border-border">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+          onClick={onSnapshot}
+          title="Keep this place"
+          className="w-6 h-6 flex items-center justify-center rounded-sm border
+                     border-border bg-card text-muted-foreground
+                     hover:border-here hover:text-here active:translate-y-px
+                     transition-colors"
+        >
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
+               stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+            <path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z" />
+            <path d="M5 2.5h5.5V6H5z" />
+            <path d="M4.5 9.5h7v4h-7z" />
+          </svg>
+        </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+          onClick={onRecall}
+          title={hasSnapshot ? "Back to the place you kept"
+                             : "Nothing kept yet: back to the centroid"}
+          className="w-6 h-6 flex items-center justify-center rounded-sm border
+                     border-border bg-card text-muted-foreground
+                     hover:border-here hover:text-here active:translate-y-px
+                     transition-colors"
+        >
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
+               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
+               strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 8a5 5 0 1 1 1.6 3.7" />
+            <path d="M2.4 4.6v3.2h3.2" />
+          </svg>
+        </button>
+        </span>
         {depth === "handles" && !hasGeometry && (
           <span className="font-mono text-[9px] text-gold ml-1">
             waiting for outlines

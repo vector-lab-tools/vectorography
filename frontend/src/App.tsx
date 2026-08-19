@@ -556,8 +556,7 @@ export default function App() {
         <div className="flex-1" />
         <span className="self-center font-mono text-[10px] text-muted-foreground
                          hidden lg:inline whitespace-nowrap">
-          {corpus.model?.name} {corpus.model?.version} · {corpus.count} OFL
-          families · {corpus.dims}d
+          {corpus.model?.name} {corpus.model?.version} · {corpus.dims}d
         </span>
       </header>
 
