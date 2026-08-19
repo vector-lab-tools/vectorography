@@ -420,8 +420,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       // the readout beside the map already gives it.
       const hull = data.ball.max
 
+      // Dashed: the shell is a reading of where the corpus ends, not a wall.
+      // A solid line around a space that has no edge draws one.
       ctx.strokeStyle = muted
       ctx.lineWidth = 1
+      ctx.setLineDash([3, 5])
 
       for (let k = 0; k < 4; k++) {
         const a = (k / 4) * Math.PI
@@ -437,11 +440,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       }
 
       // The edge of the known space.
-      ctx.globalAlpha = 0.22
+      ctx.globalAlpha = 0.28
       ctx.strokeStyle = muted
+      ctx.setLineDash([4, 6])
       ctx.beginPath()
       ctx.arc(centre.sx, centre.sy, hull * c.zoom, 0, Math.PI * 2)
       ctx.stroke()
+      ctx.setLineDash([])
       ctx.globalAlpha = 1
 
       // From the average of every font to where you are standing.
