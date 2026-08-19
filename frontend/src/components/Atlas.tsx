@@ -289,6 +289,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // job: a name tinted by the property it scores on is harder to read and
     // says nothing the dot beside it has not already said.
     const inkRgb = tokenRgb(css.getPropertyValue("--ink"))
+    const ink = `rgb(${inkRgb[0]} ${inkRgb[1]} ${inkRgb[2]})`
     const axisHeight = data.axes.height === "axis"
     const span = Math.max(data.range.h_max - data.range.h_min, 1e-6)
     hs.current = axisHeight ? span : HEIGHT_SCALE
@@ -502,20 +503,23 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ctx.globalAlpha = 1
     }
 
-    // Trail, on the ground plane so the route reads as a route.
+    // The route taken, in the accent. The position is ink and the corpus is
+    // coloured by property, so the journey needs a colour of its own or it
+    // reads as one more reading of the data rather than as the record of a
+    // traversal.
     if (data.trail.length > 1) {
-      ctx.strokeStyle = burg; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.5
+      ctx.strokeStyle = burg; ctx.globalAlpha = 0.85; ctx.lineWidth = 2
       ctx.beginPath()
       data.trail.forEach((t, i) => {
         const q = P(t.x, t.y, norm(t.h))
         i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)
       })
       ctx.stroke()
-      ctx.globalAlpha = 0.35
+      ctx.globalAlpha = 0.7
       ctx.fillStyle = burg
       for (const t of data.trail) {
         const q = P(t.x, t.y, norm(t.h))
-        ctx.beginPath(); ctx.arc(q.sx, q.sy, 2, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(q.sx, q.sy, 2.4, 0, Math.PI * 2); ctx.fill()
       }
       ctx.globalAlpha = 1
     }
@@ -556,12 +560,12 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // joins the two.
     const me = P(cx, cy0, ch)
 
-    ctx.strokeStyle = here
-    ctx.fillStyle = here
+    ctx.strokeStyle = ink
+    ctx.fillStyle = ink
     ctx.globalAlpha = 1
     ctx.lineWidth = 1.5
-    // A crosshair, not another dot: among four hundred dots one more in a
-    // different colour is a dot, and this is meant to be a position.
+    // A crosshair in ink, not another dot: among four hundred dots one more
+    // in a different colour is a dot, and this is meant to be a position.
     ctx.beginPath(); ctx.arc(me.sx, me.sy, 2.4, 0, Math.PI * 2); ctx.fill()
     ctx.globalAlpha = 0.75
     ctx.beginPath(); ctx.arc(me.sx, me.sy, 7, 0, Math.PI * 2); ctx.stroke()
@@ -583,7 +587,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const bx0 = Math.max(4, Math.min(w - bw - 4, me.sx + 34))
     const by0 = Math.max(4, Math.min(h - bh - 4, me.sy - bh - 30))
 
-    ctx.strokeStyle = here
+    ctx.strokeStyle = ink
     ctx.globalAlpha = 0.55
     ctx.setLineDash([2, 2])
     ctx.beginPath()
@@ -600,7 +604,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     ctx.roundRect(bx0, by0, bw, bh, 3)
     ctx.fill()
     ctx.globalAlpha = 1
-    ctx.strokeStyle = here
+    ctx.strokeStyle = ink
     ctx.lineWidth = 1
     ctx.stroke()
 
@@ -608,7 +612,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     ctx.beginPath(); ctx.rect(bx0, by0, bw, bh); ctx.clip()
     ctx.translate(bx0 + pad, by0 + bh - pad - SELF_PX * 0.2)
     ctx.scale(SELF_PX, -SELF_PX)
-    ctx.fillStyle = here
+    ctx.fillStyle = ink
     const wanted = [...sample].filter((ch2) => /[A-Za-z0-9]/.test(ch2))
     const live = liveRef.current
     const selfGlyphs = (ds && live)
