@@ -36,6 +36,7 @@ export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
   hasSnapshot, setText, proofs, neighbours, onGoToFamily, geometry, busy,
+  project,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -60,6 +61,7 @@ export function SpecimenStage({
   hasSnapshot: boolean
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
+  project: { name: string | null; state: "new" | "loaded" | "edited" | "saved" }
   /** The word being set, and the proofs worth setting it in. */
   setText: (t: string) => void
   proofs: string[]
@@ -401,6 +403,27 @@ export function SpecimenStage({
           )}
         </g>
       </svg>
+
+      {/* Which journey this is, and whether it is the one on disk. */}
+      <div className="absolute top-[-14px] left-2 flex items-baseline gap-1.5
+                      pointer-events-none select-none">
+        <span className="font-mono text-[9px] text-muted-foreground/80"
+              title={project.name
+                ? `Saved as ${project.name}`
+                : "This journey has never been saved"}>
+          {project.name ?? "untitled"}
+        </span>
+        <span className={`font-mono text-[8px] uppercase tracking-wider
+                          ${project.state === "edited"
+                            ? "text-burgundy/70" : "text-muted-foreground/55"}`}
+              title={project.state === "edited"
+                ? "Changed since it was last saved"
+                : project.state === "saved" ? "Written to disk"
+                : project.state === "loaded" ? "Opened from disk, unchanged"
+                : "Not saved anywhere yet"}>
+          {project.state === "new" ? "unsaved" : project.state}
+        </span>
+      </div>
 
       {/* What the type is being set in, at the head of the panel it is set
           in. It had been up in the menu bar, a long way from the letters it

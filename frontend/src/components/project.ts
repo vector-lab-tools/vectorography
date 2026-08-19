@@ -97,7 +97,7 @@ export function download(name: string, text: string) {
 }
 
 /** Ask for a file and read it. Resolves to null if the picker was dismissed. */
-export function pickFile(): Promise<string | null> {
+export function pickFile(): Promise<{ name: string; text: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input")
     input.type = "file"
@@ -106,7 +106,7 @@ export function pickFile(): Promise<string | null> {
       const f = input.files?.[0]
       if (!f) return resolve(null)
       const r = new FileReader()
-      r.onload = () => resolve(String(r.result))
+      r.onload = () => resolve({ name: f.name, text: String(r.result) })
       r.onerror = () => resolve(null)
       r.readAsText(f)
     }

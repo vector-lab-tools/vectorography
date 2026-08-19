@@ -130,6 +130,9 @@ export default function App() {
   /** The name the journey was last saved under, for Save to reuse. */
   const [file, setFile] = useState<string | null>(null)
   const [licensing, setLicensing] = useState(false)
+  /** Loaded, edited or saved. What the title bar of any editor tells you. */
+  const [fileState, setFileState] =
+    useState<"new" | "loaded" | "edited" | "saved">("new")
   const [licence, setLicence] = useState<Licence>(() => ({
     id: localStorage.getItem(LICENCE_KEY) ?? "none",
     author: localStorage.getItem(AUTHOR_KEY) ?? "",
@@ -303,6 +306,29 @@ export default function App() {
     setRedoStack([])
   }, [cursor])
 
+  /** Cheap signature of everything a project file holds. Comparing it against
+   *  the last save is how the panel knows the work has moved on. */
+  const signature = useMemo(() => JSON.stringify([
+    trail.map((c) => c.id), cursor, text, family, snapshot != null,
+    axX, axY, axZ, colourBy, atlasHeight, ballOn, depth,
+    radius, temperature, step,
+  ]), [trail, cursor, text, family, snapshot, axX, axY, axZ, colourBy,
+       atlasHeight, ballOn, depth, radius, temperature, step])
+  const savedSig = useRef<string | null>(null)
+  /** Set when a file has just been opened: the signature to compare against is
+   *  whatever the next render settles on, not the one standing now. */
+  const armSaved = useRef(false)
+
+  useEffect(() => {
+    if (armSaved.current) {
+      armSaved.current = false
+      savedSig.current = signature
+      return
+    }
+    if (savedSig.current === null) return
+    setFileState(signature === savedSig.current ? "saved" : "edited")
+  }, [signature])
+
   /** Start again at the centroid, keeping the settings but not the journey. */
   const newProject = useCallback(() => {
     if (!corpus) return
@@ -316,6 +342,8 @@ export default function App() {
     setRedoStack([])
     setSnapshot(null)
     setFile(null)
+    savedSig.current = null
+    setFileState("new")
   }, [corpus, trail.length])
 
   const saveAs = useCallback(() => {
@@ -329,7 +357,9 @@ export default function App() {
       travel: { radius, temperature, step },
     }))
     setFile(full)
-  }, [atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
+    savedSig.current = signature
+    setFileState("saved")
+  }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, snapshot, step, temperature, text, trail])
 
   /** The browser gives a page no way to write back to a file it was handed,
@@ -350,10 +380,10 @@ export default function App() {
     if (trail.length > 1 &&
         !window.confirm("Open a project? The current journey is not saved."))
       return
-    const raw = await pickFile()
-    if (raw == null) return
+    const picked = await pickFile()
+    if (picked == null) return
     try {
-      const doc = parse(raw, corpus.dims)
+      const doc = parse(picked.text, corpus.dims)
       nextId.current = Math.max(...doc.trail.map((c) => c.id)) + 1
       setTrail(doc.trail)
       setCursor(doc.cursor)
@@ -369,7 +399,10 @@ export default function App() {
       setTemperature(doc.travel.temperature)
       setStep(doc.travel.step)
       setRedoStack([])
-      setFile(null)
+      setFile(picked.name)
+      // The signature is taken once the state above has landed, not here.
+      armSaved.current = true
+      setFileState("loaded")
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -817,6 +850,7 @@ export default function App() {
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
+              project={{ name: file, state: fileState }}
               text={text}
               altitude={location?.altitude ?? null}
               hullRadius={atlas?.ball?.max ?? null}
