@@ -233,7 +233,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // Sized in screen pixels, not world units. Tied to the zoom, the traveller's
   // own specimen was a pixel and a half across at the fitted view, which is the
   // one view every user sees first.
-  const SELF_PX = 46
+  const SELF_PX = 24
 
   // The traveller is the subject: the view is centred on them and the map moves
   // underneath, so orbiting turns about where you are standing rather than
@@ -547,15 +547,68 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       }
     }
 
-    // You: drawn last, in the accent, with a drop line to the ground so the
-    // height reading is not ambiguous.
+    // Where you are, and what it looks like, kept apart.
+    //
+    // Drawn large at the position itself, the specimen was its own marker and
+    // covered the thing it was marking: the letters sat over several families
+    // and the exact point was somewhere under them. So the position is a small
+    // mark, the specimen is a labelled box set off to one side, and a leader
+    // joins the two.
     const me = P(cx, cy0, ch)
+
+    ctx.strokeStyle = here
+    ctx.fillStyle = here
+    ctx.globalAlpha = 1
+    ctx.lineWidth = 1.5
+    // A crosshair, not another dot: among four hundred dots one more in a
+    // different colour is a dot, and this is meant to be a position.
+    ctx.beginPath(); ctx.arc(me.sx, me.sy, 2.4, 0, Math.PI * 2); ctx.fill()
+    ctx.globalAlpha = 0.75
+    ctx.beginPath(); ctx.arc(me.sx, me.sy, 7, 0, Math.PI * 2); ctx.stroke()
+    ctx.globalAlpha = 0.9
+    ctx.beginPath()
+    ctx.moveTo(me.sx - 12, me.sy); ctx.lineTo(me.sx - 5, me.sy)
+    ctx.moveTo(me.sx + 5, me.sy); ctx.lineTo(me.sx + 12, me.sy)
+    ctx.moveTo(me.sx, me.sy - 12); ctx.lineTo(me.sx, me.sy - 5)
+    ctx.moveTo(me.sx, me.sy + 5); ctx.lineTo(me.sx, me.sy + 12)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+
+    const advance = data.self.glyphs.reduce((t, g) => t + g.advance, 0) || 1
+    const pad = 5
+    const bw = advance * SELF_PX + pad * 2
+    const bh = SELF_PX * 1.15 + pad * 2
+    // Kept inside the canvas: off the edge the box would be the one thing the
+    // eye needs and cannot see.
+    const bx0 = Math.max(4, Math.min(w - bw - 4, me.sx + 34))
+    const by0 = Math.max(4, Math.min(h - bh - 4, me.sy - bh - 30))
+
+    ctx.strokeStyle = here
+    ctx.globalAlpha = 0.55
+    ctx.setLineDash([2, 2])
+    ctx.beginPath()
+    ctx.moveTo(me.sx, me.sy)
+    ctx.lineTo(bx0 + (me.sx > bx0 + bw ? bw : me.sx < bx0 ? 0 : bw / 2),
+               by0 + (me.sy > by0 + bh ? bh : 0))
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.globalAlpha = 1
+
+    ctx.fillStyle = `hsl(${css.getPropertyValue("--card")})`
+    ctx.globalAlpha = 0.94
+    ctx.beginPath()
+    ctx.roundRect(bx0, by0, bw, bh, 3)
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = here
+    ctx.lineWidth = 1
+    ctx.stroke()
+
     ctx.save()
-    ctx.translate(me.sx, me.sy)
+    ctx.beginPath(); ctx.rect(bx0, by0, bw, bh); ctx.clip()
+    ctx.translate(bx0 + pad, by0 + bh - pad - SELF_PX * 0.2)
     ctx.scale(SELF_PX, -SELF_PX)
     ctx.fillStyle = here
-    // The outlines drawn are the freshest the server has sent, so the shape
-    // changes under the pointer as the specimen is moved.
     const wanted = [...sample].filter((ch2) => /[A-Za-z0-9]/.test(ch2))
     const live = liveRef.current
     const selfGlyphs = (ds && live)
