@@ -178,8 +178,8 @@ drawing the larger number would put every font inside a sphere it does not fill.
 Not quite, and the difference is worth knowing. After whitening the corpus is an
 isotropic cloud, so the space is a ball rather than a cone or a sphere. But in
 128 dimensions almost all of a cloud's mass sits in a thin shell, and the corpus
-does exactly that: the median family is 8.5 units from the centroid and the
-furthest is 21.0, with **not one of the 445 families inside three units**.
+does exactly that: the median family is 8.6 units from the centroid and the
+furthest is 20.9, with **not one of the 441 families inside three units**.
 
 So the centre of the space, the average of every font in the corpus, is a place
 where no font is at all. That is the anti-normalisation argument in one

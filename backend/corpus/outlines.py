@@ -30,6 +30,7 @@ GLYPHS = (
     + "‘’“”–—£€"                                     # what typesetting needs
     + "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ"                # Latin-1, lower
     + "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝ"                 # Latin-1, upper
+    + "ß¡¿«»"                                        # German, Spanish, French
 )
 # Five, not three: per cent needs five, and an accented letter needs room for
 # its mark on top of the base and its counters.

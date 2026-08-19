@@ -31,7 +31,7 @@ Provenance is a design decision: no other source is permitted, and a manifest
 records every family used.
 
 ### Style vector (built, verified)
-Each font is one vector of 63,759 floats: 159 glyphs, up to 5 contours each, 40
+Each font is one vector of 65,764 floats: 164 glyphs, up to 5 contours each, 40
 points per contour resampled at uniform arc length, plus one advance width per
 glyph. The character set is ASCII printable, the typographic marks a page needs,
 and the Latin-1 letters; every font in the corpus must carry all of it or it
