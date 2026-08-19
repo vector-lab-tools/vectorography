@@ -9,10 +9,42 @@ import type { Altitude, CorpusInfo } from "../api"
  * traveller who has been repelling ends up. Distance from the centroid,
  * expressed against the furthest real font, keeps reading out there.
  */
-export function AltitudeMeter({ altitude, corpus }:
+export function AltitudeStrip({ altitude, corpus }:
   { altitude: Altitude | null; corpus: CorpusInfo | null }) {
+  const bins = useBins(corpus)
+  const max = corpus?.centroid_max ?? 1
+  const cd = altitude?.centroid_distance ?? 0
+  const frac = Math.min(cd / max, 1.35)
+  const beyond = cd > max
 
-  const bins = useMemo(() => {
+  // Beside the map, because it is a reading of the position the map shows.
+  return (
+    <div className="pointer-events-none flex flex-col items-center gap-1">
+      <span className="font-mono text-[8px] text-muted-foreground">
+        {max.toFixed(0)}
+      </span>
+      <div className="relative w-3 flex-1 min-h-[70px] bg-muted/50 border
+                      border-border rounded-sm overflow-hidden">
+        <div className="absolute inset-0 flex flex-col-reverse">
+          {bins.map((v, i) => (
+            <div key={i} className="flex-1 flex items-center">
+              <div className="h-full bg-parchment"
+                   style={{ width: `${Math.max(v * 100, 2)}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="absolute left-0 right-0 flex items-center"
+             style={{ bottom: `calc(${Math.min(frac, 1) * 100}% - 1px)` }}>
+          <div className={`h-[2px] w-full ${beyond ? "bg-gold" : "bg-burgundy"}`} />
+        </div>
+      </div>
+      <span className="font-mono text-[8px] text-muted-foreground">0</span>
+    </div>
+  )
+}
+
+function useBins(corpus: CorpusInfo | null) {
+  return useMemo(() => {
     if (!corpus) return []
     const n = 28
     const max = corpus.centroid_max
@@ -24,55 +56,18 @@ export function AltitudeMeter({ altitude, corpus }:
     const peak = Math.max(...out, 1)
     return out.map((v) => v / peak)
   }, [corpus])
+}
+
+export function AltitudeMeter({ altitude, corpus }:
+  { altitude: Altitude | null; corpus: CorpusInfo | null }) {
 
   const max = corpus?.centroid_max ?? 1
   const cd = altitude?.centroid_distance ?? 0
-  const frac = Math.min(cd / max, 1.35)
   const beyond = cd > max
 
   return (
     <div className="flex flex-col gap-3">
       <div className="rail-label">Altitude</div>
-
-      <div className="flex gap-3">
-        {/* corpus histogram, vertical: bottom = centroid, top = furthest font.
-            Height is definite: in a grid cell there is nothing to fill. */}
-        <div className="relative w-14 h-[132px] bg-muted/60 border border-border
-                        rounded-sm overflow-hidden shrink-0">
-          <div className="absolute inset-0 flex flex-col-reverse">
-            {bins.map((v, i) => (
-              <div key={i} className="flex-1 flex items-center">
-                <div className="h-full bg-parchment"
-                     style={{ width: `${Math.max(v * 100, 2)}%` }} />
-              </div>
-            ))}
-          </div>
-          {/* you-are-here */}
-          <div
-            className="absolute left-0 right-0 flex items-center pointer-events-none"
-            style={{ bottom: `calc(${Math.min(frac, 1) * 100}% - 1px)` }}
-          >
-            <div className={`h-[2px] w-full ${beyond ? "bg-gold" : "bg-burgundy"}`} />
-          </div>
-          <div className="absolute inset-x-0 bottom-0 border-t border-dashed
-                          border-muted-foreground/40" />
-        </div>
-
-        {/* The marker label tracks the marker. Sitting statically at mid-height
-            it read as a position, and was wrong everywhere but the middle. */}
-        <div className="relative h-[132px] w-[74px] shrink-0 text-[10px]
-                        font-mono text-muted-foreground">
-          <span className="absolute top-0 left-0">{max.toFixed(1)}</span>
-          <span className="absolute bottom-0 left-0">0 centroid</span>
-          {/* Right-aligned, so it never collides with the end labels when the
-              traveller is sitting at the centroid or out past the last font. */}
-          <span className={`absolute right-0 -translate-y-1/2
-                            ${beyond ? "text-gold" : "text-burgundy"}`}
-                style={{ bottom: `${Math.min(frac, 1) * 100}%` }}>
-            you
-          </span>
-        </div>
-      </div>
 
       <div className="space-y-3">
         <Reading

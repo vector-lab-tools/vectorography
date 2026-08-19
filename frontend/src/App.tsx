@@ -524,33 +524,6 @@ export default function App() {
           {corpus.model?.name} {corpus.model?.version} · {corpus.count} OFL
           families · {corpus.dims}d
         </span>
-        <div className="self-center flex items-center gap-1">
-          {PROOFS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setText(t)}
-              title={t}
-              className={`font-mono text-[9px] px-1.5 py-1 rounded-sm border
-                          transition-colors
-                          ${text === t
-                            ? "border-burgundy text-burgundy bg-burgundy/5"
-                            : "border-border text-muted-foreground hover:text-foreground"}`}
-            >
-              {t === "Vectorography" ? "Vg"
-                : t === "Hamburgefonstiv" ? "Ham"
-                : t === "adhesion" ? "adh"
-                : t.startsWith("HHOO") ? "HHOO" : "pangram"}
-            </button>
-          ))}
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            spellCheck={false}
-            className="font-mono text-[11px] w-48 bg-background
-                       border border-border rounded-sm px-2 py-1 ml-1"
-            title="Specimen text. Reading the letters is how you decide where to go."
-          />
-        </div>
       </header>
 
       <main className="flex-1 min-h-0 flex flex-col">
@@ -575,6 +548,8 @@ export default function App() {
               onDragEnd={dragEnd}
               lost={!!z && !isSane(z)}
               onReset={resetToSane}
+              setText={setText}
+              proofs={PROOFS}
               onSnapshot={() => { if (z) setSnapshot([...z]) }}
               onRecall={() => {
                 // With nothing kept, back means the centroid: the average of
@@ -597,7 +572,8 @@ export default function App() {
                      onToward={goToward} radius={radius} sample={atlasChar}
                      liveGlyphs={location?.glyphs ?? null}
                      liveSelf={liveSelf}
-                     ballOn={ballOn} setBallOn={setBallOn} />
+                     ballOn={ballOn} setBallOn={setBallOn}
+                     altitude={location?.altitude ?? null} corpus={corpus} />
             </div>
 
             <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0

@@ -32,7 +32,7 @@ const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
-  hasSnapshot, busy,
+  hasSnapshot, setText, proofs, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -55,6 +55,9 @@ export function SpecimenStage({
   onSnapshot: () => void
   onRecall: () => void
   hasSnapshot: boolean
+  /** The word being set, and the proofs worth setting it in. */
+  setText: (t: string) => void
+  proofs: string[]
   busy: boolean
   xProp: HandleKind; yProp: HandleKind; zProp: HandleKind
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
@@ -248,9 +251,42 @@ export function SpecimenStage({
         </g>
       </svg>
 
+      {/* What the type is being set in, at the head of the panel it is set
+          in. It had been up in the menu bar, a long way from the letters it
+          changes. */}
+      <div className="absolute top-1 left-2 flex items-center gap-1">
+        {proofs.map((t) => (
+          <button
+            key={t}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setText(t)}
+            title={t}
+            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                        transition-colors ${text === t
+                          ? "border-burgundy text-burgundy bg-burgundy/5"
+                          : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {t === "Hamburgefonstiv" ? "Ham"
+              : t === "Vectorography" ? "Vg"
+              : t === "adhesion" ? "adh"
+              : t.startsWith("HHOO") ? "HHOO" : "pangram"}
+          </button>
+        ))}
+        <input
+          value={text}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => setText(e.target.value)}
+          spellCheck={false}
+          className="font-mono text-[10px] w-40 bg-background border
+                     border-border rounded-sm px-1.5 py-0.5 ml-1"
+          title="What the specimen sets. Reading the letters is how you decide
+                 where to go."
+        />
+      </div>
+
       {showing && marker && (
-        <div className="absolute top-1 left-2 font-mono text-[10px] text-here
-                        pointer-events-none">
+        <div className="absolute top-8 left-2 font-mono text-[10px]
+                        text-here pointer-events-none">
           {marker.label}
           {marker.y && marker.x && marker.y !== marker.x && (
             <span className="text-muted-foreground"> · ↕ {marker.y}</span>
@@ -260,8 +296,7 @@ export function SpecimenStage({
 
       {/* Departure, where the eye already is. A direct gesture is exactly when
           a designer stops watching the meters across the room. */}
-      <div className="absolute top-1 right-2 flex items-center gap-1
-                      translate-y-5">
+      <div className="absolute bottom-1 right-2 flex items-center gap-1">
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onSnapshot}
@@ -291,7 +326,7 @@ export function SpecimenStage({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onReset}
-          className="absolute bottom-1 right-2 font-mono text-[9px] px-1.5
+          className="absolute bottom-1 right-16 font-mono text-[9px] px-1.5
                      py-0.5 rounded-sm border border-gold text-gold
                      hover:bg-gold/10 transition-colors"
           title="Walk back up the trail to the last stop still inside the corpus"

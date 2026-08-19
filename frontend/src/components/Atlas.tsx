@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { AtlasData, Glyph, NamedDirection } from "../api"
+import type { Altitude, AtlasData, CorpusInfo, Glyph, NamedDirection } from "../api"
+import { AltitudeStrip } from "./AltitudeMeter"
 
 /**
  * The corpus as a place, drawn with letterforms rather than with numbers.
@@ -154,7 +155,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
-  liveGlyphs, liveSelf, ballOn, setBallOn }: {
+  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -176,6 +177,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
    *  axis: the two have to move together or the ball is on and invisible. */
   ballOn: boolean
   setBallOn: (v: boolean) => void
+  /** How far out you are, read against the corpus, beside the map that shows
+   *  where. It belongs next to the position, not across the room from it. */
+  altitude: Altitude | null
+  corpus: CorpusInfo | null
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -966,7 +971,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           {hover.name}
         </div>
       )}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1">
+      <div className="absolute left-1.5 top-14 bottom-10 w-8 flex flex-col">
+        <AltitudeStrip altitude={altitude} corpus={corpus} />
+      </div>
+
+      <div className="absolute bottom-2 left-12 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
            ["⌖", reset, "Back to the default view, centred on you"],
