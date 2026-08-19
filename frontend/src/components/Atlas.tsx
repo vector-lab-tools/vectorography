@@ -283,7 +283,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     const css = getComputedStyle(document.documentElement)
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
-    const here = `hsl(${css.getPropertyValue("--here")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
     // Names and letterforms are set in the theme's ink. Colour is the dots'
     // job: a name tinted by the property it scores on is harder to read and
@@ -473,14 +472,18 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ctx.setLineDash([])
       ctx.globalAlpha = 1
 
-      // From the average of every font to where you are standing.
-      ctx.globalAlpha = 0.45
-      ctx.strokeStyle = here
-      ctx.setLineDash([3, 3])
+      // The radius: from the average of every font to where you are standing.
+      // A measurement, not a route, so it is a hairline in the same grey as
+      // the shell it belongs to. Drawn in the accent and dashed like the
+      // trail, it read as a second journey that had been travelled.
+      ctx.globalAlpha = 0.3
+      ctx.strokeStyle = muted
+      ctx.lineWidth = 0.75
+      ctx.setLineDash([1, 3])
       const meNow = P(cx, cy0, ch)
       ctx.beginPath(); ctx.moveTo(centre.sx, centre.sy)
       ctx.lineTo(meNow.sx, meNow.sy)
-      ctx.stroke(); ctx.setLineDash([])
+      ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1
       ctx.globalAlpha = 1
     }
 
