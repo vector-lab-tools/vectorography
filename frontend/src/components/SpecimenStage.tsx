@@ -247,15 +247,20 @@ export function SpecimenStage({
   const captured = useRef<number | null>(null)
 
   const down = useCallback((e: React.PointerEvent) => {
+    // Before any of the reasons this might not become a drag. A press that
+    // misses a handle is still a press on the drawing, and left to itself the
+    // browser answers it by sweeping a selection across the whole panel.
+    if (e.button === 0 || e.pointerType !== "mouse") e.preventDefault()
     if (busy) return
     const h = depth === "handles" ? probe(e.clientX, e.clientY) : null
     const grabbed: Handle | "plane" = h ?? (depth === "handles" ? null as never : "plane")
     if (depth === "handles" && !h) return
     const p = toEm(e.clientX, e.clientY)
     if (!p) return
-    // Otherwise the browser reads the gesture as a text selection and takes
-    // the pointer with it, and the specimen is dragged across a page of blue.
-    e.preventDefault()
+    // Anything already highlighted stays highlighted through the drag and
+    // comes back the moment the pointer moves over it.
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed) sel.removeAllRanges()
     last.current = { x: p.x, y: p.y }
     held.current = grabbed
     captured.current = e.pointerId
@@ -292,7 +297,7 @@ export function SpecimenStage({
   const showing = !!marker && !busy
 
   return (
-    <div ref={box} className="relative w-full h-full">
+    <div ref={box} className="relative w-full h-full select-none">
       <svg
         ref={svg}
         viewBox={`${VB.x0} ${VB.y0} ${VB.w} ${VB.h}`}
@@ -419,6 +424,7 @@ export function SpecimenStage({
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
           className="font-mono text-[10px] w-40 ml-2 px-2 py-1 rounded-sm
+                     select-text
                      bg-background border border-ink/25
                      shadow-[inset_0_1px_2px_hsl(var(--ink)/0.08)]
                      focus:outline-none focus:border-burgundy
