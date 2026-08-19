@@ -511,7 +511,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // reads as one more reading of the data rather than as the record of a
     // traversal.
     if (data.trail.length > 1) {
-      ctx.strokeStyle = burg; ctx.globalAlpha = 0.85; ctx.lineWidth = 2
+      ctx.strokeStyle = burg; ctx.globalAlpha = 0.85; ctx.lineWidth = 1
       ctx.beginPath()
       data.trail.forEach((t, i) => {
         const q = P(t.x, t.y, norm(t.h))
@@ -522,7 +522,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ctx.fillStyle = burg
       for (const t of data.trail) {
         const q = P(t.x, t.y, norm(t.h))
-        ctx.beginPath(); ctx.arc(q.sx, q.sy, 2.4, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(q.sx, q.sy, 1.8, 0, Math.PI * 2); ctx.fill()
       }
       ctx.globalAlpha = 1
     }
@@ -532,7 +532,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       const [r, g, b] = ramp(it.p.c)
 
       ctx.fillStyle = `rgb(${r} ${g} ${b})`
-      ctx.globalAlpha = 0.25 + 0.6 * near
+      ctx.globalAlpha = 0.3 + 0.6 * near
       ctx.beginPath(); ctx.arc(it.sx, it.sy, 1.7 + 1.8 * near, 0, Math.PI * 2)
       ctx.fill()
       ctx.globalAlpha = 1
@@ -581,9 +581,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     ctx.stroke()
     ctx.globalAlpha = 1
 
-    const advance = data.self.glyphs.reduce((t, g) => t + g.advance, 0) || 1
+    // The box is a fixed size. Sized to its contents it grew and shrank as the
+    // type widened and narrowed, so the label kept moving while the position it
+    // labels stood still, and the eye read the box as the thing changing.
     const pad = 5
-    const bw = advance * SELF_PX + pad * 2
+    const bw = 86
     const bh = SELF_PX * 1.15 + pad * 2
     // Kept inside the canvas: off the edge the box would be the one thing the
     // eye needs and cannot see.
@@ -613,8 +615,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     ctx.save()
     ctx.beginPath(); ctx.rect(bx0, by0, bw, bh); ctx.clip()
-    ctx.translate(bx0 + pad, by0 + bh - pad - SELF_PX * 0.2)
-    ctx.scale(SELF_PX, -SELF_PX)
     ctx.fillStyle = ink
     const wanted = [...sample].filter((ch2) => /[A-Za-z0-9]/.test(ch2))
     const live = liveRef.current
@@ -622,6 +622,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ? wanted.map((ch2) => live.find((g) => g.char === ch2))
               .filter((g): g is Glyph => !!g)
       : data.self.glyphs
+    // The letters fit the box rather than the box fitting the letters: a wide
+    // face is set smaller and centred, and the frame never moves.
+    const advance = selfGlyphs.reduce((t, g) => t + g.advance, 0) || 1
+    const size = Math.min(SELF_PX, (bw - pad * 2) / advance)
+    ctx.translate(bx0 + (bw - advance * size) / 2,
+                  by0 + bh - pad - SELF_PX * 0.2)
+    ctx.scale(size, -size)
     let sdx = 0
     for (const gl of selfGlyphs) {
       const key = `self:${gl.char}:${gl.path.length}:${gl.path.slice(-12)}`

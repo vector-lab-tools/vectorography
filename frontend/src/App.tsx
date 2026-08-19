@@ -103,9 +103,18 @@ export default function App() {
   const here = trail.find((c) => c.id === cursor) ?? null
   const z = here?.z ?? null
   const seq = useRef(0)
-  // The atlas draws the route taken to get here; kept in a ref so that the
-  // fetch effect does not re-run every time a crumb is appended.
-  const trailRef = useRef<number[][]>([])
+  const ancestry = useMemo(() => {
+    const byId = new Map(trail.map((c) => [c.id, c]))
+    const out: Crumb[] = []
+    let c = byId.get(cursor)
+    while (c) { out.unshift(c); c = c.parent != null ? byId.get(c.parent) : undefined }
+    return out
+  }, [trail, cursor])
+
+  // The route from the origin to where the cursor now is, which is what the
+  // atlas draws. Read from a ref updated by a later effect, it was always one
+  // move behind: stepping back left the longer path still on the map.
+  const ancestryZ = useMemo(() => ancestry.map((c) => c.z), [ancestry])
 
   // Every journey begins at the centroid: the average of every font in the
   // corpus. Getting away from it is the work.
@@ -159,7 +168,7 @@ export default function App() {
       api.atlas({ z, text: atlasChar, ax: axX, ay: axY, az: axZ,
                   ride: ride?.vec ?? null,
                   height: ballOn ? "axis" : atlasHeight,
-                  sprites: 0, colour_by: colourBy, trail: trailRef.current }),
+                  sprites: 0, colour_by: colourBy, trail: ancestryZ }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
       setLocation(loc)
@@ -168,7 +177,7 @@ export default function App() {
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
-      atlasHeight, colourBy, ballOn])
+      atlasHeight, colourBy, ballOn, ancestryZ])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -386,15 +395,6 @@ export default function App() {
 
   // The journey exported is the path actually taken to get here, root to
   // cursor, so a branch exports its own line rather than the whole tree.
-  const ancestry = useMemo(() => {
-    const byId = new Map(trail.map((c) => [c.id, c]))
-    const out: Crumb[] = []
-    let c = byId.get(cursor)
-    while (c) { out.unshift(c); c = c.parent != null ? byId.get(c.parent) : undefined }
-    return out
-  }, [trail, cursor])
-
-  useEffect(() => { trailRef.current = ancestry.map((c) => c.z) }, [ancestry])
 
   const exportJourney = useCallback(async () => {
     if (ancestry.length < 2) return
@@ -576,7 +576,13 @@ export default function App() {
               lost={!!z && !isSane(z)}
               onReset={resetToSane}
               onSnapshot={() => { if (z) setSnapshot([...z]) }}
-              onRecall={() => { if (snapshot) push(snapshot, "recall", "kept place") }}
+              onRecall={() => {
+                // With nothing kept, back means the centroid: the average of
+                // every font is the one place always worth returning to, and a
+                // dead control teaches nothing.
+                if (snapshot) push(snapshot, "recall", "kept place")
+                else setCursor(trail[0]?.id ?? 0)
+              }}
               hasSnapshot={!!snapshot}
               busy={false}
             />

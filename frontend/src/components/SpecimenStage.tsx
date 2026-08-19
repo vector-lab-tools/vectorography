@@ -276,13 +276,11 @@ export function SpecimenStage({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRecall}
-          disabled={!hasSnapshot}
           title={hasSnapshot ? "Back to the place you kept"
-                             : "Nothing kept yet"}
+                             : "Nothing kept yet: back to the centroid"}
           className="w-6 h-6 flex items-center justify-center rounded-sm border
                      border-border bg-card text-[11px] leading-none
                      hover:border-here hover:text-here active:translate-y-px
-                     disabled:opacity-35 disabled:hover:border-border
                      transition-colors"
         >
           ⟲
