@@ -40,8 +40,12 @@ export default function App() {
   const [radius, setRadius] = useState(0.6)
   const [temperature, setTemperature] = useState(0.5)
   const [step, setStep] = useState(0.5)
-  const [axisA, setAxisA] = useState(0)
-  const [axisB, setAxisB] = useState(1)
+  // View axes, named either as a latent index ("axis:0") or as a measured
+  // property ("dir:weight"). Both are directions in the same space; they differ
+  // in who chose them, which is the comparison the instrument exists to make.
+  const [axX, setAxX] = useState("axis:0")
+  const [axY, setAxY] = useState("axis:1")
+  const [axZ, setAxZ] = useState("axis:2")
   const [ride, setRide] = useState<Ride>(null)
   const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Journey")
@@ -52,13 +56,19 @@ export default function App() {
     useState<"density" | "centroid" | "axis">("density")
   const [colourBy, setColourBy] = useState("serif")
   const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
-  const [axisC, setAxisC] = useState(2)
+  // What dragging is allowed to change. The drag is projected onto the span of
+  // these, so the chips aim it: with "shape" lit, pulling the specimen across
+  // the atlas changes how round or straight the letters are and nothing else.
+  // With none lit it moves freely, through every direction at once.
+  const [active, setActive] = useState<Set<string>>(new Set(["straightness"]))
   // The vectors spanning the view. With these the client can work out where a
   // dragged specimen has landed without asking the server, which is the
   // difference between moving something and waiting for it to move.
   const basis = useRef<{ u: number[]; v: number[]; w: number[] } | null>(null)
   const dragZ = useRef<number[] | null>(null)
   const dragPending = useRef(false)
+  const [liveSelf, setLiveSelf] = useState<
+    { x: number; y: number; h: number } | null>(null)
   const [split, setSplit] = useState(0.7)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -82,14 +92,17 @@ export default function App() {
                   label: "origin · the centroid", parent: null, depth: 0 }])
       setCursor(0)
     }).catch((e) => setError(String(e)))
-    api.directions().then((d) => setDirections(d.directions)).catch(() => {})
+    api.directions().then((d) => {
+      setDirections(d.directions)
+      setCorpus((c) => (c ? { ...c, directions: d.directions } : c))
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
-    api.basis(axisA, axisB, axisC, ride?.vec ?? null)
+    api.basis(axX, axY, axZ, ride?.vec ?? null)
       .then((b) => { basis.current = b })
       .catch(() => { basis.current = null })
-  }, [axisA, axisB, axisC, ride])
+  }, [axX, axY, axZ, ride])
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -115,11 +128,11 @@ export default function App() {
     setBusy(true)
     Promise.all([
       api.location(z, text),
-      api.compass(z, compassText, radius, axisA, axisB, ride?.vec ?? null),
+      api.compass(z, compassText, radius, axX, axY, ride?.vec ?? null),
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
-      api.atlas({ z, text: atlasChar, axis_a: axisA, axis_b: axisB,
-                  axis_c: axisC, ride: ride?.vec ?? null, height: atlasHeight,
+      api.atlas({ z, text: atlasChar, ax: axX, ay: axY, az: axZ,
+                  ride: ride?.vec ?? null, height: atlasHeight,
                   sprites: 0, colour_by: colourBy, trail: trailRef.current }),
     ]).then(([loc, comp, atl]) => {
       if (n !== seq.current) return
@@ -128,8 +141,8 @@ export default function App() {
       setAtlas(atl)
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
-  }, [z, text, compassText, atlasChar, radius, axisA, axisB, ride,
-      atlasHeight, colourBy, axisC])
+  }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
+      atlasHeight, colourBy])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -152,12 +165,12 @@ export default function App() {
     if (!z) return
     setBusy(true)
     try {
-      const r = await api.travel({ z, radius, axis_a: axisA, axis_b: axisB,
+      const r = await api.travel({ z, radius, ax: axX, ay: axY, az: axZ,
                                    ride: ride?.vec ?? null, temperature, step,
                                    ...body })
       push(r.z, mode, label)
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [z, radius, axisA, axisB, ride, temperature, step, push])
+  }, [z, radius, axX, axY, axZ, ride, temperature, step, push])
 
   const walk = useCallback((bearing: number) =>
     travel({ mode: "walk", bearing }, "walk",
@@ -177,22 +190,49 @@ export default function App() {
    * asked for at whatever rate the server can answer, and the last answer is
    * what gets shown. Nothing is recorded until the drag ends.
    */
-  const grabMove = useCallback((x: number, y: number, dh: number) => {
+  const grabMove = useCallback((dx: number, dy: number, dh: number) => {
     const b = basis.current
     const from = dragZ.current ?? z
     if (!b || !from) return
     const dot = (a: number[], c: number[]) =>
       a.reduce((t, ai, i) => t + ai * c[i], 0)
 
-    let nz: number[]
-    if (Number.isNaN(x)) {
-      // Up and down the third axis, leaving the ground position alone.
-      nz = from.map((c, i) => c + dh * b.w[i])
-    } else {
-      const cu = dot(from, b.u), cv = dot(from, b.v)
-      nz = from.map((c, i) => c - cu * b.u[i] - cv * b.v[i] + x * b.u[i] + y * b.v[i])
+    // Pointer movement is a proposal, scaled well down. A drag across the map
+    // spans the whole corpus, and letterforms fall apart long before its edge,
+    // so a hand's width of travel should be a few steps rather than a leap out
+    // of the distribution altogether.
+    const GAIN = 0.14
+    let nz = from.map((c, i) =>
+      c + GAIN * (dx * b.u[i] + dy * b.v[i] + dh * b.w[i]))
+    // The movement is projected onto the properties that are lit, so a drag
+    // travels along those and nowhere else. They are not orthogonal to one
+    // another (heavier type is also less modulated), so the basis is
+    // orthonormalised first, or a component would be counted twice.
+    if (active.size) {
+      const delta = nz.map((c, i) => c - from[i])
+      const basisVecs: number[][] = []
+      for (const d of directions) {
+        if (!active.has(d.key) || !d.vector) continue
+        let e = [...d.vector]
+        for (const b2 of basisVecs) {
+          const k = dot(e, b2)
+          e = e.map((c, i) => c - k * b2[i])
+        }
+        const n = Math.sqrt(dot(e, e))
+        if (n > 1e-9) basisVecs.push(e.map((c) => c / n))
+      }
+      const moved = new Array(delta.length).fill(0)
+      for (const b2 of basisVecs) {
+        const k = dot(delta, b2)
+        for (let i = 0; i < moved.length; i++) moved[i] += k * b2[i]
+      }
+      nz = from.map((c, i) => c + moved[i])
     }
     dragZ.current = nz
+    // Where the specimen has actually ended up. With a constraint on, that is
+    // not where the pointer is, so the mark is drawn from this rather than
+    // from the pointer.
+    setLiveSelf({ x: dot(nz, b.u), y: dot(nz, b.v), h: liveSelf?.h ?? 0 })
 
     if (dragPending.current) return
     dragPending.current = true
@@ -200,11 +240,20 @@ export default function App() {
       .then((loc) => setLocation(loc))
       .catch(() => {})
       .finally(() => { dragPending.current = false })
-  }, [z, text])
+  }, [z, text, active, directions, liveSelf])
+
+  const toggleActive = useCallback((key: string) => {
+    setActive((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }, [])
 
   const grabEnd = useCallback(() => {
     const nz = dragZ.current
     dragZ.current = null
+    setLiveSelf(null)
     if (nz) push(nz, "drag", "dragged")
   }, [push])
 
@@ -322,7 +371,7 @@ export default function App() {
           label: `Atlas height: ${
             atlasHeight === "density" ? "crowding"
               : atlasHeight === "centroid" ? "distance from centroid"
-              : `axis ${axisC + 1}`}`,
+              : "third axis"}`,
           hint: "cycle",
           onSelect: () => setAtlasHeight((h) =>
             h === "density" ? "centroid" : h === "centroid" ? "axis" : "density"),
@@ -395,7 +444,9 @@ export default function App() {
                    colourBy={colourBy} setColourBy={setColourBy}
                    waypoint={waypoint} setWaypoint={setWaypoint}
                    onToward={goToward} radius={radius} sample={atlasChar}
-                   onGrabMove={grabMove} onGrabEnd={grabEnd} />
+                   onGrabMove={grabMove} onGrabEnd={grabEnd}
+                   liveGlyphs={location?.glyphs ?? null}
+                   liveSelf={liveSelf} />
           </div>
 
           <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0
@@ -420,7 +471,8 @@ export default function App() {
             {directions.length > 0 && (
               <div className="shrink-0 border-t border-border pt-2">
                 <DirectionPad directions={directions} onSteer={steer}
-                              busy={busy} />
+                              busy={busy} active={active}
+                              toggle={toggleActive} />
               </div>
             )}
           </div>
@@ -465,9 +517,9 @@ export default function App() {
               radius={radius} setRadius={setRadius}
               temperature={temperature} setTemperature={setTemperature}
               step={step} setStep={setStep}
-              axisA={axisA} axisB={axisB} axisC={axisC}
-              setPlane={(a, b) => { setAxisA(a); setAxisB(b) }}
-              setAxisC={setAxisC}
+              axX={axX} axY={axY} axZ={axZ}
+              setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
+              overlap={atlas?.axes.overlap ?? null}
               ride={ride} orbit={orbit}
               onDrift={() => travel({ mode: "drift" }, "drift",
                                     `drift t${temperature.toFixed(2)}`)}

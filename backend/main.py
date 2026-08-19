@@ -62,11 +62,26 @@ class LocationReq(Z):
     full: bool = False
 
 
+def _basis(s: StyleSpace, req) -> tuple:
+    """View basis from whatever the request named."""
+    ax = getattr(req, "ax", None) or f"axis:{getattr(req, 'axis_a', 0)}"
+    ay = getattr(req, "ay", None) or f"axis:{getattr(req, 'axis_b', 1)}"
+    az = getattr(req, "az", None) or f"axis:{getattr(req, 'axis_c', 2)}"
+    ride = getattr(req, "ride", None)
+    try:
+        return s.basis3(ax, ay, az, np.asarray(ride) if ride else None)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown axis {exc}") from None
+
+
 class CompassReq(Z):
     text: str = "ag"
     radius: float = 0.6
     axis_a: int = 0
     axis_b: int = 1
+    ax: str | None = None
+    ay: str | None = None
+    az: str | None = None
     ride: list[float] | None = None
 
 
@@ -84,6 +99,9 @@ class TravelReq(Z):
     amount: float | None = None
     target_x: float | None = None
     target_y: float | None = None
+    ax: str | None = None
+    ay: str | None = None
+    az: str | None = None
     centre: list[float] | None = None
     angle: float = 20.0
     seed: int | None = None
@@ -162,9 +180,10 @@ def font_file(name: str):
 def directions():
     """Measured named axes: properties read off the outlines, not eigendirections."""
     s = space()
-    return {"directions": [
-        {k: v for k, v in d.items() if k != "vector"}
-        for d in s.directions.values()]}
+    # Vectors go out too: the client holds properties fixed while dragging by
+    # projecting the movement, and that has to happen locally or the specimen
+    # would wait on a round trip for every pointer move.
+    return {"directions": list(s.directions.values())}
 
 
 @app.post("/api/location")
@@ -182,7 +201,8 @@ def location(req: LocationReq):
 @app.post("/api/compass")
 def compass(req: CompassReq):
     s = space()
-    pts = s.compass(req.z, req.radius, req.axis_a, req.axis_b, req.ride)
+    u, v, _, _ = _basis(s, req)
+    pts = s.compass(req.z, req.radius, ride=None, basis=(u, v))
     for p in pts:
         p["glyphs"] = _glyph_subset(s.decode(p["z"]), req.text)
         p["altitude"] = {"density_percentile":
@@ -194,6 +214,9 @@ class AtlasReq(Z):
     text: str = "a"
     axis_a: int = 0
     axis_b: int = 1
+    ax: str | None = None
+    ay: str | None = None
+    az: str | None = None
     ride: list[float] | None = None
     sprites: int = Field(14, ge=0, le=40)
     height: str = "density"
@@ -212,8 +235,7 @@ def atlas(req: AtlasReq):
     origin, so the map stays still while you move across it.
     """
     s = space()
-    u, v = s.heading_basis(req.axis_a, req.axis_b,
-                           np.asarray(req.ride) if req.ride else None)
+    u, v, wv, overlap = _basis(s, req)
     z = np.asarray(req.z, dtype=np.float64)
 
     xs = s.Z @ u
@@ -223,10 +245,8 @@ def atlas(req: AtlasReq):
     # bunched at the bottom; the percentile spreads the same ordering evenly.
     h_min, h_max = 0.0, 1.0
     if req.height == "axis":
-        # A third latent axis, so the vertical is a direction you can travel
-        # along rather than a reading taken of where you already are.
-        wv = np.zeros(s.dims)
-        wv[min(req.axis_c, s.dims - 1)] = 1.0
+        # A third direction, so the vertical is something you can travel along
+        # rather than a reading taken of where you already are.
         raw = s.Z @ wv
         self_raw = float(z @ wv)
         h_min = float(min(raw.min(), self_raw))
@@ -274,9 +294,10 @@ def atlas(req: AtlasReq):
     return {
         "colour": ({"key": req.colour_by, "label": legend[0],
                     "low": legend[1], "high": legend[2]} if legend else None),
-        "axes": {"x": req.axis_a + 1, "y": req.axis_b + 1,
-                 "x_evr": s.evr[req.axis_a], "y_evr": s.evr[req.axis_b],
-                 "height": req.height, "c": req.axis_c + 1,
+        "axes": {"x": req.ax or f"axis:{req.axis_a}",
+                 "y": req.ay or f"axis:{req.axis_b}",
+                 "z": req.az or f"axis:{req.axis_c}",
+                 "height": req.height, "overlap": overlap,
                  "ride": req.ride is not None},
         "points": [{"i": i, "name": s.names[i], "x": float(xs[i]),
                     "y": float(ys[i]), "h": float(hs[i]), "d": float(d[i]),
@@ -299,6 +320,9 @@ class BasisReq(BaseModel):
     axis_a: int = 0
     axis_b: int = 1
     axis_c: int = 2
+    ax: str | None = None
+    ay: str | None = None
+    az: str | None = None
     ride: list[float] | None = None
 
 
@@ -311,24 +335,9 @@ def basis(req: BasisReq):
     position itself and asks only for the outlines to draw.
     """
     s = space()
-    u, v = s.heading_basis(req.axis_a, req.axis_b,
-                           np.asarray(req.ride) if req.ride else None)
-    w = np.zeros(s.dims)
-    w[min(req.axis_c, s.dims - 1)] = 1.0
-    # Third direction independent of the ground plane, or it is not a third
-    # dimension at all.
-    w = w - (w @ u) * u - (w @ v) * v
-    n = float(np.linalg.norm(w))
-    if n < 1e-9:
-        for i in range(s.dims):
-            cand = np.zeros(s.dims)
-            cand[i] = 1.0
-            cand = cand - (cand @ u) * u - (cand @ v) * v
-            if np.linalg.norm(cand) > 1e-6:
-                w = cand
-                break
-        n = float(np.linalg.norm(w)) or 1.0
-    return {"u": u.tolist(), "v": v.tolist(), "w": (w / n).tolist()}
+    u, v, w, overlap = _basis(s, req)
+    return {"u": u.tolist(), "v": v.tolist(), "w": w.tolist(),
+            "overlap": overlap}
 
 
 @app.post("/api/travel")
@@ -338,8 +347,7 @@ def travel(req: TravelReq):
     if req.mode == "walk":
         if req.bearing is None:
             raise HTTPException(400, "walk needs a bearing")
-        u, v = s.heading_basis(req.axis_a, req.axis_b,
-                               np.asarray(req.ride) if req.ride else None)
+        u, v, _, _ = _basis(s, req)
         th = np.radians(req.bearing)
         nz = z + req.radius * (np.cos(th) * u + np.sin(th) * v)
     elif req.mode == "drift":
@@ -350,8 +358,7 @@ def travel(req: TravelReq):
     elif req.mode == "toward":
         if req.target_x is None or req.target_y is None:
             raise HTTPException(400, "toward needs a target")
-        u, v = s.heading_basis(req.axis_a, req.axis_b,
-                               np.asarray(req.ride) if req.ride else None)
+        u, v, _, _ = _basis(s, req)
         nz = np.asarray(s.toward(z, req.target_x, req.target_y, u, v, req.amount))
     elif req.mode == "steer":
         if not req.direction:

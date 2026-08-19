@@ -10,21 +10,41 @@ import type { NamedDirection } from "../api"
  * fifteen per cent to the mean of the heaviest, and so on for each property.
  * Both sorts of axis are in the same instrument on purpose.
  */
-export function DirectionPad({ directions, onSteer, busy }: {
+export function DirectionPad({ directions, onSteer, busy, active, toggle }: {
   directions: NamedDirection[]
   onSteer: (key: string, sign: number) => void
   busy: boolean
+  /** What a drag is allowed to change. Dragging moves along these and nothing
+   *  else, so the chips are how the drag is aimed. */
+  active: Set<string>
+  toggle: (key: string) => void
 }) {
   return (
     <div>
-      <div className="rail-label mb-1.5">Steer</div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="rail-label">Steer</span>
+        <span className="font-mono text-[9px] text-muted-foreground"
+              title="Dragging the specimen moves along the lit properties only.
+                     With none lit it moves freely, through everything at once.">
+          {active.size ? `drag: ${active.size}` : "drag: free"}
+        </span>
+      </div>
       <div className="space-y-0.5">
         {directions.map((d) => (
           <div key={d.key} className="flex items-center gap-1">
-            <span className="flex-1 text-[10.5px] font-display truncate"
-                  title={`${d.minus} ← ${d.label} → ${d.plus}`}>
+            <button
+              onClick={() => toggle(d.key)}
+              title={active.has(d.key)
+                ? `Dragging changes ${d.label.toLowerCase()} (${d.minus} to ${d.plus}). Click to drop it.`
+                : `Add ${d.label.toLowerCase()} to what dragging changes.`}
+              className={`flex-1 min-w-0 text-left text-[10.5px] font-display
+                          truncate px-1.5 py-0.5 rounded-full border
+                          transition-colors ${active.has(d.key)
+                            ? "border-here bg-here/10 text-here"
+                            : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
               {d.label}
-            </span>
+            </button>
             <button
               className="w-6 h-[19px] border border-border rounded-sm bg-card
                          font-mono text-[10px] leading-none

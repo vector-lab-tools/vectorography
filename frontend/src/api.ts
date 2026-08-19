@@ -12,6 +12,7 @@ export type Altitude = {
 
 export type NamedDirection = {
   key: string; label: string; minus: string; plus: string; spread: number
+  vector?: number[]
 }
 
 export type AtlasPoint = { i: number; name: string; x: number; y: number
@@ -19,8 +20,8 @@ export type AtlasPoint = { i: number; name: string; x: number; y: number
 
 export type AtlasData = {
   colour: { key: string; label: string; low: string; high: string } | null
-  axes: { x: number; y: number; x_evr: number; y_evr: number
-          height: string; c: number; ride: boolean }
+  axes: { x: string; y: string; z: string; height: string; ride: boolean
+          overlap: { y_on_x: number; z_on_plane: number } }
   points: AtlasPoint[]
   sprites: Record<string, Glyph[]>
   self: { x: number; y: number; h: number; glyphs: Glyph[] }
@@ -37,6 +38,7 @@ export type CorpusInfo = {
   explained_variance: number[]
   glyphs: string
   licence: string
+  directions?: { key: string; label: string; minus: string; plus: string }[]
   centroid_distances: number[]
   centroid_max: number
   version: string
@@ -72,10 +74,10 @@ export const api = {
   directions: () => fetch("/api/directions")
     .then((r) => r.json() as Promise<{ directions: NamedDirection[] }>),
 
-  basis: (axis_a: number, axis_b: number, axis_c: number,
-          ride: number[] | null) =>
-    post<{ u: number[]; v: number[]; w: number[] }>("/api/basis",
-      { axis_a, axis_b, axis_c, ride }),
+  basis: (ax: string, ay: string, az: string, ride: number[] | null) =>
+    post<{ u: number[]; v: number[]; w: number[]
+           overlap: { y_on_x: number; z_on_plane: number } }>("/api/basis",
+      { ax, ay, az, ride }),
 
   atlas: (body: Record<string, unknown>) =>
     post<AtlasData>("/api/atlas", body),
@@ -85,9 +87,9 @@ export const api = {
 
   compass: (
     z: number[], text: string, radius: number,
-    axis_a: number, axis_b: number, ride: number[] | null,
+    ax: string, ay: string, ride: number[] | null,
   ) => post<{ points: CompassPoint[] }>("/api/compass",
-    { z, text, radius, axis_a, axis_b, ride }),
+    { z, text, radius, ax, ay, ride }),
 
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude }>("/api/travel", body),

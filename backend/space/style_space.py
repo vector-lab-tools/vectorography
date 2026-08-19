@@ -184,6 +184,66 @@ class StyleSpace:
 
     # ------------------------------------------------------------------ travel
 
+    def axis_vector(self, spec: str) -> np.ndarray:
+        """A view axis named either as a latent index or a measured property.
+
+        "axis:3" is the fourth eigendirection of the corpus. "dir:weight" is the
+        direction measured from the outlines, running from the lightest fifteen
+        per cent of the corpus to the heaviest. Both are directions in the same
+        space; they differ in who chose them.
+        """
+        if spec.startswith("dir:"):
+            d = self.directions.get(spec[4:])
+            if d is None:
+                raise KeyError(spec)
+            return np.asarray(d["vector"], dtype=np.float64)
+        i = int(spec.split(":")[-1])
+        v = np.zeros(self.dims)
+        v[min(max(i, 0), self.dims - 1)] = 1.0
+        return v
+
+    def basis3(self, ax="axis:0", ay="axis:1", az="axis:2", ride=None):
+        """Three orthonormal view directions, and how much was taken off them.
+
+        Measured properties are not orthogonal to one another: heavier type also
+        tends to be less modulated, so weight and contrast share a component.
+        Each axis after the first is therefore orthogonalised against the ones
+        before it, or dragging along one would silently drag along another and
+        the map would be lying about what it shows. The cosines say how much of
+        each raw direction was removed, so the interface can say so too.
+        """
+        raw_u = (np.asarray(ride, dtype=np.float64) if ride is not None
+                 else self.axis_vector(ax))
+        raw_v = self.axis_vector(ay)
+        raw_w = self.axis_vector(az)
+
+        def unit(x):
+            n = float(np.linalg.norm(x))
+            return x / n if n > 1e-12 else x
+
+        u = unit(raw_u)
+        v = raw_v - (raw_v @ u) * u
+        overlap_v = float(abs(unit(raw_v) @ u))
+        if np.linalg.norm(v) < 1e-9:
+            v = self._any_orthogonal([u])
+        v = unit(v)
+        w = raw_w - (raw_w @ u) * u - (raw_w @ v) * v
+        overlap_w = float(max(abs(unit(raw_w) @ u), abs(unit(raw_w) @ v)))
+        if np.linalg.norm(w) < 1e-9:
+            w = self._any_orthogonal([u, v])
+        w = unit(w)
+        return u, v, w, {"y_on_x": overlap_v, "z_on_plane": overlap_w}
+
+    def _any_orthogonal(self, against: list[np.ndarray]) -> np.ndarray:
+        for i in range(self.dims):
+            cand = np.zeros(self.dims)
+            cand[i] = 1.0
+            for a in against:
+                cand = cand - (cand @ a) * a
+            if np.linalg.norm(cand) > 1e-6:
+                return cand
+        return np.eye(self.dims)[0]
+
     def heading_basis(self, axis_a=0, axis_b=1, ride=None):
         """Two orthonormal vectors spanning the plane the compass turns in."""
         u = np.zeros(self.dims)
@@ -201,8 +261,8 @@ class StyleSpace:
             v[axis_b] = 1.0
         return u, v
 
-    def compass(self, z, radius=0.6, axis_a=0, axis_b=1, ride=None):
-        u, v = self.heading_basis(axis_a, axis_b, ride)
+    def compass(self, z, radius=0.6, axis_a=0, axis_b=1, ride=None, basis=None):
+        u, v = basis if basis is not None else self.heading_basis(axis_a, axis_b, ride)
         out = []
         for i in range(8):
             th = i * np.pi / 4

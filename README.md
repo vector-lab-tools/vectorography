@@ -94,7 +94,7 @@ large and fully regenerable from `fetch.py` and the manifest.
 | **Orbit** | circle a chosen family at fixed radius |
 | **Atlas** | click a family to travel to it; click open ground to drop a waypoint, then step toward it or go |
 | **Drag the specimen** | grab your own mark and pull it through the space; the letterforms change as it moves. Alt-drag anywhere does the same without leaving orbit mode, and shift while dragging moves along the third axis instead of across the ground |
-| **Steer** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on |
+| **Steer** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on. Each is also a **chip**: dragging the specimen moves along the lit chips and nothing else, so the chips aim the drag |
 | **Trail** | click any stop to return; moving from an earlier stop opens a branch |
 | **Backspace** | back to the previous stop |
 
@@ -140,6 +140,27 @@ until the drag ends, so a move is one stop rather than a hundred.
 Set the atlas height to a latent axis and the vertical becomes a direction as
 well, rather than a reading of where you already are, which is what makes
 dragging up and down mean anything.
+
+The view axes can be measured properties rather than corpus eigendirections:
+set the plane to weight by serif and dragging left and right makes the letters
+heavier and lighter. Measured properties are not orthogonal to one another, so
+each axis after the first is drawn with the shared part removed and the
+interface says how much was taken off; otherwise dragging along one would
+silently drag along another.
+
+## Is the space a sphere?
+
+Not quite, and the difference is worth knowing. After whitening the corpus is an
+isotropic cloud, so the space is a ball rather than a cone or a sphere. But in
+128 dimensions almost all of a cloud's mass sits in a thin shell, and the corpus
+does exactly that: the nearest family to the centroid is 2.4 units away, the
+median is 7.1, and the furthest is 22.2, with only three of 495 families inside
+three units.
+
+So the centre of the space, the average of every font in the corpus, is a place
+where almost no font actually is. That is the anti-normalisation argument in one
+measurement: the pull is toward a point the distribution itself has largely
+vacated.
 
 ## Export
 

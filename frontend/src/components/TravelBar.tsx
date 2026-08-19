@@ -12,17 +12,16 @@ export type Orbit = { name: string; z: number[] } | null
  */
 export function TravelBar({
   corpus, radius, setRadius, temperature, setTemperature, step, setStep,
-  axisA, axisB, axisC, setPlane, setAxisC, ride, orbit,
-  onDrift, onRepel, onOrbit,
+  axX, axY, axZ, setAxes, overlap, ride, orbit, onDrift, onRepel, onOrbit,
   onSetRide, onClearRide, onSetOrbit, onClearOrbit, busy,
 }: {
   corpus: CorpusInfo | null
   radius: number; setRadius: (v: number) => void
   temperature: number; setTemperature: (v: number) => void
   step: number; setStep: (v: number) => void
-  axisA: number; axisB: number; axisC: number
-  setPlane: (a: number, b: number) => void
-  setAxisC: (c: number) => void
+  axX: string; axY: string; axZ: string
+  setAxes: (x: string, y: string, z: string) => void
+  overlap: { y_on_x: number; z_on_plane: number } | null
   ride: Ride; orbit: Orbit
   onDrift: () => void; onRepel: () => void; onOrbit: () => void
   onSetRide: (a: string, b: string) => void; onClearRide: () => void
@@ -33,6 +32,7 @@ export function TravelBar({
   const [b, setB] = useState("")
   const [o, setO] = useState("")
   const evr = corpus?.explained_variance ?? []
+  const dirs = corpus?.directions ?? []
 
   return (
     <div className="panel p-3 flex flex-wrap items-end gap-x-4 gap-y-3 overflow-hidden">
@@ -58,14 +58,26 @@ export function TravelBar({
 
       {/* the heading plane is a choice, so the choice is shown */}
       <div>
-        <div className="rail-label mb-1">heading plane · third axis</div>
+        <div className="rail-label mb-1">
+          axes{" "}
+          {overlap && overlap.y_on_x > 0.3 && (
+            <span className="text-gold normal-case tracking-normal"
+                  title={"These two properties overlap: the corpus varies in "
+                    + "both together. The second axis is drawn with the shared "
+                    + "part removed, so it shows what it adds to the first."}>
+              · {(overlap.y_on_x * 100).toFixed(0)}% shared
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
-          <AxisPick value={axisA} evr={evr} onChange={(v) => setPlane(v, axisB)}
-                    disabled={!!ride} />
+          <AxisPick value={axX} dirs={dirs} evr={evr} disabled={!!ride}
+                    onChange={(v) => setAxes(v, axY, axZ)} />
           <span className="font-mono text-[10px] text-muted-foreground">x</span>
-          <AxisPick value={axisB} evr={evr} onChange={(v) => setPlane(axisA, v)} />
+          <AxisPick value={axY} dirs={dirs} evr={evr}
+                    onChange={(v) => setAxes(axX, v, axZ)} />
           <span className="font-mono text-[10px] text-muted-foreground">x</span>
-          <AxisPick value={axisC} evr={evr} onChange={setAxisC} />
+          <AxisPick value={axZ} dirs={dirs} evr={evr}
+                    onChange={(v) => setAxes(axX, axY, v)} />
         </div>
       </div>
 
@@ -115,22 +127,40 @@ export function TravelBar({
   )
 }
 
-function AxisPick({ value, evr, onChange, disabled }: {
-  value: number; evr: number[]; onChange: (v: number) => void; disabled?: boolean
+/**
+ * A view axis: a property somebody measured, or a direction the corpus varies
+ * in most. Naming both in one list is the point, since choosing between them is
+ * choosing whether to move through the space by a name or by its own structure.
+ */
+function AxisPick({ value, dirs, evr, onChange, disabled }: {
+  value: string
+  dirs: { key: string; label: string; minus: string; plus: string }[]
+  evr: number[]
+  onChange: (v: string) => void
+  disabled?: boolean
 }) {
   return (
     <select
       value={value}
       disabled={disabled}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="font-mono text-[11px] bg-card border border-border rounded-sm
-                 px-1.5 py-1.5 disabled:opacity-40"
+      onChange={(e) => onChange(e.target.value)}
+      className="font-mono text-[10px] bg-card border border-border rounded-sm
+                 px-1 py-1.5 max-w-[92px] disabled:opacity-40"
     >
-      {evr.map((v, i) => (
-        <option key={i} value={i}>
-          {i + 1} · {(v * 100).toFixed(1)}%
-        </option>
-      ))}
+      <optgroup label="measured">
+        {dirs.map((d) => (
+          <option key={d.key} value={`dir:${d.key}`}>
+            {d.label}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="corpus axes">
+        {evr.map((v, i) => (
+          <option key={i} value={`axis:${i}`}>
+            {i + 1} · {(v * 100).toFixed(1)}%
+          </option>
+        ))}
+      </optgroup>
     </select>
   )
 }
