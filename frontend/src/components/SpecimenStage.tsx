@@ -243,6 +243,9 @@ export function SpecimenStage({
     if (moves.length) onDrag({ moves, aiming: aimingOf(grabbed, xProp, yProp) })
   }, [beyond, busy, depth, hasGeometry, onDrag, probe, toEm, xProp, yProp, zProp])
 
+  /** The pointer the drawing has captured, so it can be handed back. */
+  const captured = useRef<number | null>(null)
+
   const down = useCallback((e: React.PointerEvent) => {
     if (busy) return
     const h = depth === "handles" ? probe(e.clientX, e.clientY) : null
@@ -250,17 +253,29 @@ export function SpecimenStage({
     if (depth === "handles" && !h) return
     const p = toEm(e.clientX, e.clientY)
     if (!p) return
+    // Otherwise the browser reads the gesture as a text selection and takes
+    // the pointer with it, and the specimen is dragged across a page of blue.
+    e.preventDefault()
     last.current = { x: p.x, y: p.y }
     held.current = grabbed
+    captured.current = e.pointerId
     setDragging(grabbed)
     onDragStart(aimingOf(grabbed, xProp, yProp))
-    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    // Capture on the drawing, never on what happens to be under the pointer.
+    // The outlines are rebuilt on every frame of the drag, so a capture held
+    // by a path dies with the path it was taken on, and the movement and the
+    // release that ends it are both delivered somewhere else.
+    svg.current?.setPointerCapture?.(e.pointerId)
   }, [busy, depth, onDragStart, probe, toEm, xProp, yProp])
 
   const up = useCallback(() => {
     if (!held.current) return
     held.current = null
     last.current = null
+    if (captured.current !== null) {
+      svg.current?.releasePointerCapture?.(captured.current)
+      captured.current = null
+    }
     setDragging(null)
     onDragEnd()
   }, [onDragEnd])
@@ -282,7 +297,7 @@ export function SpecimenStage({
         ref={svg}
         viewBox={`${VB.x0} ${VB.y0} ${VB.w} ${VB.h}`}
         preserveAspectRatio="xMidYMid meet"
-        className={`w-full h-full touch-none ${
+        className={`w-full h-full touch-none select-none ${
           dragging ? "cursor-grabbing"
           : showing ? "cursor-grab"
           : depth === "handles" ? "cursor-default" : "cursor-grab"}`}
@@ -290,7 +305,7 @@ export function SpecimenStage({
         onPointerDown={down}
         onPointerUp={up}
         onPointerCancel={up}
-        onPointerLeave={() => { up(); setHover(null) }}
+        onPointerLeave={() => { if (!held.current) setHover(null) }}
         onWheel={wheel}
       >
         <g transform="scale(1,-1)">
