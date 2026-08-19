@@ -439,6 +439,23 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         ring(hull, (t) => [Math.cos(t) * rr, Math.sin(t) * rr, zz], 0.13)
       }
 
+      // Cardinals on the equator, so the sphere says which way it has been
+      // turned. They are the ends of the two ground axes: east and west are
+      // the far points of the first, north and south of the second.
+      const cardinals: [string, number, number][] = [
+        ["E", 1, 0], ["W", -1, 0], ["N", 0, 1], ["S", 0, -1]]
+      ctx.font = "9px ui-monospace, Menlo, monospace"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillStyle = muted
+      for (const [label, a, b] of cardinals) {
+        const q = P(a * hull * 1.06, b * hull * 1.06, hOf(0))
+        const front = 1 / (1 + Math.exp(-q.depth * 1.4))
+        ctx.globalAlpha = 0.2 + 0.55 * front
+        ctx.fillText(label, q.sx, q.sy)
+      }
+      ctx.globalAlpha = 1
+
       // The edge of the known space.
       ctx.globalAlpha = 0.28
       ctx.strokeStyle = muted
@@ -614,13 +631,23 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     draw()
   }, [draw])
 
-  // Back to the view you started in: your own neighbourhood, at the angle it
-  // is first shown at.
+  /** Zoom at which the whole shell is in the frame. */
+  const ballZoom = useCallback(() => {
+    const bx = box.current
+    if (!bx || !data?.ball?.max) return null
+    const room = Math.min(bx.clientWidth, bx.clientHeight)
+    return (room * 0.40) / data.ball.max
+  }, [data])
+
+  // Back to the view you started in. With the shell drawn that means the
+  // whole shell: at the default zoom its equator, and the cardinals on it,
+  // sat outside the canvas, so the sphere was three arcs and no orientation.
   const reset = useCallback(() => {
-    cam.current = { ...DEFAULT_CAM }
-    setZoomLabel(DEFAULT_CAM.zoom)
+    const z = (ballOn && ballZoom()) || DEFAULT_CAM.zoom
+    cam.current = { ...DEFAULT_CAM, zoom: z }
+    setZoomLabel(z)
     draw()
-  }, [draw])
+  }, [ballOn, ballZoom, draw])
 
   const fitAll = useCallback(() => {
     if (!data || !box.current) return
@@ -637,6 +664,18 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // frame cap: requestAnimationFrame does not fire while a tab is hidden, so
   // scheduling the first paint through it leaves the canvas blank until
   // something moves, which for an offscreen or backgrounded pane is never.
+  // Frame the shell once, when it is first drawn.
+  const framed = useRef(false)
+  useEffect(() => {
+    if (framed.current || !ballOn) return
+    const z = ballZoom()
+    if (!z) return
+    framed.current = true
+    cam.current = { ...cam.current, zoom: z }
+    setZoomLabel(z)
+    draw()
+  }, [ballOn, ballZoom, draw])
+
   useEffect(() => {
     draw()
     const ro = new ResizeObserver(() => draw())
