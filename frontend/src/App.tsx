@@ -93,6 +93,9 @@ export default function App() {
   // returns to the stop that was left; nothing is deleted, and a step taken
   // after an undo simply branches, which is what the trail already does.
   const [redoStack, setRedoStack] = useState<number[]>([])
+  // A place kept by hand. Shaping runs ahead of the trail: a designer tries
+  // twenty things in a row and wants the good one back, not the twentieth.
+  const [snapshot, setSnapshot] = useState<number[] | null>(null)
   const [split, setSplit] = useState(0.7)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -251,55 +254,6 @@ export default function App() {
    * asked for at whatever rate the server can answer, and the last answer is
    * what gets shown. Nothing is recorded until the drag ends.
    */
-  const grabMove = useCallback((dx: number, dy: number, dh: number) => {
-    const b = basis.current
-    const from = dragZ.current ?? z
-    if (!b || !from) return
-    // Pointer movement is a proposal, scaled well down. A drag across the map
-    // spans the whole corpus, and letterforms fall apart long before its edge,
-    // so a hand's width of travel should be a few steps rather than a leap out
-    // of the distribution altogether.
-    const GAIN = 0.14
-    let nz = from.map((c, i) =>
-      c + GAIN * (dx * b.u[i] + dy * b.v[i] + dh * b.w[i]))
-    // The movement is projected onto the properties that are lit, so a drag
-    // travels along those and nowhere else. They are not orthogonal to one
-    // another (heavier type is also less modulated), so the basis is
-    // orthonormalised first, or a component would be counted twice.
-    if (active.size) {
-      const delta = nz.map((c, i) => c - from[i])
-      const basisVecs: number[][] = []
-      for (const d of directions) {
-        if (!active.has(d.key) || !d.vector) continue
-        let e = [...d.vector]
-        for (const b2 of basisVecs) {
-          const k = dot(e, b2)
-          e = e.map((c, i) => c - k * b2[i])
-        }
-        const n = Math.sqrt(dot(e, e))
-        if (n > 1e-9) basisVecs.push(e.map((c) => c / n))
-      }
-      const moved = new Array(delta.length).fill(0)
-      for (const b2 of basisVecs) {
-        const k = dot(delta, b2)
-        for (let i = 0; i < moved.length; i++) moved[i] += k * b2[i]
-      }
-      nz = from.map((c, i) => c + moved[i])
-    }
-    dragZ.current = nz
-    // Where the specimen has actually ended up. With a constraint on, that is
-    // not where the pointer is, so the mark is drawn from this rather than
-    // from the pointer.
-    setLiveSelf({ x: dot(nz, b.u), y: dot(nz, b.v), h: liveSelf?.h ?? 0 })
-
-    if (dragPending.current) return
-    dragPending.current = true
-    api.location(nz, text)
-      .then((loc) => setLocation(loc))
-      .catch(() => {})
-      .finally(() => { dragPending.current = false })
-  }, [z, text, active, directions, liveSelf])
-
   const toggleActive = useCallback((key: string) => {
     setActive((prev) => {
       const next = new Set(prev)
@@ -307,13 +261,6 @@ export default function App() {
       return next
     })
   }, [])
-
-  const grabEnd = useCallback(() => {
-    const nz = dragZ.current
-    dragZ.current = null
-    setLiveSelf(null)
-    if (nz) push(nz, "drag", "dragged")
-  }, [push])
 
   const dragStart = useCallback((aiming: HandleKind[]) => {
     chipsBefore.current = new Set(active)
@@ -607,6 +554,9 @@ export default function App() {
               onDragEnd={dragEnd}
               lost={!!z && !isSane(z)}
               onReset={resetToSane}
+              onSnapshot={() => { if (z) setSnapshot([...z]) }}
+              onRecall={() => { if (snapshot) push(snapshot, "recall", "kept place") }}
+              hasSnapshot={!!snapshot}
               busy={false}
             />
           </div>
@@ -618,7 +568,6 @@ export default function App() {
                      colourBy={colourBy} setColourBy={setColourBy}
                      waypoint={waypoint} setWaypoint={setWaypoint}
                      onToward={goToward} radius={radius} sample={atlasChar}
-                     onGrabMove={grabMove} onGrabEnd={grabEnd}
                      liveGlyphs={location?.glyphs ?? null}
                      liveSelf={liveSelf}
                      onWantAxisHeight={() => setAtlasHeight("axis")} />

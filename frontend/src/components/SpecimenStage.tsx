@@ -31,7 +31,8 @@ const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 
 export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
-  onDragStart, onDrag, onDragEnd, lost, onReset, busy,
+  onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
+  hasSnapshot, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -48,6 +49,12 @@ export function SpecimenStage({
   /** Outside the corpus, where the outlines stop being readings. */
   lost: boolean
   onReset: () => void
+  /** Keep this exact place, and go back to the one kept last. Shaping runs
+   *  ahead of the trail: a hand tries twenty things and wants the good one
+   *  back, not the twentieth. */
+  onSnapshot: () => void
+  onRecall: () => void
+  hasSnapshot: boolean
   busy: boolean
   xProp: HandleKind; yProp: HandleKind; zProp: HandleKind
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
@@ -253,6 +260,35 @@ export function SpecimenStage({
 
       {/* Departure, where the eye already is. A direct gesture is exactly when
           a designer stops watching the meters across the room. */}
+      <div className="absolute top-1 right-2 flex items-center gap-1
+                      translate-y-5">
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onSnapshot}
+          title="Keep this place"
+          className="w-6 h-6 flex items-center justify-center rounded-sm border
+                     border-border bg-card text-[11px] leading-none
+                     hover:border-here hover:text-here active:translate-y-px
+                     transition-colors"
+        >
+          ⦿
+        </button>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onRecall}
+          disabled={!hasSnapshot}
+          title={hasSnapshot ? "Back to the place you kept"
+                             : "Nothing kept yet"}
+          className="w-6 h-6 flex items-center justify-center rounded-sm border
+                     border-border bg-card text-[11px] leading-none
+                     hover:border-here hover:text-here active:translate-y-px
+                     disabled:opacity-35 disabled:hover:border-border
+                     transition-colors"
+        >
+          ⟲
+        </button>
+      </div>
+
       {beyond && (
         <button
           onPointerDown={(e) => e.stopPropagation()}

@@ -133,7 +133,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 }
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
-                        waypoint, setWaypoint, onToward, radius, sample, onGrabMove, onGrabEnd,
+                        waypoint, setWaypoint, onToward, radius, sample,
   liveGlyphs, liveSelf, onWantAxisHeight }: {
   data: AtlasData | null
   onPick: (name: string) => void
@@ -147,13 +147,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   radius: number
   /** What each family is set in, so every mark on the map is comparable. */
   sample: string
-  /** How far the pointer has moved since the last report, in plane units, and
-   *  along the third axis. Increments, not a destination: a constrained drag
-   *  cannot reach the point under the pointer, and asking for one each frame
-   *  left the unmet remainder to be re-applied on the next, which ran away. */
-  onGrabMove: (dx: number, dy: number, dh: number) => void
-  /** Released: the move becomes a stop on the trail. */
-  onGrabEnd: () => void
   /** The outlines at the position being dragged to, as they arrive. */
   liveGlyphs: Glyph[] | null
   /** Where the specimen actually is while dragging. The constraint decides
@@ -172,20 +165,9 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const [hover, setHover] = useState<{ name: string; sx: number; sy: number } | null>(null)
   const hoverName = useRef<string | null>(null)
   const drag = useRef<{ x: number; y: number; cam: Cam } | null>(null)
-  // Moving the specimen rather than the camera. Grab it directly, or hold the
-  // modifier and drag anywhere; hold shift as well to move up and down the
-  // third axis instead of across the ground.
-  const grab = useRef<{ x: number; y: number; sx: number; sy: number } | null>(null)
-  const [mode2, setMode2] = useState<"orbit" | "move">("orbit")
-  const moveMode = useRef<"orbit" | "move">("orbit")
-  const [grabbing, setGrabbing] = useState(false)
-  // Where the specimen was last drawn. Null until it has been drawn once:
-  // tested against {0,0} beforehand, any press near the top-left corner counted
-  // as grabbing the specimen and flung it thousands of units out.
-  const selfScreen = useRef<{ sx: number; sy: number } | null>(null)
-  // Where the pointer was last seen, in plane coordinates, so movement can be
-  // reported as increments.
-  const lastAt = useRef<{ x: number; y: number } | null>(null)
+  // The atlas turns the model and nothing else. Shaping the type happens on
+  // the type, in the specimen panel: a map is for finding out where you are and
+  // what is nearby, and it was doing two jobs at once.
   // How far out a drag may go: a little beyond the furthest real family.
   const reach = useRef(40)
   const liveRef = useRef<Glyph[] | null>(null)
@@ -482,7 +464,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // You: drawn last, in the accent, with a drop line to the ground so the
     // height reading is not ambiguous.
     const me = P(cx, cy0, ch)
-    selfScreen.current = { sx: me.sx + SELF_PX * 0.35, sy: me.sy - SELF_PX * 0.28 }
     ctx.save()
     ctx.translate(me.sx, me.sy)
     ctx.scale(SELF_PX, -SELF_PX)
@@ -503,19 +484,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ctx.save(); ctx.translate(sdx, 0); ctx.fill(path, "evenodd"); ctx.restore()
       sdx += gl.advance
     }
-    if (moveMode.current === "move" || grab.current) {
-      ctx.strokeStyle = here
-      ctx.globalAlpha = grab.current ? 0.9 : 0.45
-      ctx.lineWidth = grab.current ? 2 : 1
-      ctx.setLineDash(grab.current ? [] : [3, 3])
-      ctx.beginPath()
-      ctx.arc(me.sx + SELF_PX * 0.35, me.sy - SELF_PX * 0.28,
-              SELF_PX * 0.92, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.globalAlpha = 1
-    }
-
     ctx.restore()
 
     if (probe) {
@@ -573,28 +541,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const ry = ((sy - hgt * 0.5) / c.zoom - (h0 - self.h) * HEIGHT_SCALE * cp) / sp
     const cy = Math.cos(c.yaw), sy2 = Math.sin(c.yaw)
     return { x: rx * cy + ry * sy2 + self.x, y: -rx * sy2 + ry * cy + self.y }
-  }, [])
-
-  /**
-   * A screen position as a plane position, without the traveller's own offset.
-   *
-   * Drag increments are differences between two of these, and they must not
-   * depend on where the mark currently is. Including the offset fed the mark's
-   * own movement back into the next increment: when it followed the pointer the
-   * steps shrank away to nothing, and when a constraint held it back they did
-   * not, so a constrained drag travelled further than a free one.
-   */
-  const unprojectDelta = useCallback((sx: number, sy: number) => {
-    const bx = box.current
-    if (!bx) return null
-    const w = bx.clientWidth
-    const c = cam.current
-    const sp = Math.sin(c.pitch)
-    if (Math.abs(sp) < 0.08) return null
-    const rx = (sx - w / 2) / c.zoom
-    const ry = ((sy - bx.clientHeight * 0.5) / c.zoom) / sp
-    const cy = Math.cos(c.yaw), sy2 = Math.sin(c.yaw)
-    return { x: rx * cy + ry * sy2, y: -rx * sy2 + ry * cy }
   }, [])
 
   // Zoom without a wheel: a trackpad pinch is not obvious, and reaching the
@@ -760,55 +706,16 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
   return (
     <div ref={box}
-         className={`relative w-full h-full rounded-md border bg-card
-                     overflow-hidden select-none
-                     ${grabbing ? "cursor-grabbing border-here"
-                       : mode2 === "move" ? "cursor-grab border-here/50"
-                       : "border-border"}`}
+         className={`relative w-full h-full rounded-md border border-border
+                     bg-card overflow-hidden select-none
+                     ${hover ? "cursor-pointer" : "cursor-grab"}`}
          onPointerDown={(e) => {
-           const r = box.current!.getBoundingClientRect()
-           const mx = e.clientX - r.left, my = e.clientY - r.top
-           const s0 = selfScreen.current
-           const onSpecimen = !!s0 && !!data
-             && Math.hypot(mx - s0.sx, my - s0.sy) < SELF_PX
-           // The specimen is taken hold of by grabbing it, or by holding the
-           // modifier anywhere: alt for move, alt+shift to go up and down.
-           if (data && (onSpecimen || e.altKey || moveMode.current === "move")) {
-             // Remember where the specimen was taken hold of, so it moves with
-             // the pointer instead of snapping its centre to it.
-             lastAt.current = unprojectDelta(mx, my)
-             grab.current = { x: e.clientX, y: e.clientY, sx: mx, sy: my }
-             setGrabbing(true)
-           } else {
-             drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
-           }
+           // Dragging turns the model. Nothing here changes the type.
+           drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
            if (hoverName.current) { hoverName.current = null; setHover(null) }
            ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
          }}
          onPointerMove={(e) => {
-           if (grab.current) {
-             const r = box.current!.getBoundingClientRect()
-             if (e.shiftKey) {
-               // Up and down the third axis. Screen up is further along it.
-               const dy = grab.current.y - e.clientY
-               grab.current = { ...grab.current, y: e.clientY }
-               onGrabMove(0, 0, dy / (cam.current.zoom * HEIGHT_SCALE))
-             } else {
-               const at = unprojectDelta(e.clientX - r.left, e.clientY - r.top)
-               const prev = lastAt.current
-               if (at && prev) {
-                 // A step no larger than the map is wide: near a shallow
-                 // horizon a pixel unprojects to an enormous distance.
-                 const lim = reach.current
-                 const dx = Math.max(-lim, Math.min(lim, at.x - prev.x))
-                 const dy2 = Math.max(-lim, Math.min(lim, at.y - prev.y))
-                 onGrabMove(dx, dy2, 0)
-               }
-               lastAt.current = at
-             }
-             schedule()
-             return
-           }
            if (drag.current) {
              const dx = e.clientX - drag.current.x
              const dy = e.clientY - drag.current.y
@@ -827,22 +734,17 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
          }}
          onPointerUp={() => {
            drag.current = null
-           if (grab.current) {
-             grab.current = null; lastAt.current = null
-             setGrabbing(false); onGrabEnd()
-           }
            schedule()
          }}
          onPointerCancel={() => {
            drag.current = null
-           if (grab.current) { grab.current = null; setGrabbing(false); onGrabEnd() }
            schedule()
          }}
          onPointerLeave={() => {
            drag.current = null
-           schedule()
            pending.current = null
            if (hoverName.current) { hoverName.current = null; setHover(null) }
+           schedule()
          }}
          onWheel={(e) => {
            const c = cam.current
@@ -852,7 +754,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            schedule()
          }}
          onClick={(e) => {
-           if (busy || moveMode.current === "move") return
+           if (busy) return
            // A font under the pointer is a place with a name; anywhere else is
            // a bearing on the map.
            if (hover) { onPick(hover.name); return }
@@ -872,28 +774,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           {hover.name}
         </div>
       )}
-      <div className="absolute top-2 right-2 flex items-center gap-1">
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            const next = moveMode.current === "orbit" ? "move" : "orbit"
-            moveMode.current = next
-            setMode2(next)
-            schedule()
-          }}
-          title={"Orbit turns the model. Move drags the specimen through it. "
-                 + "Hold alt to move without switching, and shift while moving "
-                 + "to go up and down the third axis."}
-          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                      transition-colors ${mode2 === "move"
-                        ? "border-here text-here bg-here/10"
-                        : "border-border text-muted-foreground"}`}
-        >
-          {mode2 === "move" ? "move ✥" : "orbit ⟳"}
-        </button>
-      </div>
-
       <div className="absolute bottom-2 left-2 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
@@ -966,9 +846,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
              title="Drag to orbit. Alt-drag, or the move toggle, drags the
                     specimen through the space. Shift while moving goes up and
                     down the third axis. Click a family to travel to it.">
-          {grabbing ? "shift: third axis"
-            : mode2 === "move" ? "drag specimen · shift: third axis"
-            : "drag: orbit · alt-drag: move · click: travel"}
+          drag to turn · hover a family to name it · click to travel there
         </div>
       )}
     </div>

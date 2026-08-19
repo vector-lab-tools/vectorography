@@ -275,6 +275,23 @@ question above argues for a held state, and the cheap version of it is already
 there: the chips persist, so the properties stay aimed between gestures and the
 hand can go back to the same stem forty times without re-choosing anything.
 
+### The atlas stopped doing two jobs
+
+The atlas could also be dragged to move the specimen. That is now removed: it
+turns the model, names a family on hover, and travels there on a click. Shaping
+happens on the type, in the specimen, where the hand can see what it is doing.
+A map that both shows you where you are and reshapes what you are holding is
+ambiguous to click, and the ambiguity fell on the one gesture, a plain drag,
+that both jobs wanted.
+
+### Keeping a place
+
+Shaping runs ahead of the trail. A designer tries twenty things in a row and
+wants the good one back, not the twentieth, and undo walks back one step at a
+time through all twenty. So the specimen carries two small controls: keep this
+place, and return to the place kept. The trail still records everything; the
+snapshot is a bookmark into it rather than a second history.
+
 ### What was constrained, and why
 
 - **The letters move at pointer speed.** Position is computed from the basis in
