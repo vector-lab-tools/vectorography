@@ -1,3 +1,15 @@
+---
+title: Vectorography
+emoji: "✒️"
+colorFrom: gray
+colorTo: red
+sdk: docker
+app_port: 7860
+pinned: false
+license: gpl-3.0
+short_description: Type design by traversal of a latent space of letterforms
+---
+
 > Part of the [Vector Lab](https://github.com/vector-lab-tools).
 > Vector methods for vector theory.
 >
@@ -294,6 +306,12 @@ design decision rather than a convenience: an instrument that shows you whose
 neighbourhood you are standing in should be able to say where its ground came
 from. `backend/data/corpus-manifest.json` records every family the space was
 fitted from, and travels inside every journey export.
+
+## Deploying
+
+One container, built and served by one process: see [DEPLOY.md](DEPLOY.md).
+Hugging Face Spaces is the recommended host, since a persistent process holds
+the fitted space in memory rather than reloading it after every idle period.
 
 ## Limitations
 

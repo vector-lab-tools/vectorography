@@ -23,6 +23,11 @@ from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
 VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
 
 app = FastAPI(title="Vectorography", version=VERSION)
+
+# Where a built frontend lands. In development it does not exist and Vite
+# serves the app instead; in a container the two are one service, which is why
+# there is nothing here to configure.
+BUILT = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -139,6 +144,14 @@ class FontReq(Z):
     family: str = "Vectorography"
     style: str = "Regular"
     format: str = "otf"
+
+
+@app.get("/api/health")
+def health():
+    """Enough to tell a deploy that the space is loaded, not merely running."""
+    s = space()
+    return {"ok": True, "model": s.model_id, "families": len(s.names),
+            "dims": s.dims, "version": VERSION}
 
 
 @app.get("/api/corpus")
@@ -592,3 +605,20 @@ def export_journey(req: JourneyReq):
     return Response(buf.getvalue(), media_type="application/zip", headers={
         "Content-Disposition":
             f"attachment; filename={req.family}-journey.zip"})
+
+
+# Mounted last: every /api route above is matched first, and anything else is
+# the app itself. A path that is not a file falls back to index.html, since the
+# app is one page and the browser may ask for any route within it.
+if BUILT.is_dir():
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=BUILT / "assets"), name="assets")
+
+    @app.get("/{path:path}")
+    def spa(path: str):
+        candidate = BUILT / path
+        if path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(BUILT / "index.html")
