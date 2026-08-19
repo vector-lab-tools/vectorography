@@ -61,8 +61,7 @@ export function About({ version, model, families, dims, onClose }: {
 
         <p className="font-mono text-[10px] text-muted-foreground mt-5
                       leading-relaxed">
-          {families} OFL families · {dims} dimensions<br />
-          Corpus: Google Fonts, SIL Open Font Licence 1.1<br />
+          {model} · {families} families · {dims} dimensions<br />
           Software: GPL-3.0
         </p>
 

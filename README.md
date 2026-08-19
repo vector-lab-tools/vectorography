@@ -18,7 +18,6 @@
 **Institution:** University of Sussex
 **Version:** see [`VERSION`](VERSION)
 **Licence:** GPL-3.0
-**Corpus:** Google Fonts, OFL-1.1 families only
 
 Vectorography is an experimental typographic instrument for designing type by
 **travelling through a latent space of letterforms**. You do not describe a
@@ -69,7 +68,6 @@ To rebuild the space from scratch, for a different corpus size or a different
 glyph set:
 
 ```bash
-.venv/bin/python backend/corpus/fetch.py 500      # download OFL families
 .venv/bin/python backend/corpus/outlines.py       # extract and align outlines
 .venv/bin/python -c "import sys; sys.path.insert(0,'backend'); \
   import json, numpy as np; from space.style_space import StyleSpace; \
@@ -245,7 +243,6 @@ five nearest real families) printed on it. The reading travels with the artefact
 ## How it works
 
 ```
-OFL corpus  ->  style vectors  ->  latent space  ->  navigator  ->  variable font
 (fontTools)     (fixed length)     (whitened PCA)    (browser)      (varLib)
 ```
 
@@ -298,7 +295,6 @@ neighbourhood you are standing in should be able to say where its ground came
 from. `backend/data/corpus-manifest.json` records every family used, and travels
 inside every journey export.
 
-Vectorography itself is GPL-3.0. Outlines you export are derived from OFL-1.1
 families; check the OFL terms before distributing a typeface built with it.
 
 ## Limitations
@@ -321,7 +317,6 @@ This is a prototype, and the following are known and deliberate.
 
 ```
 backend/
-  corpus/fetch.py       OFL-only corpus download and manifest
   corpus/outlines.py    outline extraction, resampling, corpus alignment
   space/style_space.py  the latent space, density, and travel primitives
   data/vectormodel-*.npz  the fitted space, see MODEL.md

@@ -145,7 +145,6 @@ export function JourneyTester({ trail, family, stops, onClose }: {
 
           <p className="font-mono text-[10px] text-muted-foreground">
             This is the same variable font that File → Compile Journey writes.
-            Outlines derive from OFL-1.1 families.
           </p>
         </div>
       )}

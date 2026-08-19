@@ -38,6 +38,9 @@ UPEM = 2048
 AXIS_TAG = "JRNY"
 AXIS_NAME = "Journey"
 VENDOR = "VGPH"
+# Named on every font that leaves: a location means nothing without the space
+# it is a location in.
+MODEL_ID = "VectorModel 0.1"
 MIN_AREA = 0.0006          # em^2; below this a contour is a collapsed pad
 
 DIGIT_NAMES = ["zero", "one", "two", "three", "four",
@@ -68,9 +71,9 @@ def _names(family: str, style: str, version: str) -> dict:
         "fullName": f"{family} {style}",
         "psName": ps,
         "version": version,
-        "copyright": ("Outlines derived by traversal in Vectorography from "
-                      "OFL-1.1 licensed Google Fonts families. "
-                      "See corpus-manifest.json."),
+        "copyright": (f"Outlines produced by traversal of {MODEL_ID} in "
+                      "Vectorography. See corpus-manifest.json for the "
+                      "families the space was fitted from."),
         "designer": "Traversed in Vectorography",
         "vendorURL": "https://github.com/vector-lab-tools/vectorography",
     }

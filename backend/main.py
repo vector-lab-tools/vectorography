@@ -154,7 +154,7 @@ def corpus_info():
         "model": {"name": MODEL_NAME, "version": MODEL_VERSION,
                   "kind": "whitened principal subspace",
                   "id": f"{MODEL_NAME} {MODEL_VERSION}"},
-        "licence": "OFL-1.1 (Google Fonts, ofl/ tree only)",
+
         "centroid_distances": s._centroid_dists.tolist(),
         "centroid_max": float(s._centroid_dists.max()),
     }
@@ -505,8 +505,8 @@ h1{{font:400 22px Georgia,serif;margin:0 0 4px}}
 hr{{border:0;border-top:1px solid #e6e0d4;margin:34px 0}}
 </style>
 <h1>{family}</h1>
-<div class="sub">A journey through VectorModel, compiled. Corpus: Google Fonts,
-OFL-1.1. Open this file in a browser; nothing needs installing.</div>
+<div class="sub">A journey through {MODEL_NAME} {MODEL_VERSION}, compiled.
+Open this file in a browser; nothing needs installing.</div>
 
 <div class="l">The variable font, across its journey axis</div>
 <input class="slider" type="range" min="0" max="1000" value="0"
@@ -550,8 +550,9 @@ def export_journey(req: JourneyReq):
         "trail": req.trail,
         "masters": [{"file": n, "t": i / (len(masters) - 1)}
                     for i, (n, _) in enumerate(masters)],
-        "licence_note": ("Derived from OFL-1.1 Google Fonts families; "
-                         "see corpus-manifest.json"),
+        "provenance": ("Produced by traversal of the fitted space; "
+                       "see corpus-manifest.json for the families it was "
+                       "fitted from"),
     }
 
     safe = req.family.replace(" ", "") or "Journey"
@@ -584,10 +585,7 @@ def export_journey(req: JourneyReq):
             f"  journey.json     the full path in latent coordinates, and the "
             f"model it belongs to.\n"
             f"  corpus-manifest.json   every family the space was fitted "
-            f"from.\n\n"
-            f"Outlines are derived from OFL-1.1 licensed Google Fonts "
-            f"families. Check the\n"
-            f"OFL terms before distributing a typeface built with this.\n"))
+            f"from.\n"))
         man = Path(__file__).parent / "data" / "corpus-manifest.json"
         if man.exists():
             zf.writestr("corpus-manifest.json", man.read_text())

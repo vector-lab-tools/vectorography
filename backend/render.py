@@ -162,9 +162,8 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
     """A location as a card worth showing someone.
 
     Everything on it is a reading rather than a caption: where this sits in the
-    distribution, whose neighbourhood it is in, and which model and corpus it
-    came out of. A specimen without its provenance is just a picture of some
-    letters.
+    distribution, and which model it came out of. A specimen without its
+    provenance is just a picture of some letters.
     """
     W, H = 1200, 630
     by = {g["char"]: g for g in glyphs}
@@ -185,18 +184,13 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         x += g["advance"] * size
 
     alt = location.get("altitude", {})
-    near = location.get("neighbours", [])[:3]
     readings = [
         ("from the centroid", f"{alt.get('centroid_distance', 0):.2f}"),
         ("density percentile", f"{alt.get('density_percentile', 0):.0f}"),
         ("nearest five, mean", f"{alt.get('knn_distance', 0):.2f}"),
     ]
-    # Three readings on one row, the neighbours on their own beneath. Set
-    # alongside them the names ran straight through the numbers: a family name
-    # is as long as it likes to be.
-    # Three readings on one row, the neighbours on their own beneath. Set
-    # alongside them the names ran straight through the numbers: a family name
-    # is as long as it likes to be.
+    # Three readings on one row. Family names sat beside them once and ran
+    # straight through the numbers, a family name being as long as it likes.
     cols = "".join(
         f'<text x="{80 + i * 260}" y="452" font-family="ui-monospace,monospace" '
         f'font-size="14" fill="#8a8378" letter-spacing="1.4">{k.upper()}</text>'
@@ -204,10 +198,6 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         f'font-size="38" fill="#1a1a1a">{v}</text>'
         for i, (k, v) in enumerate(readings))
 
-    def short(n: str) -> str:
-        return n if len(n) <= 20 else n[:19] + "\u2026"
-
-    names = " · ".join(short(n["family"]) for n in near) or "—"
     title = family or text
 
     return (
@@ -222,11 +212,6 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         f'<g fill="#1a1a1a" fill-rule="evenodd">{"".join(body)}</g>'
         f'<line x1="80" y1="412" x2="{W - 80}" y2="412" stroke="#e6e0d4"/>'
         f'{cols}'
-        f'<text x="80" y="548" font-family="ui-monospace,monospace" '
-        f'font-size="14" fill="#8a8378" letter-spacing="1.4">'
-        f'IN THE NEIGHBOURHOOD OF</text>'
-        f'<text x="310" y="548" font-family="ui-monospace,monospace" '
-        f'font-size="15" fill="#1a1a1a">{names}</text>'
         f'<text x="80" y="592" font-family="ui-monospace,monospace" '
         f'font-size="13" fill="#8a8378">vectorography · type design by '
         f'traversal · {model}</text>'

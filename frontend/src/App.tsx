@@ -30,7 +30,7 @@ const DEFAULT_TEXT = "Hamburgefonstiv"
  * working on, which is why these are not in the View menu: view is how you
  * look at what you already have.
  */
-const PLANNED: Record<"glyph" | "set" | "compare", Planned> = {
+const PLANNED: Record<"glyph" | "set" | "compare" | "licence", Planned> = {
   glyph: {
     title: "Edit a glyph",
     blurb: "Work on one letter rather than the whole typeface. Travelling "
@@ -57,6 +57,22 @@ const PLANNED: Record<"glyph" | "set" | "compare", Planned> = {
         + "to keep up with a drag.",
       "Somewhere to say which glyphs the space handles badly, since the pads "
         + "for missing counters show up here first.",
+    ],
+  },
+  licence: {
+    title: "Choose a licence for the export",
+    blurb: "Pick the terms a compiled typeface goes out under, and have them "
+      + "written into the font itself rather than added by hand afterwards. A "
+      + "typeface that leaves here carries a name table, and the licence "
+      + "belongs in it.",
+    needs: [
+      "A choice at export time, remembered per journey rather than per "
+        + "session, since the licence belongs to the typeface and not to the "
+        + "afternoon it was made in.",
+      "The name table fields that carry it: licence description and licence "
+        + "URL, which fontTools writes but nothing currently fills.",
+      "The same text in the bundle README, so the zip and the binary do not "
+        + "disagree.",
     ],
   },
   compare: {
@@ -566,6 +582,11 @@ export default function App() {
         { kind: "item", label: "Share card\u2026",
           disabled: !z, onSelect: () => setSharing(true),
           title: "Look at the card first, then send, copy or save it" },
+        { kind: "sep" },
+        { kind: "item", label: "Licence for exports\u2026", hint: "soon",
+          onSelect: () => setPlanned(PLANNED.licence),
+          title: "Choose the terms a compiled typeface goes out under" },
+        { kind: "sep" },
         { kind: "item", label: "Export Specimen Sheet (SVG)",
           disabled: !z, onSelect: exportSvg,
           title: "This location as a specimen sheet, with its map reading" },
@@ -897,8 +918,7 @@ export default function App() {
           </button>
         )}
         <span className="font-mono text-[10px] text-muted-foreground"
-              title={`${corpus.count} families from the Google Fonts OFL tree, `
-                     + `${corpus.dims} dimensions`}>
+              title={`${corpus.count} families · ${corpus.dims} dimensions`}>
           corpus: {corpus.model?.id ?? "VectorModel"}
         </span>
       </footer>
