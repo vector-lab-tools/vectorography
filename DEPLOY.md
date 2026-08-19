@@ -14,15 +14,19 @@ serverless host reloads it after every idle period.
    **Space SDK: Docker** (blank template). Hardware: **CPU basic**, which is
    free. Visibility as you like; public is the point for an instrument with a
    paper behind it.
-3. It gives you a git URL. Add it alongside GitHub and push:
+3. Push to it:
 
    ```
-   git remote add space https://huggingface.co/spaces/<owner>/vectorography
-   git push space main
+   tools/push-space.sh <owner>/vectorography
    ```
 
    You will be asked for your username and a **write** access token from
    <https://huggingface.co/settings/tokens>, not your password.
+
+   The script sends one commit holding the working tree, with the fitted space
+   in Git LFS. Hugging Face refuses ordinary files over 10 MB and the space is
+   about thirty, so it has to be LFS; GitHub keeps the real history, since a
+   Space is a deployment rather than a record.
 4. The Space builds the Dockerfile at the root and serves on port 7860, which
    the metadata at the top of README.md already declares. First build takes a
    few minutes; after that a push rebuilds it.
