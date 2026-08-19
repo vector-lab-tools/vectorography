@@ -135,11 +135,11 @@ export default function App() {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
 
-  // The atlas draws one or two letters per font: five hundred simultaneous
-  // typefaces is not a map.
+  // The atlas draws the first three letters of the specimen per font: enough
+  // of a word to judge a face by, and few enough that the map stays a map.
   const atlasChar = useMemo(() => {
-    const t = [...text].filter((c) => /[A-Za-z0-9]/.test(c)).slice(0, 2).join("")
-    return t || "Ra"
+    const t = [...text].filter((c) => /[A-Za-z0-9]/.test(c)).slice(0, 3).join("")
+    return t || "Ham"
   }, [text])
 
   const compassText = useMemo(() => {
