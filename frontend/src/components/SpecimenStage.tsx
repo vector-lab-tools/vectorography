@@ -71,6 +71,10 @@ export function SpecimenStage({
   const svg = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<Handle | null>(null)
   const [dragging, setDragging] = useState<Handle | "plane" | null>(null)
+  // Metrics are wanted while judging a shape and in the way while reading a
+  // word, so they come and go on their own switch, and the choice is kept.
+  const [guides, setGuides] = useState(
+    () => localStorage.getItem("vg.guides") !== "0")
   const last = useRef<{ x: number; y: number } | null>(null)
   const held = useRef<Handle | "plane" | null>(null)
 
@@ -232,13 +236,15 @@ export function SpecimenStage({
           {/* Baseline, x-height and cap, behind the type. The letters are read
               against them the way a designer reads them off a drawing, and
               they sit under the ink rather than over it. */}
-          <g pointerEvents="none" stroke="hsl(var(--ink) / 0.13)"
-             strokeWidth={0.004}>
-            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={0} y2={0}
-                  strokeWidth={0.006} />
-            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={xh} y2={xh} />
-            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
-          </g>
+          {guides && (
+            <g pointerEvents="none" stroke="hsl(var(--ink) / 0.13)"
+               strokeWidth={0.004}>
+              <line x1={VB.x0} x2={VB.x0 + VB.w} y1={0} y2={0}
+                    strokeWidth={0.006} />
+              <line x1={VB.x0} x2={VB.x0 + VB.w} y1={xh} y2={xh} />
+              <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
+            </g>
+          )}
           {/* A shallow presentation, so "further away" is a direction the hand
               can push in. The letters stay flat and readable: the depth is in
               how the specimen sits, not in extruded type. */}
@@ -448,6 +454,22 @@ export function SpecimenStage({
               ))}
           </span>
         )}
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => {
+            const next = !guides
+            setGuides(next)
+            localStorage.setItem("vg.guides", next ? "1" : "0")
+          }}
+          title="Baseline, x-height and cap height behind the letters"
+          className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                      ml-1 transition-colors ${guides
+                        ? "border-here text-here bg-here/10"
+                        : "border-border text-muted-foreground"}`}
+        >
+          guides
+        </button>
+
         {depth === "handles" && !hasGeometry && (
           <span className="font-mono text-[9px] text-gold ml-1">
             waiting for outlines
