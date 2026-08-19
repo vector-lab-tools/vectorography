@@ -3,13 +3,11 @@
 #
 #   tools/push-space.sh <owner>/<space-name>
 #
-# The Space gets one commit holding the current working tree, with the fitted
-# space in Git LFS. GitHub keeps the history; a Space is a deployment rather
-# than a record, and rewriting this repo's history to satisfy one host would be
-# the tail wagging the dog.
+# Uses the Hugging Face CLI, which creates the Space if it is missing and
+# handles large files itself; the fitted space is about thirty megabytes and
+# an ordinary git push would be refused. Log in first with:
 #
-# You will be asked for your username and a write token from
-# https://huggingface.co/settings/tokens — not your password.
+#   .venv/bin/hf auth login
 
 set -euo pipefail
 
@@ -19,27 +17,29 @@ if [[ -z "$target" ]]; then
   exit 2
 fi
 
-command -v git-lfs >/dev/null || { echo "git-lfs is not installed" >&2; exit 1; }
-git diff --quiet && git diff --cached --quiet || {
-  echo "working tree is dirty; commit or stash first" >&2; exit 1; }
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+hf="$here/.venv/bin/hf"
+[[ -x "$hf" ]] || hf="$(command -v hf || true)"
+[[ -n "$hf" ]] || { echo "no hf CLI; pip install 'huggingface_hub[cli]'" >&2; exit 1; }
 
-remote="https://huggingface.co/spaces/${target}"
-branch="space-deploy"
+"$hf" auth whoami >/dev/null 2>&1 || {
+  echo "not logged in; run: $hf auth login" >&2; exit 1; }
 
-git lfs install --local >/dev/null
-git remote get-url space >/dev/null 2>&1 || git remote add space "$remote"
-git remote set-url space "$remote"
+# Idempotent: says so and carries on if the Space is already there.
+"$hf" repo create "$target" --repo-type space --space_sdk docker -y \
+  2>&1 | grep -v "already created" || true
 
-# An orphan branch: one commit, no history, LFS from the start.
-git branch -D "$branch" 2>/dev/null || true
-git checkout --orphan "$branch" >/dev/null 2>&1
-git add -A
-git commit -q -m "Vectorography $(cat VERSION) · $(git log -1 --format=%h main)"
+# What the Space needs and nothing else. The corpus fonts are excluded by
+# size and regenerable; node_modules and the venv have no business in an
+# image that builds them itself.
+"$hf" upload "$target" "$here" . \
+  --repo-type space \
+  --exclude ".git/*" ".venv/*" "node_modules/*" "frontend/node_modules/*" \
+             "frontend/dist/*" "backend/data/fonts/*" "backend/data/corpus.npz" \
+             "backend/data/ofl-tree.json" "**/__pycache__/*" "tools/pending/*" \
+  --commit-message "Vectorography $(cat "$here/VERSION")"
 
-echo "pushing to ${remote}"
-git push --force space "${branch}:main"
-
-git checkout - >/dev/null 2>&1
 echo
-echo "done. Watch the build at ${remote}"
-echo "then check ${remote%/spaces/*}/spaces/${target} answers /api/health"
+echo "building at https://huggingface.co/spaces/${target}"
+echo "when it is up, check it answers:"
+echo "  curl https://${target/\//-}.hf.space/api/health"

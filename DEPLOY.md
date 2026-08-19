@@ -9,12 +9,16 @@ A Space keeps a process alive, so the model is loaded once rather than on every
 request. That matters here: the fitted space is tens of megabytes, and a
 serverless host reloads it after every idle period.
 
-1. Sign in at <https://huggingface.co> and choose **New Space**.
-2. Owner: your account or the `vector-lab-tools` org. Name: `vectorography`.
-   **Space SDK: Docker** (blank template). Hardware: **CPU basic**, which is
-   free. Visibility as you like; public is the point for an instrument with a
-   paper behind it.
-3. Push to it:
+1. Log in once:
+
+   ```
+   .venv/bin/hf auth login
+   ```
+
+   It prints a URL and a code to enter in a browser. A **write** token is
+   needed, not a read one.
+2. Push. The Space is created if it does not exist, as a Docker Space on free
+   CPU:
 
    ```
    tools/push-space.sh <owner>/vectorography
@@ -23,10 +27,9 @@ serverless host reloads it after every idle period.
    You will be asked for your username and a **write** access token from
    <https://huggingface.co/settings/tokens>, not your password.
 
-   The script sends one commit holding the working tree, with the fitted space
-   in Git LFS. Hugging Face refuses ordinary files over 10 MB and the space is
-   about thirty, so it has to be LFS; GitHub keeps the real history, since a
-   Space is a deployment rather than a record.
+   The CLI handles the large file itself: Hugging Face refuses ordinary git
+   pushes of files over 10 MB and the fitted space is about thirty. The corpus
+   fonts, the raw encodings and the build directories are left out.
 4. The Space builds the Dockerfile at the root and serves on port 7860, which
    the metadata at the top of README.md already declares. First build takes a
    few minutes; after that a push rebuilds it.
