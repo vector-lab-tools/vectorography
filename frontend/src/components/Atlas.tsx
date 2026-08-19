@@ -219,6 +219,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const mode = useRef<"off" | "names" | "letters">("off")
   const [modeOn, setModeOn] = useState<"off" | "names" | "letters">("off")
   const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
+  // The cardinals are orientation, which is wanted while turning the model and
+  // in the way while reading it, so they come and go on their own.
+  const cardinals = useRef(localStorage.getItem("vg.cardinals") !== "0")
+  const [cardinalsOn, setCardinalsOn] = useState(cardinals.current)
 
 
   // How much screen a unit of height is worth. On a latent axis it is set so
@@ -442,19 +446,21 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       // Cardinals on the equator, so the sphere says which way it has been
       // turned. They are the ends of the two ground axes: east and west are
       // the far points of the first, north and south of the second.
-      const cardinals: [string, number, number][] = [
-        ["E", 1, 0], ["W", -1, 0], ["N", 0, 1], ["S", 0, -1]]
-      ctx.font = "9px ui-monospace, Menlo, monospace"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-      ctx.fillStyle = muted
-      for (const [label, a, b] of cardinals) {
-        const q = P(a * hull * 1.06, b * hull * 1.06, hOf(0))
-        const front = 1 / (1 + Math.exp(-q.depth * 1.4))
-        ctx.globalAlpha = 0.2 + 0.55 * front
-        ctx.fillText(label, q.sx, q.sy)
+      if (cardinals.current) {
+        const points: [string, number, number][] = [
+          ["E", 1, 0], ["W", -1, 0], ["N", 0, 1], ["S", 0, -1]]
+        ctx.font = "9px ui-monospace, Menlo, monospace"
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillStyle = muted
+        for (const [label, a, b] of points) {
+          const q = P(a * hull * 1.06, b * hull * 1.06, hOf(0))
+          const front = 1 / (1 + Math.exp(-q.depth * 1.4))
+          ctx.globalAlpha = 0.2 + 0.55 * front
+          ctx.fillText(label, q.sx, q.sy)
+        }
+        ctx.globalAlpha = 1
       }
-      ctx.globalAlpha = 1
 
       // The edge of the known space.
       ctx.globalAlpha = 0.28
@@ -576,7 +582,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     }
 
     if (animating) schedule()
-  }, [data, norm, project, waypoint, schedule, sample, liveSelf, ballOn])
+  }, [data, norm, project, waypoint, schedule, sample, liveSelf, ballOn,
+      cardinalsOn])
 
   // One draw per frame at most, and never faster than MAX_FPS. Pointer events
   // arrive far more often than the screen can show them, so they only mark the
@@ -739,6 +746,28 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                                  : "border-border text-muted-foreground"}`}
           >
             ◯
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              const next = !cardinals.current
+              cardinals.current = next
+              setCardinalsOn(next)
+              localStorage.setItem("vg.cardinals", next ? "1" : "0")
+              schedule()
+            }}
+            disabled={!ballOn}
+            title="North, south, east and west on the shell, for telling which
+                   way the model has been turned"
+            className={`w-5 h-5 flex items-center justify-center rounded-sm
+                        border font-mono text-[9px] leading-none
+                        transition-colors disabled:opacity-30
+                        ${cardinalsOn && ballOn
+                          ? "border-here text-here bg-here/10"
+                          : "border-border text-muted-foreground"}`}
+          >
+            N
           </button>
           <select
             value={colourBy}
