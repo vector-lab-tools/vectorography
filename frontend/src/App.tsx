@@ -331,6 +331,8 @@ export default function App() {
     if (nz) push(nz, "shape", "shaped by hand", path)
   }, [push])
 
+  const wantAxisHeight = useCallback(() => setAtlasHeight("axis"), [])
+
   const goToward = useCallback((w: Waypoint, amount: number | null) =>
     travel({ mode: "toward", target_x: w.x, target_y: w.y, amount },
            "toward", amount === null
@@ -570,7 +572,7 @@ export default function App() {
                      onToward={goToward} radius={radius} sample={atlasChar}
                      liveGlyphs={location?.glyphs ?? null}
                      liveSelf={liveSelf}
-                     onWantAxisHeight={() => setAtlasHeight("axis")} />
+                     onWantAxisHeight={wantAxisHeight} />
             </div>
 
             <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0

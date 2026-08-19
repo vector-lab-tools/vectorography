@@ -218,8 +218,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const mode = useRef<"off" | "names" | "letters">("off")
   const [modeOn, setModeOn] = useState<"off" | "names" | "letters">("off")
   const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
-  const ball = useRef(false)
-  const [ballOn, setBallOn] = useState(false)
+  // Remembered, because it is a way of looking at the space rather than a
+  // momentary action, and having to switch it back on after every reload made
+  // it feel like something that had gone wrong.
+  // On by default: the shape of the space is the thing being read, and the
+  // shells are what make the map a place rather than a scatter.
+  const ball = useRef(localStorage.getItem("vg.ball") !== "0")
+  const [ballOn, setBallOn] = useState(ball.current)
 
   // How much screen a unit of height is worth. On a latent axis it is set so
   // that a unit up is the same size as a unit across: only then is the view
@@ -351,9 +356,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       const taken = new Set<string>()
       for (const q of [...proj].sort((a, b) => a.p.d - b.p.d)) {
         if (!q.on || q.sx < 0 || q.sx > w || q.sy < 0 || q.sy > h) continue
-        const key = marks === "names"
-          ? `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
-          : `${Math.round(q.sx / 30)}:${Math.round(q.sy / 20)}`
+        const key = `${Math.round(q.sx / 74)}:${Math.round(q.sy / 14)}`
         if (taken.has(key)) continue
         taken.add(key)
         labelled.add(q.p.i)
@@ -509,16 +512,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       // drawn once into its own canvas and copied thereafter.
       const fade = alphas.get(it.p.i) ?? 0
       if (fade > 0.02) {
-        const text = marks === "names" ? it.p.name : sample
-        const img = labelImage(it.p.name, text, inkRgb, schedule)
+        const img = labelImage(it.p.name, it.p.name, inkRgb, schedule)
         if (img) {
-          const px = marks === "names" ? 9 + 3 * near : 13 + 11 * near
-          const scale = px / LABEL_PX
+          const scale = (9 + 3 * near) / LABEL_PX
           const iw = (img.width / LABEL_DPR) * scale
           const ih = (img.height / LABEL_DPR) * scale
           ctx.globalAlpha = fade * (0.3 + 0.65 * near)
-          if (marks === "names") ctx.drawImage(img, it.sx + 4, it.sy - ih * 0.72, iw, ih)
-          else ctx.drawImage(img, it.sx - iw / 2, it.sy - ih * 0.55, iw, ih)
+          ctx.drawImage(img, it.sx + 4, it.sy - ih * 0.72, iw, ih)
           ctx.globalAlpha = 1
         }
       }
@@ -688,6 +688,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
               const next = !ball.current
               ball.current = next
               setBallOn(next)
+              localStorage.setItem("vg.ball", next ? "1" : "0")
               if (next) onWantAxisHeight()
               schedule()
             }}
@@ -695,12 +696,12 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                    + "an isotropic ball, with most families in a shell rather "
                    + "than near the middle. Needs the height to be a real axis, "
                    + "so turning it on makes it one."}
-            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                        transition-colors ${ballOn
-                          ? "border-here text-here bg-here/10"
-                          : "border-border text-muted-foreground"}`}
+            className={`w-5 h-5 flex items-center justify-center rounded-sm
+                        border text-[11px] leading-none transition-colors
+                        ${ballOn ? "border-here text-here bg-here/10"
+                                 : "border-border text-muted-foreground"}`}
           >
-            ball
+            ◯
           </button>
           <select
             value={colourBy}
@@ -718,8 +719,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              const next = mode.current === "off" ? "names"
-                : mode.current === "names" ? "letters" : "off"
+              const next = mode.current === "off" ? "names" : "off"
               mode.current = next
               setModeOn(next)
               LABELS.clear()
@@ -731,8 +731,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                           ? "border-burgundy text-burgundy"
                           : "border-border text-muted-foreground"}`}
           >
-            {modeOn === "letters" ? `“${sample}”`
-              : modeOn === "names" ? "names" : "dots"}
+            {modeOn === "names" ? "names" : "dots"}
           </button>
         </div>
       </div>
