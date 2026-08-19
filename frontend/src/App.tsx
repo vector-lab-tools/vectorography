@@ -173,6 +173,14 @@ export default function App() {
       setLocation(loc)
       setCompass(comp.points)
       setAtlas(atl)
+      // The locally computed position is let go only now, when the server's
+      // own answer is in hand. Dropped at the end of the gesture instead, the
+      // mark fell back to the previous location for as long as the request
+      // took and the map jumped back before jumping forward.
+      if (dragZ.current === null) {
+        setLiveSelf(null)
+        setLiveRadius(null)
+      }
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
@@ -320,7 +328,6 @@ export default function App() {
     const nz = dragZ.current
     dragZ.current = null
     strokePath.current = []
-    setLiveSelf(null)
     // The whole gesture goes on the trail as one stop, with the path it took
     // kept alongside so it can be compiled as an axis of its own.
     if (nz) push(nz, "shape", "shaped by hand", path)
@@ -374,8 +381,6 @@ export default function App() {
     const nz = dragZ.current
     dragZ.current = null
     strokePath.current = []
-    setLiveSelf(null)
-    setLiveRadius(null)
     if (nz) push(nz, "steer", "set by slider")
   }, [push])
 
