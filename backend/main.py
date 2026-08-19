@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -42,6 +43,13 @@ app = FastAPI(title="Vectorography", version=VERSION)
 BUILT = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
                    allow_methods=["*"], allow_headers=["*"])
+# Outlines go over the wire as path strings: digits, commas and the letters C
+# and M, which is about as compressible as text gets, and they come back about
+# a third of the size. Everything above the threshold is compressed, binary
+# replies included, which suits them: a CFF font is not a compressed format and
+# gives back a third as well. The threshold leaves the small readings alone,
+# where the work would cost more than the bytes saved.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 _space: StyleSpace | None = None
 
