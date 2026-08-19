@@ -18,9 +18,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from export.card_png import card_png            # noqa: E402
-from render import decode_to_glyphs             # noqa: E402
-from space.style_space import StyleSpace        # noqa: E402
+from export.card_png import card_png                              # noqa: E402
+from render import decode_to_glyphs                               # noqa: E402
+from space.style_space import MODEL_NAME, MODEL_VERSION, StyleSpace  # noqa: E402
 
 WORD = "Vectorography"
 
@@ -33,8 +33,7 @@ def main() -> None:
     png = card_png(
         glyphs, WORD,
         {"altitude": s.altitude(z), "neighbours": s.neighbours(z, k=3)},
-        model=f"{s.model_name} {s.model_version}"
-        if hasattr(s, "model_name") else "VectorModel",
+        model=f"{MODEL_NAME} {MODEL_VERSION}",
         family=WORD)
     out = ROOT / "frontend" / "public" / "og.png"
     out.write_bytes(png)

@@ -229,6 +229,6 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         f'font-size="15" fill="#1a1a1a">{names}</text>'
         f'<text x="80" y="592" font-family="ui-monospace,monospace" '
         f'font-size="13" fill="#8a8378">vectorography · type design by '
-        f'traversal · corpus: Google Fonts, OFL-1.1</text>'
+        f'traversal · {model}</text>'
         f'</svg>'
     )

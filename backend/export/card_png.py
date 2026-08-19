@@ -97,8 +97,7 @@ def card_png(glyphs: list[dict], text: str, location: dict, model: str,
         d.text((cx, 466 * s), v, font=_serif(34 * s), fill=INK)
 
     d.text((80 * s, 580 * s),
-           "vectorography · type design by traversal · "
-           "corpus: Google Fonts, OFL-1.1",
+           f"vectorography · type design by traversal · {model}",
            font=_mono(13 * s), fill=QUIET)
 
     img = img.resize((W, H), Image.LANCZOS)
