@@ -77,6 +77,16 @@ export function SpecimenStage({
   const placed = useMemo(() => layout(glyphs, text), [glyphs, text])
   const width = useMemo(() => lineWidth(placed), [placed])
   const xh = useMemo(() => xHeightOf(placed), [placed])
+  // Cap height, read off a capital if the specimen has one.
+  const capH = useMemo(() => {
+    const cap = placed.find((p) => /[A-Z]/.test(p.g.char))
+    if (!cap) return xh * 1.35
+    let top = 0
+    for (const c of cap.g.contours ?? []) {
+      for (const [, y] of c) if (y > top) top = y
+    }
+    return top || xh * 1.35
+  }, [placed, xh])
   const hasGeometry = glyphs.some((g) => g.contours?.length)
 
   // Every handle the letterform offers, drawn rather than waited for. Hidden
@@ -219,6 +229,16 @@ export function SpecimenStage({
         onWheel={wheel}
       >
         <g transform="scale(1,-1)">
+          {/* Baseline, x-height and cap, behind the type. The letters are read
+              against them the way a designer reads them off a drawing, and
+              they sit under the ink rather than over it. */}
+          <g pointerEvents="none" stroke="hsl(var(--ink) / 0.13)"
+             strokeWidth={0.004}>
+            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={0} y2={0}
+                  strokeWidth={0.006} />
+            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={xh} y2={xh} />
+            <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
+          </g>
           {/* A shallow presentation, so "further away" is a direction the hand
               can push in. The letters stay flat and readable: the depth is in
               how the specimen sits, not in extruded type. */}

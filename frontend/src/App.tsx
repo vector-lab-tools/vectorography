@@ -675,7 +675,7 @@ export default function App() {
 
         {/* Bottom: readings and controls. */}
         <section className="min-h-0 overflow-y-auto px-3 pb-3 grid gap-3
-                            grid-cols-1 md:grid-cols-[minmax(0,1fr)_248px]"
+                            grid-cols-1 md:grid-cols-2"
                  style={{ flex: `${1 - split} 1 0%` }}>
           {/* Two panels, side by side: what moves you, and where you have
               been. */}
