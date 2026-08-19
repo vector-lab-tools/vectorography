@@ -110,6 +110,14 @@ export const api = {
     api.download("/api/export/font", { z, family, style, format, licence, author },
                  `${family.replace(/ /g, "")}-${style}.${format}`),
 
+  exportUfo: (z: number[], family: string, licence = "none", author = "") =>
+    api.download("/api/export/ufo", { z, family, licence, author },
+                 `${family.replace(/ /g, "")}-ufo.zip`),
+
+  exportGlyphSvg: (z: number[], family: string) =>
+    api.download("/api/export/glyph-svg", { z, family },
+                 `${family.replace(/ /g, "")}-glyphs-svg.zip`),
+
   fontPosition: (name: string) =>
     fetch(`/api/font/${name}`).then((r) => r.json() as Promise<{ z: number[] }>),
 

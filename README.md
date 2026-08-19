@@ -241,6 +241,27 @@ no requantisation, no second approximation. Metrics, x-height, cap-height and
 naming are filled in properly and `fsType` is 0, so it installs in Font Book and
 sets text like any other font.
 
+**UFO source.** This location as a **UFO 3** package, which is what every type
+editor opens: Glyphs, RoboFont, FontLab, FontForge. An OTF is something a
+designer installs; a UFO is something they work on. Verified against fontTools'
+own reader, and every glyph's outline matches the compiled OTF to within half a
+font unit at 2048 upem.
+
+**Designspace + UFO masters.** The journey as the standard source layout of a
+variable font: one UFO per stop and a `.designspace` binding them to a single
+`Journey` axis. This is the same shape the compiled variable font has, in the
+form a designer can open and carry on with.
+
+The outlines are resampled at uniform arc length, forty points per contour, in
+cyclic correspondence across every stop. That is what lets any two stops
+interpolate, and it also means the points are not where a designer would have
+put them: expect to run a curve fit before editing by hand. The README inside
+the export says so too.
+
+**SVG outlines.** Every glyph as its own SVG, for Illustrator, Figma or a
+cutter. Shapes rather than type: no metrics, no kerning, and nothing
+downstream knows they are letters.
+
 **Licence for exports.** The terms a compiled typeface goes out under: OFL 1.1,
 MIT, CC BY 4.0, CC0, all rights reserved, or none. The choice is written into
 the font's own name table (IDs 13 and 14, where a type designer looks for it),

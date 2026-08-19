@@ -15,7 +15,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from corpus.outlines import CACHE, GLYPHS, build_corpus
+from corpus.outlines import (CACHE, GLYPHS, build_corpus,
+                             decode_vector)
 from render import decode_to_glyphs, specimen_sheet_svg
 from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
                                StyleSpace)
@@ -562,6 +563,80 @@ Open this file in a browser; nothing needs installing.</div>
 <div class="l">The stops, as static OTFs</div>
 {blocks}
 """
+
+
+class UfoReq(FontReq):
+    pass
+
+
+@app.post("/api/export/ufo")
+def export_ufo(req: UfoReq):
+    """This location as UFO 3 source, which is what a type editor opens."""
+    from export.ufo import ufo_zip
+
+    s = space()
+    data = ufo_zip([s.decode(req.z)], req.family, s.metas[0],
+                   req.licence, req.author, VERSION)
+    safe = req.family.replace(" ", "") or "Vectorography"
+    return Response(data, media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename={safe}-ufo.zip"})
+
+
+@app.post("/api/export/ufo-journey")
+def export_ufo_journey(req: JourneyReq):
+    """The journey as a designspace with one UFO master per stop.
+
+    The standard source layout for a variable font, and the one this
+    instrument is already shaped like: the journey is the axis.
+    """
+    from export.ufo import ufo_zip
+
+    s = space()
+    if len(req.trail) < 2:
+        raise HTTPException(400, "journey needs at least two locations")
+    zs = _sample_trail(req.trail, req.masters)
+    data = ufo_zip([s.decode(z) for z in zs], req.family, s.metas[0],
+                   req.licence, req.author, VERSION)
+    safe = req.family.replace(" ", "") or "Journey"
+    return Response(data, media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename={safe}-source.zip"})
+
+
+class GlyphSvgReq(Z):
+    family: str = "Vectorography"
+    text: str = ""
+
+
+@app.post("/api/export/glyph-svg")
+def export_glyph_svg(req: GlyphSvgReq):
+    """Every glyph as its own SVG, for drawing software rather than type."""
+    from render import glyph_svg
+    from export.fontfile import glyph_name
+
+    s = space()
+    dec = decode_vector(np.asarray(s.decode(req.z), dtype=np.float32))
+    want = {c for c in req.text if c in set(GLYPHS)} or None
+
+    safe = req.family.replace(" ", "") or "Vectorography"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        n = 0
+        for i, ch in enumerate(GLYPHS):
+            if want is not None and ch not in want:
+                continue
+            zf.writestr(f"{safe}/{glyph_name(ch)}.svg",
+                        glyph_svg(dec["contours"][i], dec["advances"][i],
+                                  ch, req.family))
+            n += 1
+        zf.writestr("README.txt", (
+            f"{req.family}\n{'=' * len(req.family)}\n\n"
+            f"{n} glyphs, one SVG each, drawn at one em wide and flipped so "
+            f"they sit\nthe right way up in drawing software.\n\n"
+            f"These are shapes, not type: no metrics, no kerning, and nothing "
+            f"downstream\nknows they are letters. For something a font editor "
+            f"can open, export UFO\ninstead.\n"))
+    return Response(buf.getvalue(), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename={safe}-glyphs-svg.zip"})
 
 
 @app.post("/api/export/journey")

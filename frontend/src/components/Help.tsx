@@ -1,6 +1,6 @@
 import { Modal } from "./Modal"
 
-export type HelpTopic = "readings" | "keys"
+export type HelpTopic = "what" | "readings" | "keys"
 
 /**
  * What the instrument is telling you, and how to work it.
@@ -14,9 +14,75 @@ export function Help({ topic, onClose }: {
   topic: HelpTopic
   onClose: () => void
 }) {
-  return topic === "keys"
-    ? <Keys onClose={onClose} />
+  return topic === "keys" ? <Keys onClose={onClose} />
+    : topic === "what" ? <What onClose={onClose} />
     : <Readings onClose={onClose} />
+}
+
+function What({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal title="What is Vectorography" wide onClose={onClose}
+           subtitle="Type design by traversal">
+      <div className="max-h-[62vh] overflow-y-auto pr-2 space-y-3
+                      text-[12px] leading-relaxed">
+        <p>
+          Vectorography is an instrument for designing type by <em>moving
+          through a space of letterforms</em> rather than by drawing them or by
+          describing them to a machine. Every face it can produce already
+          exists somewhere in that space. The work is getting to the one you
+          want.
+        </p>
+        <p>
+          The space is <strong>VectorModel</strong>, fitted from 441 type
+          families. Each family was reduced to one long vector: every glyph
+          resampled to forty points per contour at uniform arc length, in
+          cyclic correspondence so that the same point lands on the same part
+          of the letter in every font. That correspondence is what makes the
+          space walkable, and it is why any two positions in it interpolate
+          into a face rather than into a mess.
+        </p>
+        <p>
+          What comes out of that fitting is a <strong>vector space</strong> in
+          the full sense: 128 dimensions, a basis, a metric that means
+          something, and an encode and decode that are exactly linear. Not a
+          latent space in the machine-learning sense, where the geometry is
+          learned, warped, and only approximately invertible. Here a step of a
+          given length goes a given distance, the difference between two
+          families is a heading you can apply anywhere, and a straight line
+          between two points passes through faces all the way.
+        </p>
+
+        <Section title="Two things it refuses to do">
+          <p className="mb-2">
+            <strong>There is no generate button.</strong> Nothing here takes a
+            description and returns a result. Every control is a movement: a
+            step, a drift, a repulsion, an orbit, a drag on the letterform
+            itself. You arrive at a typeface the way you arrive at a place.
+          </p>
+          <p>
+            <strong>It shows you the pull towards the average.</strong> Any
+            space fitted to a corpus has a centre, and that centre is the
+            consensus of everything in it, which for type is the neo-grotesque.
+            Movement in such a space is not neutral; it runs downhill. The
+            altitude, density and isolation readings exist so that slope is
+            something you can see, and <em>repel</em> exists so you can climb
+            against it.
+          </p>
+        </Section>
+
+        <Section title="What you leave with">
+          <p>
+            A journey is a path, and a path is an axis. Compile one and you get
+            a variable font whose single Journey axis runs from where you
+            started to where you stopped, with every stop a named instance.
+            Or take the UFO source and carry on in Glyphs or RoboFont. The
+            outlines are a linear transformation of a fitted space rather than
+            a copy of any face.
+          </p>
+        </Section>
+      </div>
+    </Modal>
+  )
 }
 
 function Row({ term, children }: { term: string; children: React.ReactNode }) {

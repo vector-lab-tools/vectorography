@@ -240,3 +240,24 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         f'traversal · {model}</text>'
         f'</svg>'
     )
+
+
+def glyph_svg(contours, advance: float, ch: str, family: str) -> str:
+    """One glyph as its own SVG, sized to the em.
+
+    For Illustrator, Figma, or a laser cutter. It is drawing rather than type:
+    there is no metric here beyond the advance the viewBox is cut to, and
+    nothing downstream knows the shape is a letter.
+    """
+    d = glyph_path(contours)
+    w = max(float(advance), 0.01)
+    # SVG's y runs down and a font's runs up, so the whole thing is flipped
+    # once rather than every coordinate being negated.
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -1 {w:.4f} 1.4" '
+        f'width="{w * 100:.1f}" height="140">\n'
+        f'  <title>{ch} · {family}</title>\n'
+        f'  <g transform="scale(1,-1)">\n'
+        f'    <path d="{d}" fill="currentColor" fill-rule="evenodd"/>\n'
+        f'  </g>\n'
+        f'</svg>\n')

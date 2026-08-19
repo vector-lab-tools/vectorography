@@ -680,6 +680,32 @@ export default function App() {
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
   }, [z, family, location, here, licence])
 
+  const exportUfo = useCallback(async () => {
+    if (!z) return
+    setBusy(true)
+    try { await api.exportUfo(z, family, licence.id, licence.author) }
+    catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [z, family, licence])
+
+  const exportUfoJourney = useCallback(async () => {
+    if (ancestry.length < 2) return
+    setBusy(true)
+    try {
+      await api.download("/api/export/ufo-journey",
+        { trail: ancestry.map((c) => c.z), family,
+          masters: Math.min(Math.max(ancestry.length, 2), 12),
+          licence: licence.id, author: licence.author },
+        `${family}-source.zip`)
+    } catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [ancestry, family, licence])
+
+  const exportGlyphSvg = useCallback(async () => {
+    if (!z) return
+    setBusy(true)
+    try { await api.exportGlyphSvg(z, family) }
+    catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [z, family])
+
   const menus: Menu[] = useMemo(() => [
     {
       label: "File",
@@ -699,19 +725,35 @@ export default function App() {
           disabled: !z, onSelect: saveAs,
           title: "Save the journey under a new name" },
         { kind: "sep" },
-        { kind: "item", label: "Export Typeface (OTF)", hint: "here",
+        { kind: "item", label: "OTF font \u00b7 to install", hint: "here",
           disabled: !z || busy, onSelect: () => exportFont("otf"),
           title: "This location as an installable static OTF, cubic outlines" },
-        { kind: "item", label: "Export Typeface (TTF)", hint: "here",
+        { kind: "item", label: "TTF font \u00b7 to install", hint: "here",
           disabled: !z || busy, onSelect: () => exportFont("ttf"),
           title: "This location as a static TrueType font" },
-        { kind: "sep" },
-        { kind: "item", label: "Compile Journey to Variable Font\u2026",
-          hint: `${ancestry.length} stops`,
+        { kind: "item", label: "Variable font \u00b7 the whole journey\u2026",
+          hint: `${ancestry.length} stop${ancestry.length === 1 ? "" : "s"}`,
           disabled: ancestry.length < 2 || busy, onSelect: exportJourney,
           title: ancestry.length < 2
             ? "Travel somewhere first: a journey needs at least two stops"
             : "The whole path as a variable font, plus every stop as an OTF" },
+        { kind: "sep" },
+        { kind: "item", label: "UFO source \u00b7 to edit", hint: "here",
+          disabled: !z || busy, onSelect: exportUfo,
+          title: "This location as UFO 3, the source format Glyphs, RoboFont, "
+                 + "FontLab and FontForge all open" },
+        { kind: "item", label: "Designspace + UFO masters \u00b7 to edit\u2026",
+          hint: `${ancestry.length} stop${ancestry.length === 1 ? "" : "s"}`,
+          disabled: ancestry.length < 2 || busy, onSelect: exportUfoJourney,
+          title: ancestry.length < 2
+            ? "Travel somewhere first: a journey needs at least two stops"
+            : "The standard source of a variable font: one UFO per stop and "
+              + "the designspace binding them to a Journey axis" },
+        { kind: "sep" },
+        { kind: "item", label: "SVG outlines \u00b7 one per glyph",
+          disabled: !z || busy, onSelect: exportGlyphSvg,
+          title: "Shapes for drawing software. No metrics, no kerning: for "
+                 + "type a font editor can open, take the UFO" },
         { kind: "sep" },
         { kind: "item", label: "Test Journey\u2026", hint: "compiled",
           disabled: ancestry.length < 2 || busy,
@@ -733,7 +775,7 @@ export default function App() {
           onSelect: () => setLicensing(true),
           title: "Choose the terms a compiled typeface goes out under" },
         { kind: "sep" },
-        { kind: "item", label: "Export Specimen Sheet (SVG)",
+        { kind: "item", label: "Specimen sheet \u00b7 to look at",
           disabled: !z, onSelect: exportSvg,
           title: "This location as a specimen sheet, with its map reading" },
       ],
@@ -795,6 +837,10 @@ export default function App() {
     {
       label: "Help",
       items: [
+        { kind: "item", label: "What is Vectorography\u2026",
+          onSelect: () => setHelp("what"),
+          title: "What the instrument is, and the two things it will not do" },
+        { kind: "sep" },
         { kind: "item", label: "What the readings mean",
           onSelect: () => setHelp("readings"),
           title: "altitude, density, the shell, the route and the axes" },
@@ -814,7 +860,8 @@ export default function App() {
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
-      newProject, openProject, save, saveAs, file, licence])
+      newProject, openProject, save, saveAs, file, licence,
+      exportUfo, exportUfoJourney, exportGlyphSvg])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
