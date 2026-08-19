@@ -556,7 +556,8 @@ export default function App() {
       <main className="flex-1 min-h-0 flex flex-col">
         {/* Top: the type itself, at a size the hand can work on, with the
             space it sits in below and beside it. */}
-        <section className="min-h-0 flex flex-col gap-3 px-3 pt-3"
+        <section className="min-h-0 overflow-hidden flex flex-col gap-3
+                            px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
           <div className="panel shrink-0 h-[168px] px-3 py-2 text-ink">
             <SpecimenStage
@@ -594,8 +595,8 @@ export default function App() {
             </div>
 
             <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
-                            flex flex-col gap-3">
-              <div className="flex-1 min-h-[150px]">
+                            flex flex-col gap-2 overflow-hidden">
+              <div className="flex-1 min-h-[96px] shrink">
                 <CompassRose
                   points={compass}
                   centre={location?.glyphs ?? []}
@@ -605,8 +606,13 @@ export default function App() {
                   busy={busy}
                 />
               </div>
+              {/* Steer asks for the height it needs and takes no more than
+                  half the column; the rose lives on what is left. Given the
+                  surplus the other way round, the rose ate it and two sliders
+                  spent their lives behind a scrollbar. */}
               {directions.length > 0 && (
-                <div className="shrink-0 border-t border-border pt-2">
+                <div className="shrink-0 max-h-[58%] overflow-y-auto border-t
+                                border-border pt-2">
                   <DirectionPad directions={directions} at={standing}
                                 onSlide={slideTo} onCommit={slideCommit}
                                 busy={busy} />

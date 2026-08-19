@@ -23,7 +23,10 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
   return (
     <div>
       <div className="rail-label mb-1">Steer</div>
-      <div className="space-y-1">
+      {/* One line per property: name, track, reading. Stacked over two lines
+          each, eight properties did not fit a column and half of them lived
+          behind a scrollbar. */}
+      <div className="space-y-0.5">
         {directions.map((d) => {
           const lo = d.lo ?? -2.2
           const hi = d.hi ?? 2.2
@@ -31,17 +34,12 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
           const now = at[d.key] ?? 0
           const outside = now < lo || now > hi
           return (
-            <div key={d.key}>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10.5px] font-display truncate"
-                      title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
-                  {d.label}
-                </span>
-                <span className={`font-mono text-[8.5px] ${outside
-                  ? "text-gold" : "text-muted-foreground"}`}>
-                  {outside ? "beyond" : pct(now, lo, hi)}
-                </span>
-              </div>
+            <div key={d.key} className="flex items-center gap-1.5">
+              <span className="w-[52px] shrink-0 truncate text-[10px]
+                               font-display leading-none"
+                    title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
+                {d.label}
+              </span>
               <input
                 type="range"
                 min={lo - pad}
@@ -52,9 +50,14 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
                 onChange={(e) => onSlide(d.key, Number(e.target.value))}
                 onPointerUp={onCommit}
                 onKeyUp={onCommit}
-                className="w-full h-3 accent-burgundy"
+                className="flex-1 min-w-0 h-1 accent-burgundy"
                 title={`${d.minus} to ${d.plus}`}
               />
+              <span className={`w-[22px] shrink-0 text-right font-mono
+                                text-[8.5px] leading-none ${outside
+                                  ? "text-gold" : "text-muted-foreground"}`}>
+                {outside ? "\u00b7\u00b7" : pct(now, lo, hi)}
+              </span>
             </div>
           )
         })}
