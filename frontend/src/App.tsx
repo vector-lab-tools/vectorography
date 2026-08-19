@@ -115,7 +115,7 @@ export default function App() {
   const [radius, setRadius] = useState(0.6)
   const [temperature, setTemperature] = useState(0.5)
   const [step, setStep] = useState(0.5)
-  // View axes, named either as a latent index ("axis:0") or as a measured
+  // View axes, named either as a corpus index ("axis:0") or as a measured
   // property ("dir:weight"). Both are directions in the same space; they differ
   // in who chose them, which is the comparison the instrument exists to make.
   const [axX, setAxX] = useState("axis:0")
@@ -788,7 +788,7 @@ export default function App() {
           hint: "cycle",
           onSelect: () => setAtlasHeight((h) =>
             h === "density" ? "centroid" : h === "centroid" ? "axis" : "density"),
-          title: "What the vertical axis measures. On a latent axis it becomes "
+          title: "What the vertical axis measures. On a corpus axis it becomes "
                  + "a direction you can drag along." },
       ],
     },

@@ -7,13 +7,13 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: gpl-3.0
-short_description: Type design by traversal of a latent space of letterforms
+short_description: Type design by traversal of a vector space of letterforms
 ---
 
 > Part of the [Vector Lab](https://github.com/vector-lab-tools).
 > Vector methods for vector theory.
 >
-> **Tier:** design instrument. **Object:** a latent space of letterforms.
+> **Tier:** design instrument. **Object:** a vector space of letterforms.
 >
 > **Sibling instruments:**
 > [Vectorscope](https://github.com/vector-lab-tools/vectorscope) ·
@@ -32,7 +32,7 @@ short_description: Type design by traversal of a latent space of letterforms
 **Licence:** GPL-3.0
 
 Vectorography is an experimental typographic instrument for designing type by
-**travelling through a latent space of letterforms**. You do not describe a
+**travelling through a vector space of letterforms**. You do not describe a
 typeface and receive one. You arrive somewhere, look at what is there, look at
 what is nearby, and decide where to go next. The space is the workspace. The
 rendering only shows what a location looks like. The design is the journey.
@@ -51,8 +51,8 @@ shows eight neighbouring positions as eight rendered specimens, so the choice is
 between visible places rather than abstract parameters. Every move is recorded
 on a trail that can be revisited, branched, and compiled.
 
-**Anti-normalisation.** A latent space fitted to Google Fonts has a dense
-neo-grotesque core, and every latent space pulls toward the average of what it
+**Anti-normalisation.** A space fitted to Google Fonts has a dense
+neo-grotesque core, and every fitted space pulls toward the average of what it
 was trained on. This instrument makes that pull visible and resistible. The
 altitude meter shows, permanently, how far you are from the corpus centroid and
 how crowded your immediate neighbourhood is. REPEL steps directly against the
@@ -155,7 +155,7 @@ and asks the server only for the outlines to draw it with: the mark follows the
 pointer rather than waiting on a round trip. Nothing is recorded on the trail
 until the drag ends, so a move is one stop rather than a hundred.
 
-Set the atlas height to a latent axis and the vertical becomes a direction as
+Set the atlas height to a corpus axis and the vertical becomes a direction as
 well, rather than a reading of where you already are, which is what makes
 dragging up and down mean anything.
 
@@ -263,7 +263,7 @@ specimen.html          open this first: tests everything in a browser, no instal
 instances/             each stop as a static OTF, ready to install
 masters/               the TrueType masters the variable font interpolated from
 journey.designspace    the designspace varLib was given
-journey.json           the full path in latent coordinates, and the model it belongs to
+journey.json           the full path in space coordinates, and the model it belongs to
 corpus-manifest.json   every family the space was fitted from
 README.txt             what each of the above is
 ```
@@ -365,7 +365,7 @@ This is a prototype, and the following are known and deliberate.
 ```
 backend/
   corpus/outlines.py    outline extraction, resampling, corpus alignment
-  space/style_space.py  the latent space, density, and travel primitives
+  space/style_space.py  the vector space, density, and travel primitives
   data/vectormodel-*.npz  the fitted space, see MODEL.md
   export/fontfile.py    master and variable font compilation
   render.py             contours to SVG

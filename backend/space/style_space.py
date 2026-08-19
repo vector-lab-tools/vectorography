@@ -1,5 +1,5 @@
 """
-The latent space of letterforms.
+The vector space of letterforms.
 
 A whitened principal subspace of the corpus style vectors. This is not chosen
 for fidelity but for traversability: encoding and decoding are exact linear
@@ -185,7 +185,7 @@ class StyleSpace:
     # ------------------------------------------------------------------ travel
 
     def axis_vector(self, spec: str) -> np.ndarray:
-        """A view axis named either as a latent index or a measured property.
+        """A view axis named either as a corpus index or a measured property.
 
         "axis:3" is the fourth eigendirection of the corpus. "dir:weight" is the
         direction measured from the outlines, running from the lightest fifteen

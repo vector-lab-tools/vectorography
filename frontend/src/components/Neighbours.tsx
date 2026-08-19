@@ -2,7 +2,7 @@ import type { Neighbour } from "../api"
 
 /**
  * The provenance instrument. Whose neighbourhood you are standing in, always
- * named, always on screen. Distances are in whitened latent units, so they are
+ * named, always on screen. Distances are in whitened units, so they are
  * comparable across every axis.
  */
 export function Neighbours({ neighbours, onPick }:

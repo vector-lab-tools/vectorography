@@ -1,6 +1,6 @@
 # VectorModel 0.2
 
-The fitted latent space that Vectorography travels through. It is a named,
+The fitted vector space that Vectorography travels through. It is a named,
 versioned artefact in its own right, and its version moves independently of the
 application's: refitting the space invalidates every saved journey coordinate
 even when no line of code has changed.

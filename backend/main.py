@@ -363,7 +363,7 @@ def atlas(req: AtlasReq):
                  "glyphs": _glyph_subset(s.decode(z), req.text)},
         "trail": [{"x": float(t @ u), "y": float(t @ v), "h": height_of(t)}
                   for t in trail],
-        # For the axis height these are latent units, so a screen position can
+        # For the axis height these are space units, so a screen position can
         # be turned back into a coordinate; otherwise they are the 0..1 the
         # normalisation already produced.
         "range": {"h_min": h_min, "h_max": h_max},
@@ -642,7 +642,7 @@ def export_journey(req: JourneyReq):
             f"set text.\n"
             f"  masters/         the TrueType masters the variable font was "
             f"interpolated from.\n"
-            f"  journey.json     the full path in latent coordinates, and the "
+            f"  journey.json     the full path in space coordinates, and the "
             f"model it belongs to.\n"
             f"  corpus-manifest.json   every family the space was fitted "
             f"from.\n"))

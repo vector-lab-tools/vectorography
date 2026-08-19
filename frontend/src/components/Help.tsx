@@ -6,7 +6,7 @@ export type HelpTopic = "readings" | "keys"
  * What the instrument is telling you, and how to work it.
  *
  * The readings are the part that needs saying. Altitude and density are not
- * decoration: they are there because a latent space pulls towards the average
+ * decoration: they are there because a fitted space pulls towards the average
  * of what it was fitted on, and an instrument that does not show the pull
  * cannot help anyone resist it.
  */
@@ -47,7 +47,7 @@ function Readings({ onClose }: { onClose: () => void }) {
       <div className="max-h-[62vh] overflow-y-auto pr-2">
         <Section title="The pull towards the middle">
           <p className="text-[12px] leading-relaxed mb-2">
-            A latent space fitted on a corpus has a centre, and the centre is
+            A vector space fitted on a corpus has a centre, and the centre is
             the average of what it was fitted on. For type that average is the
             neo-grotesque: the shape a thousand faces agree on. Movement in the
             space is not neutral, it runs downhill towards that agreement. The

@@ -220,7 +220,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const [cardinalsOn, setCardinalsOn] = useState(cardinals.current)
 
 
-  // How much screen a unit of height is worth. On a latent axis it is set so
+  // How much screen a unit of height is worth. On a corpus axis it is set so
   // that a unit up is the same size as a unit across: only then is the view
   // isotropic, and only then does a ball drawn in it look like a ball.
   const HEIGHT_SCALE = 5.5

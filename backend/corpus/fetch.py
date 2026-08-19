@@ -24,7 +24,7 @@ TREE_CACHE = DATA / "ofl-tree.json"
 MANIFEST = DATA / "corpus-manifest.json"
 
 # Static Regular weights only. Variable fonts in the corpus are skipped: a
-# variable master is already a designspace and would enter the latent space as
+# variable master is already a designspace and would enter the space as
 # a single arbitrary instance.
 SKIP = ("[", "]")
 

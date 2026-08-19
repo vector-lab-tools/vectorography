@@ -14,14 +14,14 @@ around, and decides where to go next. Three consequences bind the whole design:
 - **Location is always readable.** The user can always see where they are in the
   corpus distribution and whose neighbourhood they are standing in. This is the
   provenance instrument, and it is not optional or hidden behind a panel.
-- **The pull towards the centre is shown and resistible.** A latent space fitted
+- **The pull towards the centre is shown and resistible.** A space fitted
   to Google Fonts has a dense neo-grotesque core. The altitude meter makes that
   gravity visible; REPEL is the control that works directly against it.
 
 ## 2. Layers
 
 ```
-  corpus      ->  style vectors  ->  latent space  ->  navigator  ->  export
+  corpus      ->  style vectors  ->  vector space  ->  navigator  ->  export
   (fontTools)     (fixed-length)     (whitened PCA)    (browser)      (varLib)
 ```
 
@@ -109,7 +109,7 @@ surface: the user is choosing between eight *visible* places, not eight
 abstract directions. Clicking one travels there and the rose recomputes.
 
 The eight bearings are 45-degree steps in a **heading plane** spanned by two
-basis vectors. By default those are latent axes 1 and 2; a plane selector
+basis vectors. By default those are corpus axes 1 and 2; a plane selector
 changes them; RIDE replaces the first with a difference vector between two
 chosen families, so a semantic direction becomes a compass heading that works
 from anywhere.

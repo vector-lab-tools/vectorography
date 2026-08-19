@@ -49,7 +49,7 @@ export function About({ version, model, families, dims, onClose }: {
         </p>
 
         <p className="text-[13px] leading-relaxed mt-5">
-          Type design by traversal. A latent space of letterforms that is
+          Type design by traversal. A vector space of letterforms that is
           travelled rather than prompted.
         </p>
 
