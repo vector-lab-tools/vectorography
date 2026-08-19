@@ -191,14 +191,23 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         ("density percentile", f"{alt.get('density_percentile', 0):.0f}"),
         ("nearest five, mean", f"{alt.get('knn_distance', 0):.2f}"),
     ]
+    # Three readings on one row, the neighbours on their own beneath. Set
+    # alongside them the names ran straight through the numbers: a family name
+    # is as long as it likes to be.
+    # Three readings on one row, the neighbours on their own beneath. Set
+    # alongside them the names ran straight through the numbers: a family name
+    # is as long as it likes to be.
     cols = "".join(
-        f'<text x="{80 + i * 230}" y="470" font-family="ui-monospace,monospace" '
+        f'<text x="{80 + i * 260}" y="452" font-family="ui-monospace,monospace" '
         f'font-size="14" fill="#8a8378" letter-spacing="1.4">{k.upper()}</text>'
-        f'<text x="{80 + i * 230}" y="510" font-family="Georgia,serif" '
-        f'font-size="36" fill="#1a1a1a">{v}</text>'
+        f'<text x="{80 + i * 260}" y="494" font-family="Georgia,serif" '
+        f'font-size="38" fill="#1a1a1a">{v}</text>'
         for i, (k, v) in enumerate(readings))
 
-    names = " · ".join(n["family"] for n in near) or "—"
+    def short(n: str) -> str:
+        return n if len(n) <= 20 else n[:19] + "\u2026"
+
+    names = " · ".join(short(n["family"]) for n in near) or "—"
     title = family or text
 
     return (
@@ -211,16 +220,15 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         f'<text x="80" y="120" font-family="ui-monospace,monospace" '
         f'font-size="14" fill="#8a8378">a location in {model}</text>'
         f'<g fill="#1a1a1a" fill-rule="evenodd">{"".join(body)}</g>'
-        f'<line x1="80" y1="420" x2="{W - 80}" y2="420" stroke="#e6e0d4"/>'
+        f'<line x1="80" y1="412" x2="{W - 80}" y2="412" stroke="#e6e0d4"/>'
         f'{cols}'
-        f'<text x="{W - 80}" y="470" text-anchor="end" '
-        f'font-family="ui-monospace,monospace" font-size="15" fill="#8a8378" '
-        f'letter-spacing="1.4">IN THE NEIGHBOURHOOD OF</text>'
-        f'<text x="{W - 80}" y="502" text-anchor="end" '
-        f'font-family="ui-monospace,monospace" font-size="17" fill="#1a1a1a">'
-        f'{names}</text>'
-        f'<text x="80" y="580" font-family="ui-monospace,monospace" '
-        f'font-size="14" fill="#8a8378">vectorography · type design by '
+        f'<text x="80" y="548" font-family="ui-monospace,monospace" '
+        f'font-size="14" fill="#8a8378" letter-spacing="1.4">'
+        f'IN THE NEIGHBOURHOOD OF</text>'
+        f'<text x="310" y="548" font-family="ui-monospace,monospace" '
+        f'font-size="15" fill="#1a1a1a">{names}</text>'
+        f'<text x="80" y="592" font-family="ui-monospace,monospace" '
+        f'font-size="13" fill="#8a8378">vectorography · type design by '
         f'traversal · corpus: Google Fonts, OFL-1.1</text>'
         f'</svg>'
     )

@@ -177,6 +177,29 @@ where almost no font actually is. That is the anti-normalisation argument in one
 measurement: the pull is toward a point the distribution itself has largely
 vacated.
 
+## Sharing
+
+**File → Share image** sends the current location straight to the system share
+sheet as a PNG, which is what WhatsApp and Messages take; **Share card** shows
+it first. The card carries the specimen, the three readings, the nearest real
+families, and which model and corpus it came from. A specimen without its
+provenance is a picture of some letters.
+
+Pasting the app's URL somewhere is a different mechanism: the scraper that
+unfurls a link fetches the page and then one image, and runs no JavaScript. So
+that card is a static file, `frontend/public/og.png`, named in the page's
+metadata and regenerated with:
+
+```
+.venv/bin/python tools/make_og.py
+```
+
+It is drawn server-side by `backend/export/card_png.py`, which fills the
+decoded outlines directly rather than adding a rasteriser: the points are
+already there, and a filled polygon is a filled polygon. When deploying, make
+the `og:image` URLs in `index.html` absolute; several scrapers will not resolve
+a relative one.
+
 ## Export
 
 Everything is under **File** in the menu bar.

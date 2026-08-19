@@ -653,11 +653,13 @@ export default function App() {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Not a scroll container: overflow-x on the bar forces overflow-y with
+          it, and the menus, which hang below the bar, were clipped away. */}
       <header className="flex items-stretch gap-2 sm:gap-3 pl-2 sm:pl-4 pr-2
                          sm:pr-3 h-11 border-b border-border bg-card/60
-                         shrink-0 overflow-x-auto">
+                         shrink-0">
         <h1 className="font-display text-base tracking-tight self-center
-                       whitespace-nowrap">
+                       whitespace-nowrap shrink-0">
           Vectorography
           <span className="ml-2 font-mono text-[10px] text-muted-foreground">
             {__APP_VERSION__}
