@@ -646,6 +646,8 @@ export default function App() {
         <div
           className="h-3 shrink-0 mx-3 my-1 cursor-row-resize group flex
                      items-center"
+          title="Drag to give either half more room. Double-click to even it up."
+          onDoubleClick={() => setSplit(0.7)}
           onPointerDown={(e) => {
             const startY = e.clientY
             const start = split
@@ -653,7 +655,11 @@ export default function App() {
             const total = host.clientHeight
             const move = (ev: PointerEvent) => {
               const d = (ev.clientY - startY) / Math.max(total, 1)
-              setSplit(Math.max(0.25, Math.min(0.78, start + d)))
+              // All the way in either direction: either half can be taken
+              // down to a sliver, so the space or the instruments can have the
+              // whole window when that is what the work needs. A hair is left
+              // at each end so the divider itself stays grabbable.
+              setSplit(Math.max(0.02, Math.min(0.98, start + d)))
             }
             const up = () => {
               window.removeEventListener("pointermove", move)
@@ -668,11 +674,17 @@ export default function App() {
         </div>
 
         {/* Bottom: readings and controls. */}
-        <section className="min-h-0 overflow-y-auto px-3 pb-3 grid gap-4
-                            grid-cols-1 md:grid-cols-2
-                            xl:grid-cols-[176px_minmax(0,1fr)_212px]"
+        <section className="min-h-0 overflow-y-auto px-3 pb-3 grid gap-3
+                            grid-cols-1 md:grid-cols-[minmax(0,1fr)_248px]"
                  style={{ flex: `${1 - split} 1 0%` }}>
-          <div className="min-w-0 flex flex-col gap-3">
+          {/* Two panels, side by side: what moves you, and where you have
+              been. */}
+          <div className="min-w-0 flex flex-col gap-1.5">
+            <span className="rail-label"
+                  title="Ways of moving that are not a step on the compass or a
+                         property on a slider">
+              Controls
+            </span>
             <TravelBar
               corpus={corpus}
               radius={radius} setRadius={setRadius}
@@ -708,15 +720,24 @@ export default function App() {
             />
           </div>
 
-          <div className="min-w-0 min-h-0 flex flex-col">
-            <input
-              value={family}
-              onChange={(e) => setFamily(e.target.value)}
-              className="font-mono text-[11px] w-full bg-background border
-                         border-border rounded-sm px-2 py-1 mb-3"
-              title="Family name for the exported typeface"
-            />
-            <Trail trail={trail} cursor={cursor} onGo={setCursor} />
+          <div className="min-w-0 min-h-0 flex flex-col gap-1.5">
+            <span className="rail-label"
+                  title="Every stop on this journey, and the name it exports
+                         under">
+              Journey
+            </span>
+            <div className="flex-1 min-h-0 flex flex-col rounded-md border
+                            border-border/60 bg-muted/25 px-2.5 py-2">
+              <input
+                value={family}
+                onChange={(e) => setFamily(e.target.value)}
+                className="font-mono text-[10px] w-full bg-background border
+                           border-border rounded-sm px-2 py-1 mb-2"
+                title="Family name for the exported typeface"
+                placeholder="family name"
+              />
+              <Trail trail={trail} cursor={cursor} onGo={setCursor} />
+            </div>
           </div>
         </section>
       </main>

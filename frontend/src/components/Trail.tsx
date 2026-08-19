@@ -22,13 +22,10 @@ export function Trail({ trail, cursor, onGo }: {
 }) {
   return (
     <div className="flex flex-col min-h-0 min-w-0 flex-1">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="rail-label"
-              title="Every stop, in order. Click one to return to it; carrying
-                     on from an earlier stop opens a branch and keeps both.">
-          Trail
-        </span>
-        <span className="font-mono text-[10px] text-muted-foreground">
+      <div className="flex items-baseline justify-end mb-1">
+        <span className="font-mono text-[9px] text-muted-foreground"
+              title="Click a stop to return to it; carrying on from an earlier
+                     stop opens a branch and keeps both.">
           {trail.length} {trail.length === 1 ? "stop" : "stops"}
         </span>
       </div>
