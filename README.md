@@ -148,6 +148,21 @@ each axis after the first is drawn with the shared part removed and the
 interface says how much was taken off; otherwise dragging along one would
 silently drag along another.
 
+## The ball
+
+The **ball** control draws the corpus as it sits in the three directions on
+screen: two wireframe shells at the median and ninetieth percentile radius,
+with the traveller inside and a line from the centroid to where they are
+standing.
+
+Two things make it honest rather than decorative. It needs all three view
+directions to be real axes, so turning it on turns the height into one, and
+while it is on a unit up is worth the same on screen as a unit across, without
+which a ball would be drawn as an ellipsoid. And its radius is measured in
+those three coordinates rather than taken from the full space: the corpus median
+radius is 7.09 across all 128 dimensions but 1.10 in the three being shown, and
+drawing the larger number would put every font inside a sphere it does not fill.
+
 ## Is the space a sphere?
 
 Not quite, and the difference is worth knowing. After whitening the corpus is an

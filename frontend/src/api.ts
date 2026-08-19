@@ -27,6 +27,8 @@ export type AtlasData = {
   self: { x: number; y: number; h: number; glyphs: Glyph[] }
   trail: { x: number; y: number; h: number }[]
   range: { h_min: number; h_max: number }
+  ball: { q50: number; q90: number; max: number; self: number
+          inside_q50: number }
 }
 
 export type Neighbour = { family: string; distance: number; index: number }

@@ -287,6 +287,14 @@ def atlas(req: AtlasReq):
         for i in chosen:
             sprites[int(i)] = _glyph_subset(s.decode(s.Z[i]), req.text)
 
+    # The shell, measured in the three directions actually on screen. The
+    # corpus radius in the full space (median about 7) says nothing about how
+    # big a ball to draw here: these three coordinates carry a fraction of it,
+    # so the ball is fitted to what is being shown rather than asserted.
+    zs = s.Z @ wv
+    radial = np.sqrt(xs**2 + ys**2 + zs**2)
+    self_radial = float(np.sqrt((z @ u)**2 + (z @ v)**2 + (z @ wv)**2))
+
     from space.directions import LABELS
     cs = s.scores.get(req.colour_by)
     legend = LABELS.get(req.colour_by)
@@ -313,6 +321,15 @@ def atlas(req: AtlasReq):
         # be turned back into a coordinate; otherwise they are the 0..1 the
         # normalisation already produced.
         "range": {"h_min": h_min, "h_max": h_max},
+        # Radii in view coordinates: where the corpus actually sits in the three
+        # directions on screen, and where the traveller sits against it.
+        "ball": {
+            "q50": float(np.quantile(radial, 0.5)),
+            "q90": float(np.quantile(radial, 0.9)),
+            "max": float(radial.max()),
+            "self": self_radial,
+            "inside_q50": float((radial < self_radial).mean() * 100),
+        },
     }
 
 

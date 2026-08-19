@@ -134,7 +134,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample, onGrabMove, onGrabEnd,
-  liveGlyphs, liveSelf }: {
+  liveGlyphs, liveSelf, onWantAxisHeight }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -159,6 +159,9 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   /** Where the specimen actually is while dragging. The constraint decides
    *  this, not the pointer, so it is reported back rather than assumed. */
   liveSelf: { x: number; y: number; h: number } | null
+  /** The ball is only a true picture when all three view directions are real
+   *  axes, so asking for it asks for the height axis to become one. */
+  onWantAxisHeight: () => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -213,8 +216,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const mode = useRef<"off" | "names" | "letters">("off")
   const [modeOn, setModeOn] = useState<"off" | "names" | "letters">("off")
   const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
+  const ball = useRef(false)
+  const [ballOn, setBallOn] = useState(false)
 
+  // How much screen a unit of height is worth. On a latent axis it is set so
+  // that a unit up is the same size as a unit across: only then is the view
+  // isotropic, and only then does a ball drawn in it look like a ball.
   const HEIGHT_SCALE = 5.5
+  const hs = useRef(HEIGHT_SCALE)
   // Sized in screen pixels, not world units. Tied to the zoom, the traveller's
   // own specimen was a pixel and a half across at the fitted view, which is the
   // one view every user sees first.
@@ -226,6 +235,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const project = useCallback((x: number, y: number, h: number,
                                w: number, ht: number, c: Cam,
                                cx = 0, cy0 = 0, ch = 0) => {
+    const HS = hs.current
     const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw)
     const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch)
     const dx = x - cx, dy = y - cy0, dh = h - ch
@@ -233,8 +243,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const ry = dx * sy + dy * cy
     return {
       sx: w / 2 + rx * c.zoom,
-      sy: ht * 0.5 + (ry * sp - dh * HEIGHT_SCALE * cp) * c.zoom,
-      depth: ry * cp + dh * HEIGHT_SCALE * sp,
+      sy: ht * 0.5 + (ry * sp - dh * HS * cp) * c.zoom,
+      depth: ry * cp + dh * HS * sp,
     }
   }, [])
 
@@ -269,6 +279,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
     const here = `hsl(${css.getPropertyValue("--here")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
+    const axisHeight = data.axes.height === "axis"
+    const span = Math.max(data.range.h_max - data.range.h_min, 1e-6)
+    hs.current = axisHeight ? span : HEIGHT_SCALE
+
     const c = cam.current
     // While dragging, the view follows the specimen rather than the last
     // position the server told us about.
@@ -361,6 +375,43 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     }
 
     items.sort((a, b) => b.depth - a.depth)
+
+    // The isotropic ball: where the corpus actually sits in the three
+    // directions on screen. Its radius is measured here rather than taken from
+    // the full space, where the median is seven and these three coordinates
+    // carry only a fraction of it.
+    if (ball.current && axisHeight && data.ball) {
+      const hOf = (raw: number) => (raw - data.range.h_min) / span
+      const ring = (r: number, plane: 0 | 1 | 2) => {
+        ctx.beginPath()
+        for (let i = 0; i <= 72; i++) {
+          const t = (i / 72) * Math.PI * 2
+          const a = Math.cos(t) * r, b = Math.sin(t) * r
+          const q = plane === 0 ? P(a, b, hOf(0))
+                  : plane === 1 ? P(a, 0, hOf(b))
+                                : P(0, a, hOf(b))
+          i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)
+        }
+        ctx.stroke()
+      }
+      const shells: [number, number][] = [
+        [data.ball.q50, 0.30], [data.ball.q90, 0.16]]
+      ctx.strokeStyle = muted
+      ctx.lineWidth = 1
+      for (const [r, alpha] of shells) {
+        ctx.globalAlpha = alpha
+        ring(r, 0); ring(r, 1); ring(r, 2)
+      }
+      // From the average of every font to where you are standing.
+      ctx.globalAlpha = 0.4
+      ctx.strokeStyle = here
+      ctx.setLineDash([3, 3])
+      const o2 = P(0, 0, hOf(0))
+      const meNow = P(cx, cy0, ch)
+      ctx.beginPath(); ctx.moveTo(o2.sx, o2.sy); ctx.lineTo(meNow.sx, meNow.sy)
+      ctx.stroke(); ctx.setLineDash([])
+      ctx.globalAlpha = 1
+    }
 
     // The waypoint, and the line you would travel along to reach it.
     if (WAYPOINTS && waypoint) {
@@ -631,6 +682,27 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             : axisName(data.axes.z, directions)}
         </span>
         <div className="flex items-center gap-1.5">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              const next = !ball.current
+              ball.current = next
+              setBallOn(next)
+              if (next) onWantAxisHeight()
+              schedule()
+            }}
+            title={"The corpus as it sits in the three directions on screen: "
+                   + "an isotropic ball, with most families in a shell rather "
+                   + "than near the middle. Needs the height to be a real axis, "
+                   + "so turning it on makes it one."}
+            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                        transition-colors ${ballOn
+                          ? "border-here text-here bg-here/10"
+                          : "border-border text-muted-foreground"}`}
+          >
+            ball
+          </button>
           <select
             value={colourBy}
             onChange={(e) => setColourBy(e.target.value)}
@@ -665,6 +737,15 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           </button>
         </div>
       </div>
+
+      {ballOn && data.ball && data.axes.height === "axis" && (
+        <div className="absolute top-9 left-2 font-mono text-[9px]
+                        text-muted-foreground pointer-events-none">
+          shell: {data.ball.q50.toFixed(2)} / {data.ball.q90.toFixed(2)} ·
+          {" "}you {data.ball.self.toFixed(2)}
+          {" "}({data.ball.inside_q50.toFixed(0)}% of families are nearer in)
+        </div>
+      )}
 
       {data.colour && (
         <div className="absolute top-2 right-2 flex items-center gap-1.5

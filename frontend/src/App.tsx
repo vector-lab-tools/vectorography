@@ -446,7 +446,8 @@ export default function App() {
                    onToward={goToward} radius={radius} sample={atlasChar}
                    onGrabMove={grabMove} onGrabEnd={grabEnd}
                    liveGlyphs={location?.glyphs ?? null}
-                   liveSelf={liveSelf} />
+                   liveSelf={liveSelf}
+                   onWantAxisHeight={() => setAtlasHeight("axis")} />
           </div>
 
           <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0
