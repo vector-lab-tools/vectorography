@@ -20,7 +20,19 @@ from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
                                StyleSpace)
 
 # One source of version, at the repository root. Everything else inherits it.
-VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
+# An image is free to lay the files out differently, and a version string is
+# not worth refusing to start over.
+def _version() -> str:
+    for p in (Path(__file__).resolve().parents[1] / "VERSION",
+              Path("/VERSION")):
+        try:
+            return p.read_text().strip()
+        except OSError:
+            continue
+    return os.environ.get("APP_VERSION", "0.0").strip()
+
+
+VERSION = _version()
 
 app = FastAPI(title="Vectorography", version=VERSION)
 

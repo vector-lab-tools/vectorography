@@ -27,6 +27,7 @@ USER traveller
 RUN pip install --no-cache-dir --user -r backend/requirements.txt
 
 COPY --chown=traveller backend/ backend/
+COPY --chown=traveller VERSION VERSION
 COPY --chown=traveller --from=app /build/dist frontend/dist
 
 # The corpus font files are not shipped: three hundred megabytes of them, and
