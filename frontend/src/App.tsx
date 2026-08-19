@@ -4,6 +4,7 @@ import { api, type AtlasData, type CompassPoint, type CorpusInfo, type Glyph,
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { ShareCard } from "./components/ShareCard"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
@@ -108,6 +109,7 @@ export default function App() {
   // grow into, and they are listed now so the shape of the tool is visible
   // before the parts exist.
   const [planned, setPlanned] = useState<Planned | null>(null)
+  const [sharing, setSharing] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
   const [atlasHeight, setAtlasHeight] =
@@ -543,6 +545,10 @@ export default function App() {
             ? "Travel somewhere first: a journey needs at least two stops"
             : "Compile the journey and test the actual variable font here" },
         { kind: "sep" },
+        { kind: "item", label: "Share card\u2026", hint: "here",
+          disabled: !z, onSelect: () => setSharing(true),
+          title: "This location as a card: the specimen, its readings and its "
+                 + "neighbours, to hand to someone" },
         { kind: "item", label: "Export Specimen Sheet (SVG)",
           disabled: !z, onSelect: exportSvg,
           title: "This location as a specimen sheet, with its map reading" },
@@ -630,8 +636,9 @@ export default function App() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="flex items-stretch gap-3 pl-4 pr-3 h-11 border-b
-                         border-border bg-card/60 shrink-0">
+      <header className="flex items-stretch gap-2 sm:gap-3 pl-2 sm:pl-4 pr-2
+                         sm:pr-3 h-11 border-b border-border bg-card/60
+                         shrink-0 overflow-x-auto">
         <h1 className="font-display text-base tracking-tight self-center
                        whitespace-nowrap">
           Vectorography
@@ -653,7 +660,8 @@ export default function App() {
         <section className="min-h-0 overflow-hidden flex flex-col gap-3
                             px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
-          <div className="panel shrink-0 h-[168px] px-3 py-2 text-ink">
+          <div className="panel shrink-0 h-[190px] sm:h-[168px] px-2 sm:px-3
+                          py-2 text-ink">
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
@@ -687,8 +695,8 @@ export default function App() {
             />
           </div>
 
-          <div className="flex-1 min-h-0 flex gap-3">
-            <div className="flex-1 min-w-0">
+          <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
+            <div className="flex-1 min-w-0 min-h-[180px]">
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
                      directions={directions}
                      colourBy={colourBy} setColourBy={setColourBy}
@@ -701,7 +709,7 @@ export default function App() {
                      liveRadius={liveRadius} />
             </div>
 
-            <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
+            <div className="w-full lg:w-[240px] shrink-0 min-h-0
                             flex flex-col gap-2 overflow-hidden">
               <div className="flex-1 min-h-[96px] shrink">
                 <CompassRose
@@ -828,6 +836,11 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {sharing && z && (
+        <ShareCard z={z} text={text} family={family}
+                   onClose={() => setSharing(false)} />
+      )}
 
       {planned && (
         <ComingSoon item={planned} onClose={() => setPlanned(null)} />

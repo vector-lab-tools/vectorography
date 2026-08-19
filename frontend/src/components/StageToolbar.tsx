@@ -82,10 +82,10 @@ export function StageToolbar({ tools, dock, setDock }: {
           setDock(nearestEdge(e))
         }}
         title="Drag to another edge of the specimen"
-        className={`flex items-center justify-center cursor-grab
+        className={`flex items-center justify-center cursor-grab touch-none
                     active:cursor-grabbing text-muted-foreground/50
                     hover:text-muted-foreground
-                    ${vertical ? "w-6 h-3" : "w-3 h-6"}`}
+                    ${vertical ? "w-7 h-4 sm:w-6 sm:h-3" : "w-4 h-7 sm:w-3 sm:h-6"}`}
       >
         <svg viewBox="0 0 12 12" className="w-3 h-3" fill="currentColor">
           {vertical
@@ -101,7 +101,8 @@ export function StageToolbar({ tools, dock, setDock }: {
           onClick={t.onClick}
           title={`${t.label} — ${t.title}`}
           aria-label={t.label}
-          className={`w-6 h-6 flex items-center justify-center rounded-sm
+          className={`w-7 h-7 sm:w-6 sm:h-6 flex items-center justify-center
+                      rounded-sm
                       border transition-colors ${t.on
                         ? "border-here text-here bg-here/10"
                         : "border-transparent text-muted-foreground "

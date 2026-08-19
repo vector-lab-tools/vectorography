@@ -416,6 +416,25 @@ def export_svg(req: LocationReq):
         "Content-Disposition": "attachment; filename=vectorography-specimen.svg"})
 
 
+class CardReq(Z):
+    text: str = "Hamburgefonstiv"
+    family: str = ""
+
+
+@app.post("/api/export/card")
+def export_card(req: CardReq):
+    """This location as a card: the specimen, its readings, its neighbours."""
+    from render import share_card_svg
+
+    s = space()
+    vec = s.decode(req.z)
+    svg = share_card_svg(
+        _glyph_subset(vec, req.text), req.text,
+        {"altitude": s.altitude(req.z), "neighbours": s.neighbours(req.z, k=3)},
+        model=f"{MODEL_NAME} {MODEL_VERSION}", family=req.family)
+    return Response(svg, media_type="image/svg+xml")
+
+
 @app.post("/api/export/font")
 def export_font(req: FontReq):
     """The current location as one installable typeface."""

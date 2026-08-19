@@ -86,7 +86,10 @@ export function SpecimenStage({
       "on" | "minimal" | "off" | null) ?? "on")
   // Where the tools sit. Kept, because it is a decision about the desk.
   const [dock, setDock] = useState<Dock>(
-    () => (localStorage.getItem("vg.dock") as Dock | null) ?? "bottom-right")
+    () => (localStorage.getItem("vg.dock") as Dock | null)
+      // On a phone the bottom of the panel already carries the depth schemes
+      // and the reading, so the tools start out of their way.
+      ?? (window.innerWidth < 700 ? "top-right" : "bottom-right"))
 
   const placed = useMemo(() => layout(glyphs, text), [glyphs, text])
   // Laid out from the outlines, which lag the specimen by a beat. The handles
@@ -374,7 +377,8 @@ export function SpecimenStage({
       {/* What the type is being set in, at the head of the panel it is set
           in. It had been up in the menu bar, a long way from the letters it
           changes. */}
-      <div className="absolute top-1 left-2 right-2 flex items-center gap-1">
+      <div className="absolute top-1 left-2 right-2 flex items-center gap-1
+                      overflow-x-auto no-scrollbar">
         {proofs.map((t) => (
           <button
             key={t}
@@ -437,7 +441,8 @@ export function SpecimenStage({
       <StageToolbar tools={tools} dock={dock}
                     setDock={(d) => { setDock(d); localStorage.setItem("vg.dock", d) }} />
 
-      <div className="absolute bottom-1 left-2 flex items-center gap-1">
+      <div className="absolute bottom-1 left-2 right-2 flex flex-wrap
+                      items-center gap-1">
         {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
           <button
             key={d}

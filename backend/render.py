@@ -155,3 +155,72 @@ def specimen_sheet_svg(glyphs: list[dict], location: dict,
         f'vectorography  ·  corpus: {model}</text>'
         f'</svg>'
     )
+
+
+def share_card_svg(glyphs: list[dict], text: str, location: dict,
+                   model: str, family: str = "") -> str:
+    """A location as a card worth showing someone.
+
+    Everything on it is a reading rather than a caption: where this sits in the
+    distribution, whose neighbourhood it is in, and which model and corpus it
+    came out of. A specimen without its provenance is just a picture of some
+    letters.
+    """
+    W, H = 1200, 630
+    by = {g["char"]: g for g in glyphs}
+
+    # The word, scaled to the width it is given.
+    adv = sum(by[c]["advance"] for c in text if c in by) or 1
+    size = min(210.0, (W - 200) / adv)
+    x = (W - adv * size) / 2
+    baseline = 348.0
+    body = []
+    for ch in text:
+        g = by.get(ch)
+        if not g:
+            x += 0.3 * size
+            continue
+        body.append(f'<g transform="translate({x:.2f},{baseline:.2f}) '
+                    f'scale({size:.3f},{-size:.3f})"><path d="{g["path"]}"/></g>')
+        x += g["advance"] * size
+
+    alt = location.get("altitude", {})
+    near = location.get("neighbours", [])[:3]
+    readings = [
+        ("from the centroid", f"{alt.get('centroid_distance', 0):.2f}"),
+        ("density percentile", f"{alt.get('density_percentile', 0):.0f}"),
+        ("nearest five, mean", f"{alt.get('knn_distance', 0):.2f}"),
+    ]
+    cols = "".join(
+        f'<text x="{80 + i * 250}" y="470" font-family="ui-monospace,monospace" '
+        f'font-size="15" fill="#8a8378" letter-spacing="1.4">{k.upper()}</text>'
+        f'<text x="{80 + i * 250}" y="512" font-family="Georgia,serif" '
+        f'font-size="38" fill="#1a1a1a">{v}</text>'
+        for i, (k, v) in enumerate(readings))
+
+    names = " · ".join(n["family"] for n in near) or "—"
+    title = family or text
+
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+        f'viewBox="0 0 {W} {H}">'
+        f'<rect width="{W}" height="{H}" fill="#faf8f4"/>'
+        f'<rect x="0" y="0" width="{W}" height="6" fill="#7c2d36"/>'
+        f'<text x="80" y="92" font-family="Georgia,serif" font-size="26" '
+        f'fill="#1a1a1a">{title}</text>'
+        f'<text x="80" y="120" font-family="ui-monospace,monospace" '
+        f'font-size="14" fill="#8a8378">a location in {model}</text>'
+        f'<g fill="#1a1a1a" fill-rule="evenodd">{"".join(body)}</g>'
+        f'<line x1="80" y1="420" x2="{W - 80}" y2="420" stroke="#e6e0d4"/>'
+        f'{cols}'
+        f'<text x="{W - 80}" y="470" text-anchor="end" '
+        f'font-family="ui-monospace,monospace" font-size="15" fill="#8a8378" '
+        f'letter-spacing="1.4">IN THE NEIGHBOURHOOD OF</text>'
+        f'<text x="{W - 80}" y="502" text-anchor="end" '
+        f'font-family="ui-monospace,monospace" font-size="17" fill="#1a1a1a">'
+        f'{names}</text>'
+        f'<text x="80" y="580" font-family="ui-monospace,monospace" '
+        f'font-size="14" fill="#8a8378">vectorography · type design by '
+        f'traversal · corpus: Google Fonts, OFL-1.1</text>'
+        f'</svg>'
+    )

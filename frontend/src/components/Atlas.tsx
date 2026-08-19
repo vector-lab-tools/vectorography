@@ -909,7 +909,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   return (
     <div ref={box}
          className={`relative w-full h-full rounded-md border border-border
-                     bg-card overflow-hidden select-none
+                     bg-card overflow-hidden select-none touch-none
                      ${hover ? "cursor-pointer" : "cursor-grab"}`}
          onPointerDown={(e) => {
            // Dragging turns the model. Nothing here changes the type.
