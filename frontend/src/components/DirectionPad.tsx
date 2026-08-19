@@ -1,4 +1,6 @@
 import type { NamedDirection } from "../api"
+import { handleColour } from "./handleColours"
+import type { HandleKind } from "./handles"
 
 /**
  * Where the type stands on each measured property, and a handle to move it.
@@ -62,8 +64,11 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
           const outside = now < lo || now > hi
           return (
             <div key={d.key} className="flex items-center gap-1.5">
+              {/* The same colour this property wears on the letterform, so the
+                  slider and the grab point read as one control. */}
               <span className="w-[52px] shrink-0 truncate text-[10px]
                                font-display leading-none"
+                    style={{ color: handleColour(d.key as HandleKind, 0.95) }}
                     title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
                 {d.label}
               </span>
@@ -77,7 +82,8 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
                 onChange={(e) => onSlide(d.key, Number(e.target.value))}
                 onPointerUp={onCommit}
                 onKeyUp={onCommit}
-                className="flex-1 min-w-0 h-1 accent-burgundy"
+                className="flex-1 min-w-0 h-1"
+                style={{ accentColor: handleColour(d.key as HandleKind) }}
                 title={`${d.minus} to ${d.plus}`}
               />
               <span className={`w-[22px] shrink-0 text-right font-mono

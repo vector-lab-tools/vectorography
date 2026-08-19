@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { Altitude, Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
+import { handleColour } from "./handleColours"
 import { allHandles, handleAt, layout, lineWidth, xHeightOf,
          type Handle, type HandleKind } from "./handles"
 
@@ -253,9 +254,9 @@ export function SpecimenStage({
                 <circle
                   key={`${h.glyph}:${h.kind}:${i}`}
                   cx={h.at[0]} cy={h.at[1]}
-                  r={held ? 0.05 : near ? 0.042 : 0.03}
-                  fill={held ? "hsl(var(--burgundy))" : "hsl(var(--here))"}
-                  opacity={held ? 0.95 : near ? 0.8 : 0.45}
+                  r={held ? 0.052 : near ? 0.044 : 0.032}
+                  fill={held ? "hsl(var(--burgundy))"
+                             : handleColour(h.kind, near ? 0.95 : 0.4)}
                 />
               )
             })}
@@ -331,10 +332,15 @@ export function SpecimenStage({
 
       {showing && marker && (
         <div className="absolute top-8 left-2 font-mono text-[10px]
-                        text-here pointer-events-none">
-          {marker.label}
+                        pointer-events-none">
+          <span style={{ color: dragging ? "hsl(var(--burgundy))"
+                                         : handleColour(marker.kind) }}>
+            {marker.label}
+          </span>
           {marker.y && marker.x && marker.y !== marker.x && (
-            <span className="text-muted-foreground"> · ↕ {marker.y}</span>
+            <span style={{ color: handleColour(marker.y, 0.75) }}>
+              {" · ↕ "}{marker.y}
+            </span>
           )}
         </div>
       )}
