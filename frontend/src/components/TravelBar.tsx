@@ -40,8 +40,8 @@ export function TravelBar({
                     bg-muted/25 px-2.5 py-2 text-muted-foreground">
       <Slider label="radius" value={radius} min={0.05} max={3} step={0.05}
               onChange={setRadius}
-              title="How far one compass step travels, in whitened units. The
-                     corpus median sits about 7 from the centre." />
+              title={"How far one compass step travels, in whitened units. "
+                + "The corpus median sits about 7 from the centre."} />
 
       <div className="flex items-end gap-2">
         <button className="btn" onClick={onDrift} disabled={busy}
@@ -65,8 +65,9 @@ export function TravelBar({
       {/* the heading plane is a choice, so the choice is shown */}
       <div>
         <div className="rail-label !text-[8px] mb-0.5"
-             title="The three directions the map and the compass work in. Each
-                    is either a corpus eigendirection or a measured property.">
+             title={"The three directions the map and the compass work in. "
+               + "Each is either a corpus eigendirection or a measured "
+               + "property."}>
           axes{" "}
           {overlap && overlap.y_on_x > 0.3 && (
             <span className="text-gold normal-case tracking-normal"
@@ -79,29 +80,45 @@ export function TravelBar({
         </div>
         <div className="flex items-center gap-1">
           <AxisPick value={axX} dirs={dirs} evr={evr} disabled={!!ride}
+                    title={ride
+                      ? "Held by the ride: east and west follow the heading "
+                        + "until you release it"
+                      : "What east and west mean, on the map and on the compass"}
                     onChange={(v) => setAxes(v, axY, axZ)} />
           <span className="font-mono text-[10px] text-muted-foreground">x</span>
           <AxisPick value={axY} dirs={dirs} evr={evr}
+                    title={"What north and south mean, on the map and on the "
+                      + "compass"}
                     onChange={(v) => setAxes(axX, v, axZ)} />
           <span className="font-mono text-[10px] text-muted-foreground">x</span>
           <AxisPick value={axZ} dirs={dirs} evr={evr}
+                    title={"What depth means: the direction into and out of "
+                      + "the screen"}
                     onChange={(v) => setAxes(axX, axY, v)} />
         </div>
       </div>
 
       <div>
-        <div className="rail-label !text-[8px] mb-0.5">
+        <div className="rail-label !text-[8px] mb-0.5"
+             title={ride
+               ? `Holding the heading from ${ride.a} to ${ride.b}. The compass `
+                 + "now steps along it from wherever you are."
+               : "Take the difference between two real families as a heading, "
+                 + "and steer by it from anywhere in the space"}>
           ride {ride && <span className="text-burgundy">· {ride.a} → {ride.b}</span>}
         </div>
         {ride ? (
-          <button className="btn btn-active" onClick={onClearRide}>
+          <button className="btn btn-active" onClick={onClearRide}
+                  title="Give the compass its own axes back">
             Release heading
           </button>
         ) : (
           <div className="flex items-center gap-1">
-            <FamilyInput value={a} onChange={setA} corpus={corpus} placeholder="from" />
+            <FamilyInput value={a} onChange={setA} corpus={corpus} placeholder="from"
+                         title="The family the heading starts at" />
             <span className="font-mono text-[10px] text-muted-foreground">→</span>
-            <FamilyInput value={b} onChange={setB} corpus={corpus} placeholder="to" />
+            <FamilyInput value={b} onChange={setB} corpus={corpus} placeholder="to"
+                         title="The family it points towards" />
             <button className="btn" disabled={!a || !b || busy}
                     onClick={() => onSetRide(a, b)}
                     title="Make B minus A a compass heading usable from anywhere">
@@ -112,20 +129,28 @@ export function TravelBar({
       </div>
 
       <div>
-        <div className="rail-label !text-[8px] mb-0.5">
+        <div className="rail-label !text-[8px] mb-0.5"
+             title={orbit
+               ? `Circling ${orbit.name} at your present distance from it`
+               : "Circle a family at a fixed distance, to see what sits at the "
+                 + "same remove from it in every direction"}>
           orbit {orbit && <span className="text-burgundy">· {orbit.name}</span>}
         </div>
         {orbit ? (
           <div className="flex gap-1">
-            <button className="btn btn-active" onClick={onOrbit} disabled={busy}>
+            <button className="btn btn-active" onClick={onOrbit} disabled={busy}
+                    title="Swing twenty degrees around it, keeping your distance">
               Orbit +20°
             </button>
-            <button className="btn" onClick={onClearOrbit}>Release</button>
+            <button className="btn" onClick={onClearOrbit}
+                    title="Stop circling and travel freely again">Release</button>
           </div>
         ) : (
           <div className="flex items-center gap-1">
-            <FamilyInput value={o} onChange={setO} corpus={corpus} placeholder="family" />
-            <button className="btn" disabled={!o || busy} onClick={() => onSetOrbit(o)}>
+            <FamilyInput value={o} onChange={setO} corpus={corpus} placeholder="family"
+                         title="The family to circle" />
+            <button className="btn" disabled={!o || busy} onClick={() => onSetOrbit(o)}
+                    title="Fix it as the centre of the orbit">
               Lock
             </button>
           </div>
@@ -140,17 +165,19 @@ export function TravelBar({
  * in most. Naming both in one list is the point, since choosing between them is
  * choosing whether to move through the space by a name or by its own structure.
  */
-function AxisPick({ value, dirs, evr, onChange, disabled }: {
+function AxisPick({ value, dirs, evr, onChange, disabled, title }: {
   value: string
   dirs: { key: string; label: string; minus: string; plus: string }[]
   evr: number[]
   onChange: (v: string) => void
   disabled?: boolean
+  title?: string
 }) {
   return (
     <select
       value={value}
       disabled={disabled}
+      title={title}
       onChange={(e) => onChange(e.target.value)}
       className="font-mono text-[10px] bg-card border border-border rounded-sm
                  px-1 py-1.5 max-w-[92px] disabled:opacity-40"
@@ -173,9 +200,9 @@ function AxisPick({ value, dirs, evr, onChange, disabled }: {
   )
 }
 
-function FamilyInput({ value, onChange, corpus, placeholder }: {
+function FamilyInput({ value, onChange, corpus, placeholder, title }: {
   value: string; onChange: (v: string) => void
-  corpus: CorpusInfo | null; placeholder: string
+  corpus: CorpusInfo | null; placeholder: string; title?: string
 }) {
   return (
     <>
@@ -183,6 +210,7 @@ function FamilyInput({ value, onChange, corpus, placeholder }: {
         list="vg-families"
         value={value}
         placeholder={placeholder}
+        title={title}
         onChange={(e) => onChange(e.target.value)}
         className="font-mono text-[11px] w-20 min-w-0 bg-card border border-border
                    rounded-sm px-1.5 py-1.5"
@@ -199,12 +227,16 @@ function Slider({ label, value, min, max, step, onChange, width = "w-28",
   label: string; value: number; min: number; max: number; step: number
   onChange: (v: number) => void; width?: string; title?: string
 }) {
+  // The title goes on the track and the label as well as the box around them.
+  // A range input is a shadow tree, and hovering the thumb does not always
+  // reach an ancestor's tooltip.
   return (
     <div title={title}>
-      <div className="rail-label !text-[8px] mb-0.5">
+      <div className="rail-label !text-[8px] mb-0.5" title={title}>
         {label} <span className="text-foreground">{value.toFixed(2)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
+             title={title}
              onChange={(e) => onChange(Number(e.target.value))}
              className={`${width} accent-burgundy`} />
     </div>

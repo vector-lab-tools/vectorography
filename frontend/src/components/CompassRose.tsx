@@ -48,7 +48,10 @@ export function CompassRose({
       {/* The rose is a control surface, so it is framed as one. The atlas next
           to it is a picture of the space; these are buttons that move you. */}
       <div className="mb-1.5 shrink-0">
-        <span className="rail-label">Traverse vector space</span>
+        <span className="rail-label"
+              title={"Eight neighbours, one step out on the two axes the map "
+                + "is drawn in. Stepping is the only way to arrive anywhere: "
+                + "there is nothing here to generate."}>Traverse vector space</span>
       </div>
       <div className="grid grid-cols-3 grid-rows-3 gap-1.5 flex-1 min-h-0
                       rounded-md bg-muted/40 border border-border p-1.5">

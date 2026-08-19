@@ -120,14 +120,6 @@ class JourneyReq(BaseModel):
     masters: int = Field(5, ge=2, le=12)
 
 
-def _height_of(s, t, mode: str) -> float:
-    if mode == "centroid":
-        top = float(np.linalg.norm(s.Z - s.centroid, axis=1).max()) or 1.0
-        return float(np.linalg.norm(t - s.centroid)) / top
-    ref = np.sort(s._corpus_density)
-    return float(np.searchsorted(ref, s.log_density(t))) / max(len(ref) - 1, 1)
-
-
 def _sample_trail(trail: list[list[float]], n: int) -> np.ndarray:
     """Sample the recorded path at uniform arc length."""
     t = np.asarray(trail, dtype=np.float64)
@@ -260,25 +252,39 @@ def atlas(req: AtlasReq):
     # tail, so plotting it directly makes the corpus a spike with everything
     # bunched at the bottom; the percentile spreads the same ordering evenly.
     h_min, h_max = 0.0, 1.0
+    # The specimen, the corpus and the route all take their height from the one
+    # function below. Measuring the traveller along the third axis and the
+    # route it took by local density put the two on unrelated verticals, and
+    # the trail ended nowhere near the letterform that drew it.
+    trail = [np.asarray(t, dtype=np.float64) for t in req.trail]
     if req.height == "axis":
         # A third direction, so the vertical is something you can travel along
         # rather than a reading taken of where you already are.
         raw = s.Z @ wv
-        self_raw = float(z @ wv)
-        h_min = float(min(raw.min(), self_raw))
-        h_max = float(max(raw.max(), self_raw))
+        ends = [float(z @ wv)] + [float(t @ wv) for t in trail]
+        h_min = float(min(raw.min(), *ends))
+        h_max = float(max(raw.max(), *ends))
         span = max(h_max - h_min, 1e-6)
         hs = (raw - h_min) / span
-        self_h = (self_raw - h_min) / span
+
+        def height_of(t):
+            return float((t @ wv - h_min) / span)
     elif req.height == "centroid":
         raw = np.linalg.norm(s.Z - s.centroid, axis=1)
         top = float(raw.max()) or 1.0
         hs = raw / top
-        self_h = float(np.linalg.norm(z - s.centroid)) / top
+
+        def height_of(t):
+            return float(np.linalg.norm(t - s.centroid) / top)
     else:
         ref = np.sort(s._corpus_density)
         hs = np.searchsorted(ref, s._corpus_density) / max(len(ref) - 1, 1)
-        self_h = float(np.searchsorted(ref, s.log_density(z))) / max(len(ref) - 1, 1)
+
+        def height_of(t):
+            return float(np.searchsorted(ref, s.log_density(t))
+                         / max(len(ref) - 1, 1))
+
+    self_h = height_of(z)
 
     d = np.linalg.norm(s.Z - z, axis=1)
 
@@ -330,9 +336,8 @@ def atlas(req: AtlasReq):
         "sprites": sprites,
         "self": {"x": float(z @ u), "y": float(z @ v), "h": self_h,
                  "glyphs": _glyph_subset(s.decode(z), req.text)},
-        "trail": [{"x": float(np.asarray(t) @ u), "y": float(np.asarray(t) @ v),
-                   "h": _height_of(s, np.asarray(t), req.height)}
-                  for t in req.trail],
+        "trail": [{"x": float(t @ u), "y": float(t @ v), "h": height_of(t)}
+                  for t in trail],
         # For the axis height these are latent units, so a screen position can
         # be turned back into a coordinate; otherwise they are the 0..1 the
         # normalisation already produced.

@@ -816,8 +816,8 @@ export default function App() {
               been. */}
           <div className="min-w-0 flex flex-col gap-1.5">
             <span className="rail-label"
-                  title="Ways of moving that are not a step on the compass or a
-                         property on a slider">
+                  title={"Ways of moving that are not a step on the compass "
+                    + "or a property on a slider"}>
               Controls
             </span>
             <TravelBar
@@ -857,8 +857,8 @@ export default function App() {
 
           <div className="min-w-0 min-h-0 flex flex-col gap-1.5">
             <span className="rail-label"
-                  title="Every stop on this journey, and the name it exports
-                         under">
+                  title={"Every stop on this journey, and the name it "
+                    + "exports under"}>
               Journey
             </span>
             <div className="flex-1 min-h-0 flex flex-col rounded-md border

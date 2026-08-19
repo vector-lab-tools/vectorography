@@ -813,8 +813,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
               schedule()
             }}
             disabled={!ballOn}
-            title="North, south, east and west on the shell, for telling which
-                   way the model has been turned"
+            title={"North, south, east and west on the shell, for telling "
+              + "which way the model has been turned"}
             className={`w-5 h-5 flex items-center justify-center rounded-sm
                         border font-mono text-[9px] leading-none
                         transition-colors disabled:opacity-30
@@ -1038,9 +1038,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         <div className="absolute bottom-2 right-2 max-w-[46%] truncate
                         font-mono text-[9px] text-muted-foreground/70
                         pointer-events-none text-right"
-             title="Drag to orbit. Alt-drag, or the move toggle, drags the
-                    specimen through the space. Shift while moving goes up and
-                    down the third axis. Click a family to travel to it.">
+             title={"Drag to orbit. Alt-drag, or the move toggle, drags the "
+               + "specimen through the space. Shift while moving goes up "
+               + "and down the third axis. Click a family to travel to "
+               + "it."}>
           drag to turn · hover a family to name it · click to travel there
         </div>
       )}

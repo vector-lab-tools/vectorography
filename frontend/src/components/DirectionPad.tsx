@@ -34,14 +34,17 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="rail-label">Steer</span>
+        <span className="rail-label"
+              title={"Push a single measured property, without moving off in "
+                + "any other. The letterform changes in that one respect and "
+                + "holds everything else where it is."}>Steer</span>
         {shape && (
           <button
             onClick={rigidify}
             disabled={busy}
-            title="Push shape to its straight end in one move. The same axis as
-                   the Shape slider: past the corpus there are no straight-sided
-                   families left to interpolate toward."
+            title={"Push shape to its straight end in one move. The same "
+              + "axis as the Shape slider: past the corpus there are no "
+              + "straight-sided families left to interpolate toward."}
             className="font-mono text-[8.5px] uppercase tracking-[0.1em]
                        px-1.5 py-[1px] rounded-sm border border-border bg-card
                        text-muted-foreground hover:border-burgundy

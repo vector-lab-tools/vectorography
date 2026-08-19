@@ -410,8 +410,8 @@ export function SpecimenStage({
                      focus:ring-1 focus:ring-burgundy/30
                      placeholder:text-muted-foreground/60"
           placeholder="type anything"
-          title="What the specimen sets. Reading the letters is how you decide
-                 where to go."
+          title={"What the specimen sets. Reading the letters is how you "
+            + "decide where to go."}
         />
 
         {/* The real families you are standing among, nearest first, each set
