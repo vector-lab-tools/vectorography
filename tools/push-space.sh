@@ -25,18 +25,24 @@ hf="$here/.venv/bin/hf"
 "$hf" auth whoami >/dev/null 2>&1 || {
   echo "not logged in; run: $hf auth login" >&2; exit 1; }
 
-# Idempotent: says so and carries on if the Space is already there.
-"$hf" repo create "$target" --repo-type space --space_sdk docker -y \
-  2>&1 | grep -v "already created" || true
+"$hf" repo create "$target" --repo-type space --sdk docker --exist-ok
 
 # What the Space needs and nothing else. The corpus fonts are excluded by
 # size and regenerable; node_modules and the venv have no business in an
 # image that builds them itself.
+# One --exclude per pattern: the flag takes a single glob.
 "$hf" upload "$target" "$here" . \
   --repo-type space \
-  --exclude ".git/*" ".venv/*" "node_modules/*" "frontend/node_modules/*" \
-             "frontend/dist/*" "backend/data/fonts/*" "backend/data/corpus.npz" \
-             "backend/data/ofl-tree.json" "**/__pycache__/*" "tools/pending/*" \
+  --exclude ".git/*" \
+  --exclude ".venv/*" \
+  --exclude "node_modules/*" \
+  --exclude "frontend/node_modules/*" \
+  --exclude "frontend/dist/*" \
+  --exclude "backend/data/fonts/*" \
+  --exclude "backend/data/corpus.npz" \
+  --exclude "backend/data/ofl-tree.json" \
+  --exclude "**/__pycache__/*" \
+  --exclude "tools/pending/*" \
   --commit-message "Vectorography $(cat "$here/VERSION")"
 
 echo

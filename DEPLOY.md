@@ -9,6 +9,11 @@ A Space keeps a process alive, so the model is loaded once rather than on every
 request. That matters here: the fitted space is tens of megabytes, and a
 serverless host reloads it after every idle period.
 
+**A Docker Space needs a PRO subscription.** Static Spaces are free; Gradio and
+Docker Spaces on free cpu-basic are not, and the create call returns 402. This
+instrument needs a Python process for the decode and for compiling fonts, so a
+static Space cannot host it as it stands.
+
 1. Log in once:
 
    ```
