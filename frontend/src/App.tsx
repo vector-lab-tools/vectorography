@@ -248,6 +248,24 @@ export default function App() {
            `walk ${String(bearing).padStart(3, "0")}° r${radius.toFixed(2)}`),
     [travel, radius])
 
+  /** Where a position sits in the atlas's own coordinates, so the mark can be
+   *  moved before the server has been asked anything. */
+  const [liveRadius, setLiveRadius] = useState<number | null>(null)
+
+  const atlasPoint = useCallback((p: number[]) => {
+    const b = basis.current
+    if (!b) return null
+    const rng = atlas?.range
+    const h = rng && atlas?.axes.height === "axis"
+      ? (dot(p, b.w) - rng.h_min) / Math.max(rng.h_max - rng.h_min, 1e-6)
+      : (liveSelf?.h ?? atlas?.self.h ?? 0)
+    // Radius in the three directions on screen, the same quantity the server
+    // reports, so the reading and the mark cannot disagree.
+    const x = dot(p, b.u), y = dot(p, b.v), zz = dot(p, b.w)
+    setLiveRadius(Math.hypot(x, y, zz))
+    return { x, y, h }
+  }, [atlas, liveSelf])
+
   const dragStart = useCallback((_aiming: HandleKind[]) => {
     strokePath.current = z ? [z] : []
   }, [z])
@@ -288,17 +306,14 @@ export default function App() {
     dragZ.current = nz
     strokePath.current.push(nz)
 
-    if (basis.current) {
-      const b = basis.current
-      setLiveSelf({ x: dot(nz, b.u), y: dot(nz, b.v), h: liveSelf?.h ?? 0 })
-    }
+    setLiveSelf(atlasPoint(nz))
     if (dragPending.current) return
     dragPending.current = true
     api.location(nz, text, false, false, 24)
       .then((loc) => setLocation(loc))
       .catch(() => {})
       .finally(() => { dragPending.current = false })
-  }, [z, text, directions, liveSelf, corpus])
+  }, [z, text, directions, corpus, atlasPoint])
 
   const dragEnd = useCallback(() => {
     const path = strokePath.current
@@ -342,6 +357,9 @@ export default function App() {
     dragZ.current = nz
     if (!strokePath.current.length) strokePath.current = [from]
     strokePath.current.push(nz)
+    // The map moves with the slider: the position is computed here, so the
+    // mark does not wait for the server to say where it went.
+    setLiveSelf(atlasPoint(nz))
 
     if (dragPending.current) return
     dragPending.current = true
@@ -349,13 +367,15 @@ export default function App() {
       .then((loc) => setLocation(loc))
       .catch(() => {})
       .finally(() => { dragPending.current = false })
-  }, [directions, z, text])
+  }, [directions, z, text, atlasPoint])
 
   /** The slider was let go: the move becomes one stop. */
   const slideCommit = useCallback(() => {
     const nz = dragZ.current
     dragZ.current = null
     strokePath.current = []
+    setLiveSelf(null)
+    setLiveRadius(null)
     if (nz) push(nz, "steer", "set by slider")
   }, [push])
 
@@ -586,7 +606,8 @@ export default function App() {
                      liveGlyphs={location?.glyphs ?? null}
                      liveSelf={liveSelf}
                      ballOn={ballOn} setBallOn={setBallOn}
-                     altitude={location?.altitude ?? null} corpus={corpus} />
+                     altitude={location?.altitude ?? null} corpus={corpus}
+                     liveRadius={liveRadius} />
             </div>
 
             <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0

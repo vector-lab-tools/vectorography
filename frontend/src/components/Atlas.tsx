@@ -155,7 +155,7 @@ function faceFor(name: string, onReady: () => void): string | null {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
-  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus }: {
+  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus, liveRadius }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -181,6 +181,9 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
    *  where. It belongs next to the position, not across the room from it. */
   altitude: Altitude | null
   corpus: CorpusInfo | null
+  /** Radius of the position being dragged to, computed by the client, so the
+   *  reading moves with the mark instead of waiting for the server. */
+  liveRadius: number | null
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -875,8 +878,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                + `every font. The furthest real family is `
                + `${data.ball.max.toFixed(2)} out and half the corpus lies `
                + `within ${data.ball.q50.toFixed(2)}.`}>
-          r {data.ball.self.toFixed(2)} of {data.ball.max.toFixed(2)} ·
-          {" "}{data.ball.inside_q50.toFixed(0)}% nearer in
+          r {(liveRadius ?? data.ball.self).toFixed(2)} of
+          {" "}{data.ball.max.toFixed(2)}
+          {liveRadius == null &&
+            ` · ${data.ball.inside_q50.toFixed(0)}% nearer in`}
         </div>
       )}
 
@@ -971,11 +976,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           {hover.name}
         </div>
       )}
-      <div className="absolute left-1.5 top-7 bottom-9 w-8 flex flex-col">
+      {/* On the right edge: the left is where the axis caption and the shell
+          reading are written, and the strip was sitting on top of them. */}
+      <div className="absolute right-1.5 top-9 bottom-9 w-8 flex flex-col">
         <AltitudeStrip altitude={altitude} corpus={corpus} />
       </div>
 
-      <div className="absolute bottom-2 left-12 flex items-center gap-1">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
            ["⌖", reset, "Back to the default view, centred on you"],
