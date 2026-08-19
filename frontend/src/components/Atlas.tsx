@@ -294,23 +294,22 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const P = (x: number, y: number, hh: number) =>
       project(x, y, hh, w, h, c, cx, cy0, ch)
 
-    // Ground: the plane of the corpus centroid.
-    ctx.strokeStyle = muted; ctx.globalAlpha = 0.16; ctx.lineWidth = 1
+    // No ground plane. The corpus is a ball, not a landscape: a grid under it
+    // implied a floor to stand on and a height above it, neither of which the
+    // space has. What is left is the centroid, the shells, and where you are.
     const R = Math.ceil(Math.max(
       ...data.points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))), 4))
     reach.current = R * 2.5
-    const gstep = R / 4
-    for (let g = -R; g <= R + 1e-9; g += gstep) {
-      const a = P(g, -R, 0), b = P(g, R, 0)
-      const c2 = P(-R, g, 0), d2 = P(R, g, 0)
-      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(c2.sx, c2.sy); ctx.lineTo(d2.sx, d2.sy); ctx.stroke()
-    }
-    ctx.globalAlpha = 1
 
+    // The centroid: the average of every font in the corpus, and a place where
+    // almost none of them is.
     const o = P(0, 0, 0)
-    ctx.strokeStyle = muted; ctx.globalAlpha = 0.5
-    ctx.beginPath(); ctx.arc(o.sx, o.sy, 4, 0, Math.PI * 2); ctx.stroke()
+    ctx.strokeStyle = muted; ctx.globalAlpha = 0.55
+    ctx.beginPath(); ctx.arc(o.sx, o.sy, 3.5, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(o.sx - 6, o.sy); ctx.lineTo(o.sx + 6, o.sy)
+    ctx.moveTo(o.sx, o.sy - 6); ctx.lineTo(o.sx, o.sy + 6)
+    ctx.stroke()
     ctx.globalAlpha = 1
 
     // One projection pass. Hover, decluttering and drawing all read from it;
@@ -415,8 +414,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     // The waypoint, and the line you would travel along to reach it.
     if (WAYPOINTS && waypoint) {
-      const wp = P(waypoint.x, waypoint.y, 0)
-      const from = P(data.self.x, data.self.y, 0)
+      const wp = P(waypoint.x, waypoint.y, ch)
+      const from = P(cx, cy0, ch)
       ctx.strokeStyle = burg
       ctx.globalAlpha = 0.5
       ctx.setLineDash([4, 4]); ctx.lineWidth = 1
@@ -483,16 +482,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // You: drawn last, in the accent, with a drop line to the ground so the
     // height reading is not ambiguous.
     const me = P(cx, cy0, ch)
-    const ground = P(cx, cy0, 0)
     selfScreen.current = { sx: me.sx + SELF_PX * 0.35, sy: me.sy - SELF_PX * 0.28 }
-    ctx.strokeStyle = here; ctx.globalAlpha = 0.4
-    ctx.setLineDash([2, 3])
-    ctx.beginPath(); ctx.moveTo(me.sx, me.sy); ctx.lineTo(ground.sx, ground.sy)
-    ctx.stroke(); ctx.setLineDash([])
-    ctx.globalAlpha = 0.5
-    ctx.beginPath(); ctx.ellipse(ground.sx, ground.sy, 5, 2.4, 0, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.globalAlpha = 1
     ctx.save()
     ctx.translate(me.sx, me.sy)
     ctx.scale(SELF_PX, -SELF_PX)
@@ -739,7 +729,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       </div>
 
       {ballOn && data.ball && data.axes.height === "axis" && (
-        <div className="absolute top-9 left-2 font-mono text-[9px]
+        <div className="absolute top-[52px] left-2 font-mono text-[9px]
                         text-muted-foreground pointer-events-none">
           shell: {data.ball.q50.toFixed(2)} / {data.ball.q90.toFixed(2)} ·
           {" "}you {data.ball.self.toFixed(2)}
