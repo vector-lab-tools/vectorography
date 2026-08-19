@@ -372,7 +372,9 @@ export default function App() {
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
     }))
-  }, [atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
+    savedSig.current = signature
+    setFileState("saved")
+  }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, saveAs, snapshot, step, temperature, text, trail])
 
   const openProject = useCallback(async () => {
@@ -850,7 +852,6 @@ export default function App() {
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
-              project={{ name: file, state: fileState }}
               text={text}
               altitude={location?.altitude ?? null}
               hullRadius={atlas?.ball?.max ?? null}
@@ -1066,8 +1067,20 @@ export default function App() {
 
       <footer className="h-8 shrink-0 px-4 flex items-center gap-4 border-t
                          border-border bg-card/60">
-        <span className="font-mono text-[10px] text-muted-foreground">
-          arrows walk · d drift · r repel · ⌘Z undo · ⇧⌘Z redo
+        <span className="font-mono text-[10px] text-muted-foreground"
+              title={file ? `Saved as ${file}`
+                          : "This journey has never been saved"}>
+          {file ?? "untitled"}
+        </span>
+        <span className={`font-mono text-[9px] uppercase tracking-wider
+                          -ml-2.5 ${fileState === "edited"
+                            ? "text-burgundy/75" : "text-muted-foreground/60"}`}
+              title={fileState === "edited"
+                ? "Changed since it was last saved"
+                : fileState === "saved" ? "Written to disk"
+                : fileState === "loaded" ? "Opened from disk, unchanged"
+                : "Not saved anywhere yet"}>
+          {fileState === "new" ? "unsaved" : fileState}
         </span>
         <div className="flex-1" />
         {error && (
