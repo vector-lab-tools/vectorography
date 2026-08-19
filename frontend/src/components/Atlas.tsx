@@ -713,43 +713,36 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     return (room * 0.40) / data.ball.max
   }, [data])
 
-  // Back to the view you started in. With the shell drawn that means the
-  // whole shell: at the default zoom its equator, and the cardinals on it,
-  // sat outside the canvas, so the sphere was three arcs and no orientation.
+  // Back to the view you started in: close to where you are standing, near
+  // enough to read the families around you. The whole shell is one control
+  // away, and that is the right way round: the neighbourhood is what a
+  // traveller works in, the shell is what they check.
   const reset = useCallback(() => {
-    const z = (ballOn && ballZoom()) || DEFAULT_CAM.zoom
-    cam.current = { ...DEFAULT_CAM, zoom: z }
-    setZoomLabel(z)
+    cam.current = { ...DEFAULT_CAM }
+    setZoomLabel(DEFAULT_CAM.zoom)
     draw()
-  }, [ballOn, ballZoom, draw])
+  }, [draw])
 
+  // Everything in the frame: the shell if it is drawn, otherwise the corpus.
   const fitAll = useCallback(() => {
     if (!data || !box.current) return
-    const self = selfRef.current
-    const spread = Math.max(...data.points.map((p) =>
-      Math.max(Math.abs(p.x - self.x), Math.abs(p.y - self.y))), 1)
-    cam.current = { ...cam.current,
-      zoom: Math.max(4, Math.min(120, (box.current.clientWidth * 0.42) / spread)) }
+    const shell = ballOn ? ballZoom() : null
+    let z = shell
+    if (!z) {
+      const self = selfRef.current
+      const spread = Math.max(...data.points.map((p) =>
+        Math.max(Math.abs(p.x - self.x), Math.abs(p.y - self.y))), 1)
+      z = (box.current.clientWidth * 0.42) / spread
+    }
+    cam.current = { ...cam.current, zoom: Math.max(4, Math.min(120, z)) }
     setZoomLabel(cam.current.zoom)
     draw()
-  }, [data, draw])
+  }, [data, ballOn, ballZoom, draw])
 
   // New data and resizes draw straight away. Only interaction goes through the
   // frame cap: requestAnimationFrame does not fire while a tab is hidden, so
   // scheduling the first paint through it leaves the canvas blank until
   // something moves, which for an offscreen or backgrounded pane is never.
-  // Frame the shell once, when it is first drawn.
-  const framed = useRef(false)
-  useEffect(() => {
-    if (framed.current || !ballOn) return
-    const z = ballZoom()
-    if (!z) return
-    framed.current = true
-    cam.current = { ...cam.current, zoom: z }
-    setZoomLabel(z)
-    draw()
-  }, [ballOn, ballZoom, draw])
-
   useEffect(() => {
     draw()
     const ro = new ResizeObserver(() => draw())
