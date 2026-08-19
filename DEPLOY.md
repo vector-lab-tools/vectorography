@@ -73,3 +73,38 @@ docker run -p 7860:7860 vectorography
 ```
 
 512 MB of memory is enough for the current model; a gigabyte is comfortable.
+
+## Google Cloud Run
+
+Cloud Build compiles the `Dockerfile` in the cloud, so Docker is not needed on
+the machine you deploy from. The container scales to zero between visits and a
+warm request costs nothing to serve; a cold one spends a few seconds starting
+Python and reading the model.
+
+Once, by hand, because both steps need a person:
+
+```
+gcloud auth login
+gcloud projects create vectorography          # or reuse an existing project
+```
+
+Then attach a billing account at
+<https://console.cloud.google.com/billing>. Cloud Run's free allowance covers
+this workload comfortably, but Google will not run a service on a project with
+no billing account behind it.
+
+After that:
+
+```
+./tools/deploy-cloudrun.sh
+```
+
+Region defaults to `europe-west2`, London. Override with `REGION=`, `PROJECT=`
+or `SERVICE=` in the environment.
+
+The service is deployed `--allow-unauthenticated`, which is what makes the URL
+public. Memory is 1Gi: numpy, scipy and fontTools are resident alongside the
+model, and compiling a journey holds a font per master.
+
+The container binds `$PORT` when the environment sets one and 7860 when it
+does not, so the same image serves both Cloud Run and Spaces.

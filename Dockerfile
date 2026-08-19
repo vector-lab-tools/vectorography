@@ -28,6 +28,8 @@ COPY --chown=traveller --from=app /build/dist frontend/dist
 
 # The corpus font files are not shipped: three hundred megabytes of them, and
 # the app falls back to a plain face when a family's own file is missing.
+# Spaces fixes the port at 7860; Cloud Run hands one over in the environment
+# and will not route to a container listening anywhere else.
 EXPOSE 7860
-CMD ["python", "-m", "uvicorn", "main:app", "--app-dir", "backend", \
-     "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "python -m uvicorn main:app --app-dir backend \
+     --host 0.0.0.0 --port ${PORT:-7860}"]
