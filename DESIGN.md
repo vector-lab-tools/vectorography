@@ -21,7 +21,7 @@ around, and decides where to go next. Three consequences bind the whole design:
 ## 2. Layers
 
 ```
-  OFL corpus  ->  style vectors  ->  latent space  ->  navigator  ->  export
+  corpus      ->  style vectors  ->  latent space  ->  navigator  ->  export
   (fontTools)     (fixed-length)     (whitened PCA)    (browser)      (varLib)
 ```
 
@@ -73,7 +73,7 @@ One screen. No tabs, no routing, no modal dialogs.
 
 ```
 +----------------------------------------------------------------------+
-|  VECTOROGRAPHY            corpus: 500 OFL families      [?] [export]  |
+|  VECTOROGRAPHY            corpus: VectorModel 0.1       [?] [export]  |
 +--------------+-----------------------------------------+-------------+
 |              |                                         |             |
 |  ALTITUDE    |            NW    N    NE                |  NEAREST    |

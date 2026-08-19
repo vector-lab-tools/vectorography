@@ -292,10 +292,8 @@ The corpus is drawn **only** from the `ofl/` tree of
 Licence tree. No other font source is permitted by the ingest code. This is a
 design decision rather than a convenience: an instrument that shows you whose
 neighbourhood you are standing in should be able to say where its ground came
-from. `backend/data/corpus-manifest.json` records every family used, and travels
-inside every journey export.
-
-families; check the OFL terms before distributing a typeface built with it.
+from. `backend/data/corpus-manifest.json` records every family the space was
+fitted from, and travels inside every journey export.
 
 ## Limitations
 
