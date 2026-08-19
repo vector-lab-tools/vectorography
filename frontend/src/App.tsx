@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, type AtlasData, type CompassPoint, type CorpusInfo,
          type Location, type NamedDirection } from "./api"
-import { AltitudeMeter } from "./components/AltitudeMeter"
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { CompassRose } from "./components/CompassRose"
@@ -620,7 +619,6 @@ export default function App() {
               <div className="flex-1 min-h-[96px] shrink">
                 <CompassRose
                   points={compass}
-                  centre={location?.glyphs ?? []}
                   compassText={compassText}
                   radius={radius}
                   onTravel={(p) => walk(p.bearing)}
@@ -674,10 +672,6 @@ export default function App() {
                             grid-cols-1 md:grid-cols-2
                             xl:grid-cols-[176px_minmax(0,1fr)_212px]"
                  style={{ flex: `${1 - split} 1 0%` }}>
-          <div className="min-w-0">
-            <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
-          </div>
-
           <div className="min-w-0 flex flex-col gap-3">
             <TravelBar
               corpus={corpus}
@@ -714,7 +708,7 @@ export default function App() {
             />
           </div>
 
-          <div className="min-w-0 min-h-0 flex flex-col md:col-span-2 xl:col-span-1">
+          <div className="min-w-0 min-h-0 flex flex-col">
             <input
               value={family}
               onChange={(e) => setFamily(e.target.value)}
@@ -722,9 +716,7 @@ export default function App() {
                          border-border rounded-sm px-2 py-1 mb-3"
               title="Family name for the exported typeface"
             />
-            <Trail trail={trail} cursor={cursor} onGo={setCursor}
-                   onExport={exportJourney} onTest={() => setTesting(true)}
-                   canCompile={ancestry.length >= 2} busy={busy} />
+            <Trail trail={trail} cursor={cursor} onGo={setCursor} />
           </div>
         </section>
       </main>

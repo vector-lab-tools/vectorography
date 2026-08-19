@@ -35,16 +35,20 @@ export function TravelBar({
   const dirs = corpus?.directions ?? []
 
   return (
-    <div className="panel p-3 w-full min-w-0 flex flex-wrap items-end
-                    gap-x-4 gap-y-3 overflow-hidden">
+    <div className="w-full min-w-0 flex flex-wrap items-end gap-x-3 gap-y-2
+                    overflow-hidden rounded-md border border-border/60
+                    bg-muted/25 px-2.5 py-2 text-muted-foreground">
       <Slider label="radius" value={radius} min={0.05} max={3} step={0.05}
-              onChange={setRadius} />
+              onChange={setRadius}
+              title="How far one compass step travels, in whitened units. The
+                     corpus median sits about 7 from the centre." />
 
       <div className="flex items-end gap-2">
         <button className="btn" onClick={onDrift} disabled={busy}
                 title="Random walk, scaled by temperature">Drift</button>
         <Slider label="temp" value={temperature} min={0.05} max={2.5} step={0.05}
-                onChange={setTemperature} width="w-24" />
+                onChange={setTemperature} width="w-24"
+                title="How far a drift wanders on each step" />
       </div>
 
       <div className="flex items-end gap-2">
@@ -54,12 +58,15 @@ export function TravelBar({
           Repel
         </button>
         <Slider label="step" value={step} min={0.1} max={2.5} step={0.05}
-                onChange={setStep} width="w-24" />
+                onChange={setStep} width="w-24"
+                title="How far one repel moves against the crowd" />
       </div>
 
       {/* the heading plane is a choice, so the choice is shown */}
       <div>
-        <div className="rail-label mb-1">
+        <div className="rail-label !text-[8px] mb-0.5"
+             title="The three directions the map and the compass work in. Each
+                    is either a corpus eigendirection or a measured property.">
           axes{" "}
           {overlap && overlap.y_on_x > 0.3 && (
             <span className="text-gold normal-case tracking-normal"
@@ -83,7 +90,7 @@ export function TravelBar({
       </div>
 
       <div>
-        <div className="rail-label mb-1">
+        <div className="rail-label !text-[8px] mb-0.5">
           ride {ride && <span className="text-burgundy">· {ride.a} → {ride.b}</span>}
         </div>
         {ride ? (
@@ -105,7 +112,7 @@ export function TravelBar({
       </div>
 
       <div>
-        <div className="rail-label mb-1">
+        <div className="rail-label !text-[8px] mb-0.5">
           orbit {orbit && <span className="text-burgundy">· {orbit.name}</span>}
         </div>
         {orbit ? (
@@ -187,13 +194,14 @@ function FamilyInput({ value, onChange, corpus, placeholder }: {
   )
 }
 
-function Slider({ label, value, min, max, step, onChange, width = "w-28" }: {
+function Slider({ label, value, min, max, step, onChange, width = "w-28",
+                 title }: {
   label: string; value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; width?: string
+  onChange: (v: number) => void; width?: string; title?: string
 }) {
   return (
-    <div>
-      <div className="rail-label mb-1">
+    <div title={title}>
+      <div className="rail-label !text-[8px] mb-0.5">
         {label} <span className="text-foreground">{value.toFixed(2)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}

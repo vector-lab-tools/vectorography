@@ -20,9 +20,36 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
   onCommit: () => void
   busy: boolean
 }) {
+  const shape = directions.find((d) => d.key === "straightness")
+  const rigidify = () => {
+    if (!shape) return
+    const lo = shape.lo ?? -2.2
+    const hi = shape.hi ?? 2.2
+    onSlide("straightness", hi + (hi - lo) * 0.3)
+    onCommit()
+  }
+
   return (
     <div>
-      <div className="rail-label mb-1">Steer</div>
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="rail-label">Steer</span>
+        {shape && (
+          <button
+            onClick={rigidify}
+            disabled={busy}
+            title="Push shape to its straight end in one move. The same axis as
+                   the Shape slider: past the corpus there are no straight-sided
+                   families left to interpolate toward."
+            className="font-mono text-[8.5px] uppercase tracking-[0.1em]
+                       px-1.5 py-[1px] rounded-sm border border-border bg-card
+                       text-muted-foreground hover:border-burgundy
+                       hover:text-burgundy active:translate-y-px
+                       disabled:opacity-40 transition-colors"
+          >
+            rigidify
+          </button>
+        )}
+      </div>
       {/* One line per property: name, track, reading. Stacked over two lines
           each, eight properties did not fit a column and half of them lived
           behind a scrollbar. */}

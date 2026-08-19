@@ -228,3 +228,45 @@ export function xHeightOf(placed: Placed[]): number {
   const b = inkBounds(pick.g)
   return isFinite(b.y1) ? b.y1 : 0.5
 }
+
+
+/**
+ * Every handle the specimen offers, one per part of each letter.
+ *
+ * The hit test answers "what is under the pointer"; this asks the outline the
+ * same question everywhere and keeps one answer of each kind per letter, so the
+ * points can be drawn before the hand goes looking for them.
+ */
+export function allHandles(placed: Placed[], xHeight: number): Handle[] {
+  const out: Handle[] = []
+  const seen = new Set<string>()
+
+  placed.forEach((p, gi) => {
+    const cs = p.g.contours ?? []
+    for (const c of cs) {
+      // Every few points around the outline is enough: neighbouring points on
+      // the same stroke classify the same way.
+      for (let i = 0; i < c.length; i += 5) {
+        const [cx, cy] = c[i]
+        const h = handleAt(placed, p.x0 + cx, cy, xHeight)
+        if (!h) continue
+        const key = `${gi}:${h.kind}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(h)
+      }
+    }
+  })
+
+  // The gaps, which belong to no letter.
+  for (let i = 0; i < placed.length - 1; i++) {
+    const a = placed[i], b = placed[i + 1]
+    const mid = (a.x0 + a.g.advance + b.x0) / 2
+    const h = handleAt(placed, mid, xHeight * 0.5, xHeight)
+    if (h && h.kind === "tightness" && !seen.has(`gap:${i}`)) {
+      seen.add(`gap:${i}`)
+      out.push(h)
+    }
+  }
+  return out
+}

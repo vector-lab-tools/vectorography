@@ -1,4 +1,4 @@
-import type { CompassPoint, Glyph } from "../api"
+import type { CompassPoint } from "../api"
 import { Specimen } from "./Specimen"
 
 /**
@@ -8,26 +8,36 @@ import { Specimen } from "./Specimen"
  *
  * Bearings are 45-degree steps in the current heading plane. The plane is a
  * choice, and the choice is shown in the plane selector below.
+ *
+ * The middle is left empty. It held the current specimen, drawn at the same
+ * size for comparison, but it was the one tile that could not be clicked and it
+ * read as a control that did nothing. Where you are is rendered above, at the
+ * size of a specimen rather than a thumbnail.
  */
 
 // bearing -> grid cell, arrow, and which edge the arrow sits on, so that each
 // tile points away from the centre in the direction it would take you
-const DIRS: Record<number, { cell: string; arrow: string }> = {
-  135: { cell: "col-start-1 row-start-1", arrow: "↖" },
-  90:  { cell: "col-start-2 row-start-1", arrow: "↑" },
-  45:  { cell: "col-start-3 row-start-1", arrow: "↗" },
-  180: { cell: "col-start-1 row-start-2", arrow: "←" },
-  0:   { cell: "col-start-3 row-start-2", arrow: "→" },
-  225: { cell: "col-start-1 row-start-3", arrow: "↙" },
-  270: { cell: "col-start-2 row-start-3", arrow: "↓" },
-  315: { cell: "col-start-3 row-start-3", arrow: "↘" },
+// The arrow sits at the edge of the tile it points from, so the ring of eight
+// reads as eight directions out of the middle rather than eight labelled boxes.
+const DIRS: Record<number, { cell: string; arrow: string; at: string }> = {
+  135: { cell: "col-start-1 row-start-1", arrow: "↖", at: "top-0 left-0.5" },
+  90:  { cell: "col-start-2 row-start-1", arrow: "↑",
+         at: "top-0 left-0.5/2 -translate-x-1/2" },
+  45:  { cell: "col-start-3 row-start-1", arrow: "↗", at: "top-0 right-0.5" },
+  180: { cell: "col-start-1 row-start-2", arrow: "←",
+         at: "left-0.5 top-1/2 -translate-y-1/2" },
+  0:   { cell: "col-start-3 row-start-2", arrow: "→",
+         at: "right-0.5 top-1/2 -translate-y-1/2" },
+  225: { cell: "col-start-1 row-start-3", arrow: "↙", at: "bottom-0 left-0.5" },
+  270: { cell: "col-start-2 row-start-3", arrow: "↓",
+         at: "bottom-0 left-0.5/2 -translate-x-1/2" },
+  315: { cell: "col-start-3 row-start-3", arrow: "↘", at: "bottom-0 right-0.5" },
 }
 
 export function CompassRose({
-  points, centre, compassText, radius, onTravel, busy,
+  points, compassText, radius, onTravel, busy,
 }: {
   points: CompassPoint[]
-  centre: Glyph[]
   compassText: string
   radius: number
   onTravel: (p: CompassPoint) => void
@@ -51,7 +61,7 @@ export function CompassRose({
             disabled={busy}
             title={`Walk ${d.arrow} bearing ${p.bearing}°, ${radius.toFixed(2)} units`}
             className={`${d.cell} group relative overflow-hidden rounded-sm
-                        flex items-center justify-center px-1.5 pt-3.5 pb-1.5
+                        flex items-center justify-center px-2.5 py-1
                         bg-card border border-ink/25
                         shadow-[0_1px_0_0_hsl(var(--ink)/0.18)]
                         hover:border-burgundy hover:bg-burgundy/[0.05]
@@ -61,17 +71,16 @@ export function CompassRose({
                         disabled:opacity-50 disabled:cursor-wait
                         transition-all duration-100`}
           >
-            <span className="absolute top-1 left-1.5 flex items-center gap-1
-                             font-mono leading-none text-muted-foreground/60
-                             group-hover:text-burgundy transition-colors">
-              <span className="text-[14px]">{d.arrow}</span>
-              <span className="text-[9px]">{String(p.bearing).padStart(3, "0")}</span>
+            <span className={`absolute ${d.at} font-mono text-[13px]
+                              leading-none text-muted-foreground/55
+                              group-hover:text-burgundy transition-colors`}>
+              {d.arrow}
             </span>
             <Specimen
               glyphs={p.glyphs}
               text={compassText}
-              height={46}
-              className="text-ink group-hover:text-burgundy transition-colors"
+              height={54}
+              className="text-slate group-hover:text-burgundy transition-colors"
             />
             {/* how crowded the destination is: a full bar means this step
                 walks you back into the middle of the distribution */}
@@ -82,15 +91,6 @@ export function CompassRose({
         )
       })}
 
-      {/* The centre shows where you already are, at the same scale as the eight
-          around it, so the comparison is like for like. It is not a control,
-          and it carries the colour that means "you" everywhere else. */}
-      <div className="col-start-2 row-start-2 rounded-sm flex items-center
-                      justify-center px-1.5 pt-3.5 pb-1.5 relative
-                      bg-here/[0.06] border border-here/50">
-        <Specimen glyphs={centre} text={compassText} height={46}
-                  className="text-here" />
-      </div>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { Altitude, Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
-import { handleAt, layout, lineWidth, xHeightOf,
+import { allHandles, handleAt, layout, lineWidth, xHeightOf,
          type Handle, type HandleKind } from "./handles"
 
 /**
@@ -77,6 +77,12 @@ export function SpecimenStage({
   const width = useMemo(() => lineWidth(placed), [placed])
   const xh = useMemo(() => xHeightOf(placed), [placed])
   const hasGeometry = glyphs.some((g) => g.contours?.length)
+
+  // Every handle the letterform offers, drawn rather than waited for. Hidden
+  // until the hand came near, nothing announced that the type could be
+  // touched at all.
+  const handles = useMemo(
+    () => (hasGeometry ? allHandles(placed, xh) : []), [placed, xh, hasGeometry])
 
   // The content group is flipped, so inside it coordinates are the font's own:
   // y up from the baseline. The viewBox is in the flipped frame, which is why
@@ -235,20 +241,40 @@ export function SpecimenStage({
             </g>
           </g>
 
-          {/* The handle is shown only as the hand approaches. The letterform
-              stays a letterform until then; a permanent cage of controls over
-              the type would be a diagram of the tool, not a specimen. */}
+          {/* Every grab point, always. Blue until it is taken hold of, then
+              red: the colour says which one the hand has. */}
+          <g pointerEvents="none">
+            {handles.map((h, i) => {
+              const held = dragging !== "plane" && dragging?.kind === h.kind
+                && dragging.glyph === h.glyph
+              const near = !dragging && hover?.kind === h.kind
+                && hover.glyph === h.glyph
+              return (
+                <circle
+                  key={`${h.glyph}:${h.kind}:${i}`}
+                  cx={h.at[0]} cy={h.at[1]}
+                  r={held ? 0.05 : near ? 0.042 : 0.03}
+                  fill={held ? "hsl(var(--burgundy))" : "hsl(var(--here))"}
+                  opacity={held ? 0.95 : near ? 0.8 : 0.45}
+                />
+              )
+            })}
+          </g>
+
           {showing && marker && (
             <g pointerEvents="none">
-              <circle cx={marker.at[0]} cy={marker.at[1]} r={0.045}
-                      fill="none" stroke="hsl(var(--here))"
-                      strokeWidth={dragging ? 0.011 : 0.007} />
+              <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
+                      fill="none"
+                      stroke={dragging ? "hsl(var(--burgundy))"
+                                       : "hsl(var(--here))"}
+                      strokeWidth={dragging ? 0.012 : 0.008} />
               <line
                 x1={marker.at[0] - marker.along[0] * 0.085}
                 y1={marker.at[1] - marker.along[1] * 0.085}
                 x2={marker.at[0] + marker.along[0] * 0.085}
                 y2={marker.at[1] + marker.along[1] * 0.085}
-                stroke="hsl(var(--here))" strokeWidth={0.009}
+                stroke={dragging ? "hsl(var(--burgundy))" : "hsl(var(--here))"}
+                strokeWidth={0.01}
                 strokeLinecap="round" opacity={0.8} />
             </g>
           )}
@@ -352,19 +378,6 @@ export function SpecimenStage({
         </button>
       </div>
 
-      {beyond && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onReset}
-          className="absolute bottom-1 right-16 font-mono text-[9px] px-1.5
-                     py-0.5 rounded-sm border border-gold text-gold
-                     hover:bg-gold/10 transition-colors"
-          title="Walk back up the trail to the last stop still inside the corpus"
-        >
-          back to the last sane position
-        </button>
-      )}
-
       <div className="absolute bottom-1 left-2 flex items-center gap-1">
         {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
           <button
@@ -432,6 +445,19 @@ export function SpecimenStage({
             {" \u00b7 \u03c1 "}{altitude.density_percentile.toFixed(0)}
             {"pc \u00b7 k\u2085 "}{altitude.knn_distance.toFixed(2)}
           </span>
+        )}
+
+        {beyond && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onReset}
+            className="font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+                       border-gold text-gold hover:bg-gold/10 ml-1
+                       transition-colors whitespace-nowrap"
+            title="Walk back up the trail to the last stop still inside the corpus"
+          >
+            back
+          </button>
         )}
       </div>
     </div>

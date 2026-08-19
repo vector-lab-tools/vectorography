@@ -17,9 +17,12 @@ export function AltitudeStrip({ altitude, corpus }:
   const frac = Math.min(cd / max, 1.35)
   const beyond = cd > max
 
-  // Beside the map, because it is a reading of the position the map shows.
+  // Beside the map, because it is a reading of the position the map shows. The
+  // three named numbers used to have a panel of their own in the rail below,
+  // where they said the same thing as the reading above the specimen; they live
+  // on the strip now, for whoever wants them.
   return (
-    <div className="pointer-events-none h-full flex flex-col items-center gap-1">
+    <div className="group h-full flex flex-col items-center gap-1 relative">
       <span className="font-mono text-[8px] text-muted-foreground">
         {max.toFixed(0)}
       </span>
@@ -39,6 +42,39 @@ export function AltitudeStrip({ altitude, corpus }:
         </div>
       </div>
       <span className="font-mono text-[8px] text-muted-foreground">0</span>
+
+      <div className="pointer-events-none absolute right-6 top-0 w-[178px]
+                      opacity-0 group-hover:opacity-100 transition-opacity
+                      bg-card border border-border rounded-sm shadow-editorial
+                      px-2.5 py-2 space-y-1.5 z-20">
+        <Reading label="from centroid" value={cd.toFixed(2)}
+                 note={`${altitude?.centroid_percentile.toFixed(0) ?? 0}th `
+                       + `percentile · furthest family ${max.toFixed(1)}`} />
+        <Reading label="local density"
+                 value={`${altitude?.density_percentile.toFixed(0) ?? 0}th`}
+                 note={beyond ? "off the map"
+                   : (altitude?.density_percentile ?? 0) > 75 ? "busy ground"
+                   : (altitude?.density_percentile ?? 0) > 40 ? "populated"
+                   : "open country"} />
+        <Reading label="isolation"
+                 value={altitude?.knn_distance.toFixed(2) ?? "0"}
+                 note="mean distance to the five nearest families" />
+      </div>
+    </div>
+  )
+}
+
+function Reading({ label, value, note }:
+  { label: string; value: string; note: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="rail-label !text-[8px]">{label}</span>
+        <span className="font-display text-[13px]">{value}</span>
+      </div>
+      <div className="font-mono text-[8px] text-muted-foreground leading-snug">
+        {note}
+      </div>
     </div>
   )
 }
@@ -56,62 +92,4 @@ function useBins(corpus: CorpusInfo | null) {
     const peak = Math.max(...out, 1)
     return out.map((v) => v / peak)
   }, [corpus])
-}
-
-export function AltitudeMeter({ altitude, corpus }:
-  { altitude: Altitude | null; corpus: CorpusInfo | null }) {
-
-  const max = corpus?.centroid_max ?? 1
-  const cd = altitude?.centroid_distance ?? 0
-  const beyond = cd > max
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="rail-label">Altitude</div>
-
-      <div className="space-y-3">
-        <Reading
-          label="from centroid"
-          value={cd.toFixed(2)}
-          note={beyond
-            ? `${(cd / max).toFixed(2)}x beyond the furthest real font`
-            : `${(altitude?.centroid_percentile ?? 0).toFixed(0)}th percentile of corpus`}
-          alarm={beyond}
-        />
-        <Reading
-          label="local density"
-          value={`${(altitude?.density_percentile ?? 0).toFixed(0)}th`}
-          note={densityWord(altitude?.density_percentile ?? 0)}
-          alarm={(altitude?.density_percentile ?? 0) > 80}
-        />
-        <Reading
-          label="isolation"
-          value={(altitude?.knn_distance ?? 0).toFixed(2)}
-          note={`5-nearest mean, ${(altitude?.isolation_percentile ?? 0).toFixed(0)}th pct`}
-        />
-      </div>
-    </div>
-  )
-}
-
-function densityWord(p: number) {
-  if (p > 90) return "in the crowd"
-  if (p > 70) return "busy ground"
-  if (p > 40) return "populated"
-  if (p > 15) return "thinning out"
-  return "open country"
-}
-
-function Reading({ label, value, note, alarm }:
-  { label: string; value: string; note: string; alarm?: boolean }) {
-  return (
-    <div>
-      <div className="rail-label">{label}</div>
-      <div className={`font-display text-xl leading-tight
-                       ${alarm ? "text-burgundy" : "text-foreground"}`}>
-        {value}
-      </div>
-      <div className="text-[10px] font-mono text-muted-foreground">{note}</div>
-    </div>
-  )
 }

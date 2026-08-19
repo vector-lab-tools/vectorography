@@ -42,12 +42,22 @@ export function FamilyPicker({ neighbours, onPick, sample }: {
         disabled={!neighbours.length}
         title="Real families nearest this location. Choosing one travels to it."
         className="font-mono text-[9px] bg-card border border-border rounded-sm
-                   px-1.5 py-1 max-w-[168px] truncate disabled:opacity-40
-                   hover:border-burgundy transition-colors"
+                   pl-1.5 pr-1 py-1 max-w-[186px] flex items-center gap-1
+                   disabled:opacity-40 hover:border-burgundy transition-colors"
       >
-        {nearest
-          ? `nearest: ${nearest.family} · ${nearest.distance.toFixed(2)}`
-          : "nearest: —"}
+        <span className="truncate">
+          {nearest
+            ? `nearest: ${nearest.family} · ${nearest.distance.toFixed(2)}`
+            : "nearest: —"}
+        </span>
+        {/* It opens: say so. */}
+        <svg viewBox="0 0 10 10" aria-hidden="true"
+             className={`w-2.5 h-2.5 shrink-0 text-muted-foreground
+                         transition-transform ${open ? "rotate-180" : ""}`}
+             fill="none" stroke="currentColor" strokeWidth="1.4"
+             strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 4l3 3 3-3" />
+        </svg>
       </button>
 
       {open && (

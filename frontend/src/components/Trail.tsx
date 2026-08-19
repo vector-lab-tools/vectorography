@@ -15,19 +15,19 @@ export type Crumb = {
  * earlier crumb and moving again opens a branch; both survive, and the indent
  * shows the fork.
  */
-export function Trail({ trail, cursor, onGo, onExport, onTest, canCompile, busy }: {
+export function Trail({ trail, cursor, onGo }: {
   trail: Crumb[]
   cursor: number
   onGo: (id: number) => void
-  onExport: () => void
-  onTest: () => void
-  canCompile: boolean
-  busy: boolean
 }) {
   return (
     <div className="flex flex-col min-h-0 min-w-0 flex-1">
       <div className="flex items-baseline justify-between mb-2">
-        <span className="rail-label">Trail</span>
+        <span className="rail-label"
+              title="Every stop, in order. Click one to return to it; carrying
+                     on from an earlier stop opens a branch and keeps both.">
+          Trail
+        </span>
         <span className="font-mono text-[10px] text-muted-foreground">
           {trail.length} {trail.length === 1 ? "stop" : "stops"}
         </span>
@@ -40,9 +40,15 @@ export function Trail({ trail, cursor, onGo, onExport, onTest, canCompile, busy 
             <li key={c.id} style={{ paddingLeft: `${c.depth * 10}px` }}>
               <button
                 onClick={() => onGo(c.id)}
-                className={`w-full flex items-center gap-2 px-2 py-1 rounded-sm
-                            text-left transition-colors
-                            ${here ? "bg-burgundy text-ivory" : "hover:bg-muted"}`}
+                title={here
+                  ? "Where you are"
+                  : `Return to stop ${c.id}: ${c.label}. Nothing is lost by `
+                    + "going back, and travelling on from here opens a branch "
+                    + "rather than overwriting what came after."}
+                className={`group w-full flex items-center gap-2 px-2 py-1
+                            rounded-sm text-left transition-colors
+                            ${here ? "bg-burgundy text-ivory"
+                                   : "hover:bg-muted"}`}
               >
                 <span className={`font-mono text-[10px] ${here ? "text-ivory/70"
                   : "text-muted-foreground"}`}>
@@ -51,34 +57,19 @@ export function Trail({ trail, cursor, onGo, onExport, onTest, canCompile, busy 
                 <span className="flex-1 truncate text-[11px] font-mono">
                   {c.label}
                 </span>
+                {/* Says the row is a place you can go, not a line of a log. */}
+                <span className={`font-mono text-[10px] shrink-0 ${here
+                  ? "text-ivory/70"
+                  : "text-burgundy opacity-0 group-hover:opacity-100 "
+                    + "transition-opacity"}`}>
+                  {here ? "here" : "\u21a9"}
+                </span>
               </button>
             </li>
           )
         })}
       </ol>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          className="btn"
-          onClick={onTest}
-          disabled={busy || !canCompile}
-          title={!canCompile
-            ? "Travel somewhere first: a journey needs at least two stops"
-            : "Compile this journey and test the variable font here"}
-        >
-          Test
-        </button>
-        <button
-          className="btn"
-          onClick={onExport}
-          disabled={busy || !canCompile}
-          title={!canCompile
-            ? "Travel somewhere first: a journey needs at least two stops"
-            : "Compile this journey into a variable font and download it"}
-        >
-          Compile
-        </button>
-      </div>
     </div>
   )
 }
