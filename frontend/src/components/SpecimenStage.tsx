@@ -144,9 +144,17 @@ export function SpecimenStage({
 
   const tools: Tool[] = [
     {
-      key: "points", on: points !== "off", icon: ICONS.points,
-      label: `Grab points: ${points}`,
-      title: "all of them, only the one under the hand, or none",
+      key: "points", on: points !== "off",
+      icon: points === "on" ? ICONS.points
+        : points === "minimal" ? ICONS.pointsMinimal : ICONS.pointsOff,
+      label: points === "on" ? "Grab points: all"
+        : points === "minimal" ? "Grab points: only the one under the hand"
+        : "Grab points: none",
+      title: points === "on"
+        ? "showing all of them \u00b7 click for only the one under the hand"
+        : points === "minimal"
+        ? "showing only the one under the hand \u00b7 click for none"
+        : "hidden \u00b7 click to show all of them",
       onClick: () => {
         const next = points === "on" ? "minimal"
           : points === "minimal" ? "off" : "on"

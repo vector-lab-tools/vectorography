@@ -4,6 +4,11 @@ import { api, type AtlasData, type CompassPoint, type CorpusInfo, type Glyph,
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { Help, type HelpTopic } from "./components/Help"
+import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
+  from "./components/Licence"
+import { download, parse, pickFile, projectFilename, serialise }
+  from "./components/project"
 import { ShareCard } from "./components/ShareCard"
 import { cardPng, cardSvg, sendCard } from "./components/cardImage"
 import { CompassRose } from "./components/CompassRose"
@@ -121,6 +126,14 @@ export default function App() {
   const [family, setFamily] = useState("Journey")
   const [testing, setTesting] = useState(false)
   const [about, setAbout] = useState(false)
+  const [help, setHelp] = useState<HelpTopic | null>(null)
+  /** The name the journey was last saved under, for Save to reuse. */
+  const [file, setFile] = useState<string | null>(null)
+  const [licensing, setLicensing] = useState(false)
+  const [licence, setLicence] = useState<Licence>(() => ({
+    id: localStorage.getItem(LICENCE_KEY) ?? "none",
+    author: localStorage.getItem(AUTHOR_KEY) ?? "",
+  }))
   // What is being worked on, as opposed to how it is being looked at. Travel
   // is the whole typeface at once; the rest are the scales of work this will
   // grow into, and they are listed now so the shape of the tool is visible
@@ -289,6 +302,78 @@ export default function App() {
     setCursor(id)
     setRedoStack([])
   }, [cursor])
+
+  /** Start again at the centroid, keeping the settings but not the journey. */
+  const newProject = useCallback(() => {
+    if (!corpus) return
+    if (trail.length > 1 &&
+        !window.confirm("Start a new journey? The current one is not saved."))
+      return
+    nextId.current = 1
+    setTrail([{ id: 0, z: new Array(corpus.dims).fill(0), mode: "origin",
+                label: "origin \u00b7 the centroid", parent: null, depth: 0 }])
+    setCursor(0)
+    setRedoStack([])
+    setSnapshot(null)
+    setFile(null)
+  }, [corpus, trail.length])
+
+  const saveAs = useCallback(() => {
+    const name = window.prompt("Save the journey as", file ?? projectFilename(family))
+    if (!name) return
+    const full = name.endsWith(".vgy") ? name : name + ".vgy"
+    download(full, serialise({
+      model: corpus?.model ?? null,
+      family, text, trail, cursor, snapshot,
+      view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
+      travel: { radius, temperature, step },
+    }))
+    setFile(full)
+  }, [atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
+      family, file, radius, snapshot, step, temperature, text, trail])
+
+  /** The browser gives a page no way to write back to a file it was handed,
+   *  so Save is Save As with the name already filled in. */
+  const save = useCallback(() => {
+    if (!file) return saveAs()
+    download(file, serialise({
+      model: corpus?.model ?? null,
+      family, text, trail, cursor, snapshot,
+      view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
+      travel: { radius, temperature, step },
+    }))
+  }, [atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
+      family, file, radius, saveAs, snapshot, step, temperature, text, trail])
+
+  const openProject = useCallback(async () => {
+    if (!corpus) return
+    if (trail.length > 1 &&
+        !window.confirm("Open a project? The current journey is not saved."))
+      return
+    const raw = await pickFile()
+    if (raw == null) return
+    try {
+      const doc = parse(raw, corpus.dims)
+      nextId.current = Math.max(...doc.trail.map((c) => c.id)) + 1
+      setTrail(doc.trail)
+      setCursor(doc.cursor)
+      setFamily(doc.family)
+      setText(doc.text)
+      setSnapshot(doc.snapshot ?? null)
+      setAxX(doc.view.axX); setAxY(doc.view.axY); setAxZ(doc.view.axZ)
+      setColourBy(doc.view.colourBy)
+      setAtlasHeight(doc.view.atlasHeight as typeof atlasHeight)
+      setBallOn(doc.view.ballOn)
+      setDepth(doc.view.depth)
+      setRadius(doc.travel.radius)
+      setTemperature(doc.travel.temperature)
+      setStep(doc.travel.step)
+      setRedoStack([])
+      setFile(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [corpus, trail.length])
 
   // Sane means inside the corpus: the space is centred, so a position's
   // distance from the origin is its distance from the average of every font,
@@ -501,10 +586,18 @@ export default function App() {
         e.preventDefault()
         e.shiftKey ? redo() : undo()
       }
+      // The File menu names these, so they have to exist.
+      if (meta && e.key.toLowerCase() === "s") {
+        e.preventDefault()
+        e.shiftKey ? saveAs() : save()
+      }
+      if (meta && e.key.toLowerCase() === "o") { e.preventDefault(); openProject() }
+      if (meta && e.key.toLowerCase() === "n") { e.preventDefault(); newProject() }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [walk, travel, temperature, step, here, undo, redo, resetToSane])
+  }, [walk, travel, temperature, step, here, undo, redo, resetToSane,
+      save, saveAs, openProject, newProject])
 
   // The journey exported is the path actually taken to get here, root to
   // cursor, so a branch exports its own line rather than the whole tree.
@@ -515,10 +608,11 @@ export default function App() {
     try {
       await api.download("/api/export/journey",
         { trail: ancestry.map((c) => c.z), family,
-          masters: Math.min(Math.max(ancestry.length, 2), 12) },
+          masters: Math.min(Math.max(ancestry.length, 2), 12),
+          licence: licence.id, author: licence.author },
         `${family}-journey.zip`)
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [ancestry, family])
+  }, [ancestry, family, licence])
 
   const exportSvg = useCallback(async () => {
     if (!z) return
@@ -545,15 +639,31 @@ export default function App() {
     try {
       const near = location?.neighbours?.[0]?.family
       const style = here ? `Stop ${here.id}` : "Regular"
-      await api.exportFont(z, family, style, format)
+      await api.exportFont(z, family, style, format,
+                           licence.id, licence.author)
       void near
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [z, family, location, here])
+  }, [z, family, location, here, licence])
 
   const menus: Menu[] = useMemo(() => [
     {
       label: "File",
       items: [
+        { kind: "item", label: "New Project", hint: "\u2318N",
+          onSelect: newProject,
+          title: "Back to the centroid with an empty trail" },
+        { kind: "item", label: "Open\u2026", hint: "\u2318O",
+          onSelect: openProject,
+          title: "Open a saved journey, its branches and its settings" },
+        { kind: "sep" },
+        { kind: "item", label: "Save", hint: file ? file : "\u2318S",
+          disabled: !z, onSelect: save,
+          title: file ? `Save over ${file}`
+                      : "Save the journey, its branches and its settings" },
+        { kind: "item", label: "Save As\u2026", hint: "\u21e7\u2318S",
+          disabled: !z, onSelect: saveAs,
+          title: "Save the journey under a new name" },
+        { kind: "sep" },
         { kind: "item", label: "Export Typeface (OTF)", hint: "here",
           disabled: !z || busy, onSelect: () => exportFont("otf"),
           title: "This location as an installable static OTF, cubic outlines" },
@@ -583,8 +693,9 @@ export default function App() {
           disabled: !z, onSelect: () => setSharing(true),
           title: "Look at the card first, then send, copy or save it" },
         { kind: "sep" },
-        { kind: "item", label: "Licence for exports\u2026", hint: "soon",
-          onSelect: () => setPlanned(PLANNED.licence),
+        { kind: "item", label: "Licence for exports\u2026",
+          hint: LICENCE_LABEL[licence.id] ?? licence.id,
+          onSelect: () => setLicensing(true),
           title: "Choose the terms a compiled typeface goes out under" },
         { kind: "sep" },
         { kind: "item", label: "Export Specimen Sheet (SVG)",
@@ -650,11 +761,11 @@ export default function App() {
       label: "Help",
       items: [
         { kind: "item", label: "What the readings mean",
-          onSelect: () => setAbout(true),
-          title: "Stub: a page on altitude, density, the shell and the trail" },
-        { kind: "item", label: "Keyboard shortcuts",
-          onSelect: () => setAbout(true),
-          title: "Stub" },
+          onSelect: () => setHelp("readings"),
+          title: "altitude, density, the shell, the route and the axes" },
+        { kind: "item", label: "Keyboard and pointer",
+          onSelect: () => setHelp("keys"),
+          title: "every key and gesture, and what it moves" },
         { kind: "sep" },
         { kind: "item", label: "Source on GitHub",
           onSelect: () => window.open(
@@ -667,7 +778,8 @@ export default function App() {
     },
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
-      isSane, resetToSane, trail, shareNow])
+      isSane, resetToSane, trail, shareNow,
+      newProject, openProject, save, saveAs, file, licence])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -886,6 +998,19 @@ export default function App() {
         <ComingSoon item={planned} onClose={() => setPlanned(null)} />
       )}
 
+      {help && <Help topic={help} onClose={() => setHelp(null)} />}
+
+      {licensing && (
+        <LicencePicker
+          value={licence}
+          onSave={(v) => {
+            setLicence(v)
+            localStorage.setItem(LICENCE_KEY, v.id)
+            localStorage.setItem(AUTHOR_KEY, v.author)
+          }}
+          onClose={() => setLicensing(false)} />
+      )}
+
       {about && (
         <About
           version={__APP_VERSION__}
@@ -924,6 +1049,12 @@ export default function App() {
       </footer>
     </div>
   )
+}
+
+/** What the File menu shows beside the licence item. */
+const LICENCE_LABEL: Record<string, string> = {
+  ofl: "OFL 1.1", mit: "MIT", "cc-by": "CC BY 4.0", cc0: "CC0",
+  arr: "reserved", none: "unset",
 }
 
 function Booting() {

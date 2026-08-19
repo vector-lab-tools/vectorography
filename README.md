@@ -60,6 +60,10 @@ local density gradient. The nearest-neighbour panel names the five real families
 whose neighbourhood you are standing in, so provenance is on screen rather than
 buried.
 
+## Try it
+
+**<https://vectorography.web.app>**
+
 ## Quick start
 
 ```bash
@@ -69,9 +73,13 @@ buried.
 Then open http://localhost:5173.
 
 **The fitted space ships with the repository** as
-[**VectorModel 0.1**](MODEL.md) (`backend/data/vectormodel-0.1.npz`, 7 MB), so a
+[**VectorModel 0.2**](MODEL.md) (`backend/data/vectormodel-0.2.npz`, 30 MB), so a
 fresh clone can travel immediately: no corpus download, no fitting. The run
 script only installs dependencies.
+
+The space is 128 dimensions fitted from 441 families over 164 glyphs: ASCII,
+the punctuation typesetting needs, and enough of Latin-1 to set French, German
+and Spanish. Coefficients are float32 throughout.
 
 Everything is local. No accounts, no telemetry, and after `npm install` and `pip
 install` there are no network calls at all.
@@ -209,6 +217,19 @@ already there, and a filled polygon is a filled polygon. When deploying, make
 the `og:image` URLs in `index.html` absolute; several scrapers will not resolve
 a relative one.
 
+## Projects
+
+A journey is the work, so it does not have to live in one tab.
+
+**New Project** (⌘N) returns to the centroid with an empty trail. **Save** (⌘S)
+and **Save As** (⇧⌘S) write a `.vgy` file: the whole trail including its
+branches, where the cursor is standing, the axes the map is drawn in, the
+travel settings and the specimen text. **Open** (⌘O) reads one back.
+
+A `.vgy` is plain JSON, and it records the model it was made against. Opening a
+journey recorded in a different number of dimensions is refused rather than
+half-loaded, since a trail is only meaningful in the space it was walked in.
+
 ## Export
 
 Everything is under **File** in the menu bar.
@@ -219,6 +240,12 @@ construction the navigator draws with, so what you looked at is what you install
 no requantisation, no second approximation. Metrics, x-height, cap-height and
 naming are filled in properly and `fsType` is 0, so it installs in Font Book and
 sets text like any other font.
+
+**Licence for exports.** The terms a compiled typeface goes out under: OFL 1.1,
+MIT, CC BY 4.0, CC0, all rights reserved, or none. The choice is written into
+the font's own name table (IDs 13 and 14, where a type designer looks for it),
+into the copyright field along with whatever name you give, and into a
+`LICENSE.txt` in the journey bundle. It is remembered between sessions.
 
 **Compile Journey to Variable Font.** The recorded path becomes a **variable
 font**. The trail is sampled at uniform arc length, each sample is decoded and
@@ -257,16 +284,17 @@ five nearest real families) printed on it. The reading travels with the artefact
 (fontTools)     (fixed length)     (whitened PCA)    (browser)      (varLib)
 ```
 
-**Style vectors.** Each font becomes one vector of 14,942 floats: 62 glyphs
-(A-Z a-z 0-9), three contours each, forty points per contour resampled at uniform
-arc length, plus sixty-two advance widths. Contours are sorted by area, wound
+**Style vectors.** Each font becomes one vector of 65,764 floats: 164 glyphs,
+five contours each, forty points per contour resampled at uniform arc length,
+plus one advance width per glyph. Contours that sit above the x-height are kept
+in slots of their own, so an accent is never matched against a counter. Contours are sorted by area, wound
 consistently, and put into **cyclic correspondence across the whole corpus** by a
 Procrustes fit, so point *i* of a contour lands in the same place on the letter in
 every font. That correspondence is what makes the space walkable. Without it the
 average of two fonts is noise rather than a letter, which is worth stating plainly
 because it was the single change that made this work at all.
 
-**The space.** [VectorModel 0.1](MODEL.md): a whitened 128-dimensional principal
+**The space.** [VectorModel 0.2](MODEL.md): a whitened 128-dimensional principal
 subspace of the corpus,
 retaining 96% of variance. It was chosen for traversability rather than fidelity:
 encode and decode are exact linear maps, so every point in the space decodes to
@@ -309,8 +337,12 @@ fitted from, and travels inside every journey export.
 ## Deploying
 
 One container, built and served by one process: see [DEPLOY.md](DEPLOY.md).
-Hugging Face Spaces is the recommended host, since a persistent process holds
-the fitted space in memory rather than reloading it after every idle period.
+
+The hosted instance runs on **Google Cloud Run**, with Firebase Hosting in
+front of it for the name. A container holds the fitted space in memory rather
+than reloading it, which is why a warm request answers in well under a tenth of
+a second and a cold one in about three quarters. Serverless hosts that would
+re-read the model per invocation are a poor fit for this shape of work.
 
 ## Limitations
 

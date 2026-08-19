@@ -1,4 +1,4 @@
-# VectorModel 0.1
+# VectorModel 0.2
 
 The fitted latent space that Vectorography travels through. It is a named,
 versioned artefact in its own right, and its version moves independently of the
@@ -8,26 +8,26 @@ even when no line of code has changed.
 | | |
 |---|---|
 | **Name** | VectorModel |
-| **Version** | 0.1 |
-| **File** | `backend/data/vectormodel-0.1.npz` (7 MB) |
+| **Version** | 0.2 |
+| **File** | `backend/data/vectormodel-0.2.npz` (30 MB), float32 |
 | **Kind** | whitened principal subspace (exact linear encode and decode) |
-| **Dimensions** | 128, retaining 96.3% of corpus variance |
-| **Corpus** | 495 families, Google Fonts `ofl/` tree, OFL-1.1 |
-| **Glyph set** | `A-Z a-z 0-9`, 62 glyphs |
-| **Representation** | 3 contours per glyph, 40 arc-length points per contour, plus 62 advance widths (14,942 dimensions before projection) |
+| **Dimensions** | 128, retaining 95.6% of corpus variance |
+| **Corpus** | 441 families, Google Fonts `ofl/` tree |
+| **Glyph set** | ASCII printable, typographic punctuation, and Latin-1 accented forms: 164 glyphs |
+| **Representation** | 5 contours per glyph, 40 arc-length points per contour, plus 164 advance widths (65,764 dimensions before projection) |
 | **Density estimate** | Gaussian KDE over the 8 dominant style directions |
 
 ## What is in the file
 
 | Array | Shape | Meaning |
 |---|---|---|
-| `mean` | (14942,) | corpus mean style vector |
-| `components` | (128, 14942) | principal directions |
+| `mean` | (65764,) | corpus mean style vector |
+| `components` | (128, 65764) | principal directions |
 | `scale` | (128,) | per-axis standard deviation, for whitening |
-| `Z` | (495, 128) | every corpus family's position |
-| `names` | (495,) | family identifiers, matching `corpus-manifest.json` |
+| `Z` | (441, 128) | every corpus family's position |
+| `names` | (441,) | family identifiers, matching `corpus-manifest.json` |
 | `evr` | (128,) | explained variance ratio per axis |
-| `metas` | (495,) | per-family vertical metrics |
+| `metas` | (441,) | per-family vertical metrics |
 | `model_name`, `model_version` | scalar | identity, written into every journey export |
 
 ## Coordinates

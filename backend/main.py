@@ -138,6 +138,8 @@ class JourneyReq(BaseModel):
     trail: list[list[float]]
     family: str = "Journey"
     masters: int = Field(5, ge=2, le=12)
+    licence: str = "none"
+    author: str = ""
 
 
 def _sample_trail(trail: list[list[float]], n: int) -> np.ndarray:
@@ -156,6 +158,9 @@ class FontReq(Z):
     family: str = "Vectorography"
     style: str = "Regular"
     format: str = "otf"
+    # The terms the compiled typeface goes out under, and who it belongs to.
+    licence: str = "none"
+    author: str = ""
 
 
 @app.get("/api/health")
@@ -484,7 +489,8 @@ def export_font(req: FontReq):
     if fmt not in ("otf", "ttf"):
         raise HTTPException(400, "format must be otf or ttf")
     build = build_otf if fmt == "otf" else build_ttf
-    data = build(vec, req.family, req.style, s.metas[0], VERSION)
+    data = build(vec, req.family, req.style, s.metas[0], VERSION,
+                 req.licence, req.author)
     safe = req.family.replace(" ", "") or "Vectorography"
     return Response(data, media_type="font/" + fmt, headers={
         "Content-Disposition": f"attachment; filename={safe}-{req.style}.{fmt}"})
@@ -570,10 +576,12 @@ def export_journey(req: JourneyReq):
     meta = s.metas[0]
     vectors = [s.decode(z) for z in zs]
     try:
-        vf, ds_xml, masters = build_variable(vectors, req.family, meta, VERSION)
+        vf, ds_xml, masters = build_variable(vectors, req.family, meta,
+                                             VERSION, req.licence, req.author)
         instances = [
             (f"{req.family.replace(' ', '')}-Stop{i}.otf",
-             build_otf(v, req.family, f"Stop {i}", meta, VERSION))
+             build_otf(v, req.family, f"Stop {i}", meta, VERSION,
+                       req.licence, req.author))
             for i, v in enumerate(vectors)]
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"font build failed: {exc}") from exc
@@ -588,6 +596,8 @@ def export_journey(req: JourneyReq):
         "trail": req.trail,
         "masters": [{"file": n, "t": i / (len(masters) - 1)}
                     for i, (n, _) in enumerate(masters)],
+        "licence": req.licence,
+        "author": req.author,
         "provenance": ("Produced by traversal of the fitted space; "
                        "see corpus-manifest.json for the families it was "
                        "fitted from"),
@@ -603,6 +613,18 @@ def export_journey(req: JourneyReq):
             zf.writestr(f"masters/{name}", data)
         zf.writestr("specimen.html",
                     _specimen_html(req.family, [n for n, _ in instances]))
+        # The terms travel with the fonts, in a file people look for.
+        from export.fontfile import LICENCES
+        lic_name, lic_url = LICENCES.get(req.licence, ("", ""))
+        if lic_name:
+            who = f"Copyright {req.author}\n\n" if req.author else ""
+            zf.writestr("LICENSE.txt",
+                        f"{req.family}\n\n{who}Released under the "
+                        f"{lic_name}.\n"
+                        + (f"{lic_url}\n" if lic_url else "")
+                        + "\nThe outlines were produced by traversal of a "
+                        "fitted vector space, which is a mathematical "
+                        "transformation rather than a copy of any face.\n")
         zf.writestr("journey.designspace", ds_xml)
         zf.writestr("journey.json", json.dumps(journey, indent=2))
         zf.writestr("README.txt", (

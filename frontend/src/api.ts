@@ -105,8 +105,9 @@ export const api = {
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude }>("/api/travel", body),
 
-  exportFont: (z: number[], family: string, style: string, format: string) =>
-    api.download("/api/export/font", { z, family, style, format },
+  exportFont: (z: number[], family: string, style: string, format: string,
+               licence = "none", author = "") =>
+    api.download("/api/export/font", { z, family, style, format, licence, author },
                  `${family.replace(/ /g, "")}-${style}.${format}`),
 
   fontPosition: (name: string) =>

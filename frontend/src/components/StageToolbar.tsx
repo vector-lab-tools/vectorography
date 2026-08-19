@@ -121,12 +121,32 @@ const stroke = {
 }
 
 export const ICONS = {
-  /** Grab points: a mark with a handle on it. */
+  /** Grab points, in each of the three states the button cycles through.
+   *  Lighting one icon for two of the three states said only that the tool was
+   *  not off, which is the one thing a designer already knows by looking at
+   *  the letterform. */
   points: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <circle cx="4" cy="11" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="11.5" cy="5" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M5.3 9.8 10.2 6.2" />
+    </svg>
+  ),
+  /** Only the point under the hand: one filled, one waiting. */
+  pointsMinimal: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <circle cx="4" cy="11" r="1.6" />
+      <circle cx="11.5" cy="5" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M5.3 9.8 10.2 6.2" strokeDasharray="1.6 1.6" />
+    </svg>
+  ),
+  /** None: the same mark, struck through. */
+  pointsOff: (
     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
       <circle cx="4" cy="11" r="1.6" />
       <circle cx="11.5" cy="5" r="1.6" />
       <path d="M5.3 9.8 10.2 6.2" />
+      <path d="M2.5 13.5 13.5 2.5" />
     </svg>
   ),
   /** Guides: the metric lines behind the letters. */

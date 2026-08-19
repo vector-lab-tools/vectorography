@@ -41,7 +41,11 @@ AXIS_NAME = "Journey"
 VENDOR = "VGPH"
 # Named on every font that leaves: a location means nothing without the space
 # it is a location in.
-MODEL_ID = "VectorModel 0.1"
+# Named from the model itself. Written out by hand it went stale the moment
+# the space was refitted, and every font exported since said 0.1.
+from space.style_space import MODEL_NAME, MODEL_VERSION
+
+MODEL_ID = f"{MODEL_NAME} {MODEL_VERSION}"
 MIN_AREA = 0.0006          # em^2; below this a contour is a collapsed pad
 
 def glyph_name(ch: str) -> str:
@@ -66,7 +70,25 @@ def _area(pts: np.ndarray) -> float:
 
 # --------------------------------------------------------------------- naming
 
-def _names(family: str, style: str, version: str) -> dict:
+# What a compiled typeface can go out under. The outlines are produced by a
+# linear transformation of a fitted space, so the terms are the author's to
+# choose; these are the ones type is usually released under, plus the option
+# of saying nothing.
+LICENCES: dict[str, tuple[str, str]] = {
+    "ofl": ("SIL Open Font License 1.1",
+            "https://openfontlicense.org"),
+    "mit": ("MIT License", "https://opensource.org/licenses/MIT"),
+    "cc0": ("CC0 1.0 Universal (public domain dedication)",
+            "https://creativecommons.org/publicdomain/zero/1.0/"),
+    "cc-by": ("Creative Commons Attribution 4.0",
+              "https://creativecommons.org/licenses/by/4.0/"),
+    "arr": ("All rights reserved", ""),
+    "none": ("", ""),
+}
+
+
+def _names(family: str, style: str, version: str,
+           licence: str = "none", author: str = "") -> dict:
     ps = f"{family.replace(' ', '')}-{style.replace(' ', '')}"
     return {
         "familyName": family,
@@ -75,16 +97,22 @@ def _names(family: str, style: str, version: str) -> dict:
         "fullName": f"{family} {style}",
         "psName": ps,
         "version": version,
-        "copyright": (f"Outlines produced by traversal of {MODEL_ID} in "
+        "copyright": ((f"Copyright {author}. " if author else "")
+                      + f"Outlines produced by traversal of {MODEL_ID} in "
                       "Vectorography. See corpus-manifest.json for the "
                       "families the space was fitted from."),
-        "designer": "Traversed in Vectorography",
+        "designer": author or "Traversed in Vectorography",
         "vendorURL": "https://github.com/vector-lab-tools/vectorography",
+        **({"licenseDescription": name} if (name := LICENCES.get(
+            licence, ("", ""))[0]) else {}),
+        **({"licenseInfoURL": url} if (url := LICENCES.get(
+            licence, ("", ""))[1]) else {}),
     }
 
 
 def _setup_common(fb: FontBuilder, dec: dict, metrics: dict,
-                  meta: dict, family: str, style: str, version: str) -> None:
+                  meta: dict, family: str, style: str, version: str,
+                  licence: str = "none", author: str = "") -> None:
     asc = int(round(meta.get("ascender", 0.8) * UPEM))
     desc = int(round(meta.get("descender", -0.2) * UPEM))
 
@@ -95,7 +123,7 @@ def _setup_common(fb: FontBuilder, dec: dict, metrics: dict,
 
     fb.setupHorizontalMetrics(metrics)
     fb.setupHorizontalHeader(ascent=asc, descent=desc, lineGap=0)
-    fb.setupNameTable(_names(family, style, version))
+    fb.setupNameTable(_names(family, style, version, licence, author))
     fb.setupOS2(
         version=4,
         sTypoAscender=asc, sTypoDescender=desc, sTypoLineGap=0,
@@ -112,7 +140,8 @@ def _setup_common(fb: FontBuilder, dec: dict, metrics: dict,
 # ----------------------------------------------------------------- static OTF
 
 def build_otf(vec: np.ndarray, family: str, style: str = "Regular",
-              meta: dict | None = None, version: str = "0.01") -> bytes:
+              meta: dict | None = None, version: str = "0.01",
+              licence: str = "none", author: str = "") -> bytes:
     """One location as a static OTF, cubic outlines, matching the screen."""
     dec = decode_vector(np.asarray(vec, dtype=np.float32))
     meta = meta or {}
@@ -158,7 +187,8 @@ def build_otf(vec: np.ndarray, family: str, style: str = "Regular",
 
     fb.setupCFF(_names(family, style, version)["psName"],
                 {"FullName": f"{family} {style}"}, charstrings, {})
-    _setup_common(fb, dec, metrics, meta, family, style, version)
+    _setup_common(fb, dec, metrics, meta, family, style, version,
+                  licence, author)
 
     buf = io.BytesIO()
     fb.save(buf)
@@ -201,7 +231,8 @@ def _empty_glyph() -> Glyph:
 
 
 def build_ttf(vec: np.ndarray, family: str, style: str = "Regular",
-              meta: dict | None = None, version: str = "0.01") -> bytes:
+              meta: dict | None = None, version: str = "0.01",
+              licence: str = "none", author: str = "") -> bytes:
     dec = decode_vector(np.asarray(vec, dtype=np.float32))
     meta = meta or {}
 
@@ -224,14 +255,16 @@ def build_ttf(vec: np.ndarray, family: str, style: str = "Regular",
         metrics[glyph_name(ch)] = (adv, lsb)
 
     fb.setupGlyf(glyphs)
-    _setup_common(fb, dec, metrics, meta, family, style, version)
+    _setup_common(fb, dec, metrics, meta, family, style, version,
+                  licence, author)
     buf = io.BytesIO()
     fb.save(buf)
     return buf.getvalue()
 
 
 def build_variable(vectors: list[np.ndarray], family: str,
-                   meta: dict | None = None, version: str = "0.01"
+                   meta: dict | None = None, version: str = "0.01",
+                   licence: str = "none", author: str = ""
                    ) -> tuple[bytes, str, list[tuple[str, bytes]]]:
     """A recorded path compiled into a variable font with one Journey axis.
 
@@ -255,7 +288,7 @@ def build_variable(vectors: list[np.ndarray], family: str,
         loc = round(i * 1000 / (n - 1))
         style = f"Stop {i}"
         stops.append((loc, style))
-        data = build_ttf(vec, family, style, meta, version)
+        data = build_ttf(vec, family, style, meta, version, licence, author)
         name = f"master-{i:02d}.ttf"
         (tmp / name).write_bytes(data)
         masters.append((name, data))
