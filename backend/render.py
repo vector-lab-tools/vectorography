@@ -14,10 +14,25 @@ def _area(pts: np.ndarray) -> float:
     return abs(0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)))
 
 
+def _n(v: float) -> str:
+    """A coordinate, in as few characters as it can be written.
+
+    Three decimals of an em is one unit at 1000upem, finer than the outlines
+    were resampled to and far finer than a screen resolves. The fourth decimal
+    that used to be sent was paid for on every point of every glyph of every
+    request.
+    """
+    t = f"{v:.3f}".rstrip("0").rstrip(".")
+    if t in ("", "-0"):
+        return "0"
+    return t[1:] if t.startswith("0.") else (
+        "-" + t[2:] if t.startswith("-0.") else t)
+
+
 def contour_path(pts: np.ndarray) -> str:
     """Closed Catmull-Rom through the resampled points, as cubic Beziers."""
     n = len(pts)
-    d = [f"M{pts[0][0]:.4f},{pts[0][1]:.4f}"]
+    d = [f"M{_n(pts[0][0])},{_n(pts[0][1])}"]
     for i in range(n):
         p0 = pts[(i - 1) % n]
         p1 = pts[i]
@@ -25,8 +40,8 @@ def contour_path(pts: np.ndarray) -> str:
         p3 = pts[(i + 2) % n]
         c1 = p1 + (p2 - p0) / 6.0
         c2 = p2 - (p3 - p1) / 6.0
-        d.append(f"C{c1[0]:.4f},{c1[1]:.4f} {c2[0]:.4f},{c2[1]:.4f} "
-                 f"{p2[0]:.4f},{p2[1]:.4f}")
+        d.append(f"C{_n(c1[0])},{_n(c1[1])} {_n(c2[0])},{_n(c2[1])} "
+                 f"{_n(p2[0])},{_n(p2[1])}")
     d.append("Z")
     return "".join(d)
 
@@ -41,17 +56,25 @@ def glyph_path(contours: np.ndarray) -> str:
     return "".join(contour_path(c) for c in contours if _area(c) > MIN_AREA)
 
 
-def decode_to_glyphs(vec: np.ndarray, geometry: bool = False) -> list[dict]:
+def decode_to_glyphs(vec: np.ndarray, geometry: bool = False,
+                     only: set[str] | None = None) -> list[dict]:
     """Glyphs as drawable paths, and optionally as the points behind them.
 
     The points are what makes the specimen touchable: deciding whether a
     pointer is on the side of a stem or the shoulder of a bowl needs the
     outline itself, not a path string to re-parse.
+
+    `only` is the set of characters actually wanted. Building all of them and
+    keeping fifteen is most of what a drag was waiting on: the compass alone
+    asks for eight positions, and the character set is a hundred and sixty
+    four.
     """
     from corpus.outlines import decode_vector
     dec = decode_vector(vec)
     out = []
     for i, ch in enumerate(GLYPHS):
+        if only is not None and ch not in only:
+            continue
         entry = {
             "char": ch,
             "path": glyph_path(dec["contours"][i]),

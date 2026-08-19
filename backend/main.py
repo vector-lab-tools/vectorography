@@ -67,7 +67,7 @@ def space() -> StyleSpace:
 
 def _glyph_subset(vec: np.ndarray, text: str, geometry: bool = False) -> list[dict]:
     want = {c for c in text if c in set(GLYPHS)}
-    return [g for g in decode_to_glyphs(vec, geometry) if g["char"] in want]
+    return decode_to_glyphs(vec, geometry, only=want)
 
 
 class Z(BaseModel):
