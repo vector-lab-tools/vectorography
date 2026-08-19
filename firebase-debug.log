@@ -1,0 +1,23 @@
+[debug] [2026-08-19T14:03:50.663Z] ----------------------------------------------------------------------
+[debug] [2026-08-19T14:03:50.664Z] Command:       /Users/hbp17/.nvm/versions/node/v22.22.2/bin/node /Users/hbp17/.nvm/versions/node/v22.22.2/bin/firebase projects:addfirebase vectorography
+[debug] [2026-08-19T14:03:50.664Z] CLI Version:   15.27.0
+[debug] [2026-08-19T14:03:50.664Z] Platform:      darwin
+[debug] [2026-08-19T14:03:50.664Z] Node Version:  v22.22.2
+[debug] [2026-08-19T14:03:50.664Z] Detected Agent: claude-code_2-1-234_agent
+[debug] [2026-08-19T14:03:50.664Z] Time:          Wed Aug 19 2026 15:03:50 GMT+0100 (British Summer Time)
+[debug] [2026-08-19T14:03:50.664Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-19T14:03:50.733Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-19T14:03:50.733Z] > authorizing via signed-in user (dmberry@gmail.com)
+[debug] [2026-08-19T14:03:50.738Z] Checked if tokens are valid: true, expires at: 1787151749425
+[debug] [2026-08-19T14:03:50.738Z] Checked if tokens are valid: true, expires at: 1787151749425
+[debug] [2026-08-19T14:03:50.739Z] >>> [apiv2][query] POST https://firebase.googleapis.com/v1beta1/projects/vectorography:addFirebase [none]
+[debug] [2026-08-19T14:03:51.139Z] <<< [apiv2][status] POST https://firebase.googleapis.com/v1beta1/projects/vectorography:addFirebase 403
+[debug] [2026-08-19T14:03:51.139Z] <<< [apiv2][body] POST https://firebase.googleapis.com/v1beta1/projects/vectorography:addFirebase {"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}
+[debug] [2026-08-19T14:03:51.140Z] Request to https://firebase.googleapis.com/v1beta1/projects/vectorography:addFirebase had HTTP Error: 403, The caller does not have permission
+[debug] [2026-08-19T14:03:51.141Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/vectorography:addFirebase had HTTP Error: 403, The caller does not have permission
+    at responseToError (/Users/hbp17/.nvm/versions/node/v22.22.2/lib/node_modules/firebase-tools/lib/responseToError.js:53:12)
+    at RetryOperation._fn (/Users/hbp17/.nvm/versions/node/v22.22.2/lib/node_modules/firebase-tools/lib/apiv2.js:415:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[error] 
+[error] Error: Failed to add Firebase to Google Cloud Platform project. See firebase-debug.log for more info.

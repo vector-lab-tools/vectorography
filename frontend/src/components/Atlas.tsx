@@ -505,16 +505,22 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     // coloured by property, so the journey needs a colour of its own or it
     // reads as one more reading of the data rather than as the record of a
     // traversal.
-    if (data.trail.length > 1) {
+    // The server's stops, and then wherever the specimen is being held right
+    // now. A move is drawn while it is being made rather than after the round
+    // trip that records it, so the line never trails behind the letterform.
+    const stops = data.trail.map((t) => ({ x: t.x, y: t.y, h: norm(t.h) }))
+    if (ds) stops.push({ x: ds.x, y: ds.y, h: ds.h })
+    if (stops.length > 1) {
       ctx.strokeStyle = burg; ctx.globalAlpha = 0.85; ctx.lineWidth = 1
       ctx.beginPath()
-      data.trail.forEach((t, i) => {
-        const q = P(t.x, t.y, norm(t.h))
+      stops.forEach((t, i) => {
+        const q = P(t.x, t.y, t.h)
         i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)
       })
       ctx.stroke()
       ctx.globalAlpha = 0.7
       ctx.fillStyle = burg
+      // The held position is the specimen itself, which is drawn already.
       for (const t of data.trail) {
         const q = P(t.x, t.y, norm(t.h))
         ctx.beginPath(); ctx.arc(q.sx, q.sy, 1.8, 0, Math.PI * 2); ctx.fill()
