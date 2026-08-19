@@ -23,6 +23,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+from fontTools import agl
 from fontTools.designspaceLib import (AxisDescriptor, DesignSpaceDocument,
                                       InstanceDescriptor, SourceDescriptor)
 from fontTools.fontBuilder import FontBuilder
@@ -43,12 +44,15 @@ VENDOR = "VGPH"
 MODEL_ID = "VectorModel 0.1"
 MIN_AREA = 0.0006          # em^2; below this a contour is a collapsed pad
 
-DIGIT_NAMES = ["zero", "one", "two", "three", "four",
-               "five", "six", "seven", "eight", "nine"]
-
-
 def glyph_name(ch: str) -> str:
-    return DIGIT_NAMES[int(ch)] if ch.isdigit() else ch
+    """The name a glyph goes by inside a font.
+
+    The Adobe glyph list, which is what fonts have used for these characters
+    since PostScript. Named by the character itself, a left quotation mark
+    breaks the CFF table outright, since glyph names there must encode as
+    latin-1 and it does not.
+    """
+    return agl.UV2AGL.get(ord(ch)) or f"uni{ord(ch):04X}"
 
 
 def _order() -> list[str]:
