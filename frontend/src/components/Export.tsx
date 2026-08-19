@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { Modal } from "./Modal"
 
 export type ExportKind =
@@ -58,18 +59,46 @@ const GROUPS: { title: string; note: string; rows: Row[] }[] = [
   },
 ]
 
-export function ExportPanel({ stops, busy, licence, onLicence, onRun, onClose }: {
+export function ExportPanel({
+  stops, busy, licence, family, setFamily, onLicence, onRun, onClose,
+}: {
   stops: number
   busy: boolean
   licence: string
+  family: string
+  setFamily: (v: string) => void
   onLicence: () => void
   onRun: (kind: ExportKind) => void
   onClose: () => void
 }) {
   const short = stops < 2
+  const named = family.trim() !== "" && family.trim() !== "Unnamed"
+  const field = useRef<HTMLInputElement>(null)
   return (
     <Modal title="Export" wide onClose={onClose}
            subtitle="What you leave with, and what it is for">
+      {/* A font carries its name wherever it goes, and one called Unnamed is
+          a nuisance to find again once it is installed. */}
+      {!named && (
+        <div className="mb-3 p-2.5 rounded-sm border border-gold
+                        bg-gold/10 flex items-baseline gap-2 flex-wrap">
+          <span className="text-[11px]">
+            This typeface has no name yet. It will install and appear as
+            <strong> Unnamed</strong>.
+          </span>
+          <input
+            ref={field}
+            autoFocus
+            defaultValue=""
+            placeholder="name it"
+            onChange={(e) => setFamily(e.target.value)}
+            className="font-display text-[13px] flex-1 min-w-[8rem]
+                       bg-background border border-border rounded-sm px-2 py-1
+                       focus:outline-none focus:border-burgundy"
+          />
+        </div>
+      )}
+
       <div className="max-h-[58vh] overflow-y-auto pr-2 space-y-4">
         {GROUPS.map((g) => (
           <section key={g.title}>

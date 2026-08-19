@@ -131,7 +131,7 @@ export default function App() {
   const [axZ, setAxZ] = useState("axis:2")
   const [ride, setRide] = useState<Ride>(null)
   const [orbit, setOrbit] = useState<Orbit>(null)
-  const [family, setFamily] = useState("Traversal")
+  const [family, setFamily] = useState("Unnamed")
   const [testing, setTesting] = useState(false)
   const [about, setAbout] = useState(false)
   const [help, setHelp] = useState<HelpTopic | null>(null)
@@ -919,6 +919,23 @@ export default function App() {
         </h1>
         <MenuBar menus={menus} />
         <div className="flex-1" />
+        <label className="self-center flex items-baseline gap-1.5 min-w-0
+                          shrink"
+               title={"The name this typeface carries. It goes into every font "
+                 + "you compile, the filenames, and the share card."}>
+          <span className="rail-label !text-[8px]">typeface</span>
+          <input
+            value={family}
+            onChange={(e) => setFamily(e.target.value)}
+            spellCheck={false}
+            placeholder="Unnamed"
+            className="font-display text-[13px] w-24 sm:w-44 min-w-0 shrink
+                       bg-background border border-border rounded-sm px-2 py-1
+                       shadow-[inset_0_1px_2px_hsl(var(--ink)/0.08)]
+                       focus:outline-none focus:border-burgundy
+                       focus:ring-1 focus:ring-burgundy/30"
+          />
+        </label>
         <span className="self-center font-mono text-[10px] text-muted-foreground
                          hidden lg:inline whitespace-nowrap">
           {corpus.model?.name} {corpus.model?.version} · {corpus.dims}d
@@ -1096,14 +1113,6 @@ export default function App() {
             </span>
             <div className="flex-1 min-h-0 flex flex-col rounded-md border
                             border-border/60 bg-muted/25 px-2.5 py-2">
-              <input
-                value={family}
-                onChange={(e) => setFamily(e.target.value)}
-                className="font-mono text-[10px] w-full bg-background border
-                           border-border rounded-sm px-2 py-1 mb-2"
-                title="Family name for the exported typeface"
-                placeholder="family name"
-              />
               <Trail trail={trail} cursor={cursor} onGo={setCursor} />
             </div>
           </div>
@@ -1136,6 +1145,7 @@ export default function App() {
           stops={ancestry.length}
           busy={busy}
           licence={LICENCE_LABEL[licence.id] ?? licence.id}
+          family={family} setFamily={setFamily}
           onLicence={() => { setExporting(false); setLicensing(true) }}
           onRun={runExport}
           onClose={() => setExporting(false)} />
