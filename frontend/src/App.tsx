@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, type AtlasData, type CompassPoint, type CorpusInfo,
          type Location, type NamedDirection } from "./api"
 import { AltitudeMeter } from "./components/AltitudeMeter"
+import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
@@ -55,6 +56,7 @@ export default function App() {
   const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Journey")
   const [testing, setTesting] = useState(false)
+  const [about, setAbout] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
   const [atlasHeight, setAtlasHeight] =
@@ -238,19 +240,6 @@ export default function App() {
            `walk ${String(bearing).padStart(3, "0")}° r${radius.toFixed(2)}`),
     [travel, radius])
 
-  const steer = useCallback((key: string, sign: number) => {
-    const d = directions.find((x) => x.key === key)
-    const way = sign > 0 ? d?.plus : d?.minus
-    return travel({ mode: "steer", direction: key, sign }, "steer",
-                  `${way ?? key}`)
-  }, [travel, directions])
-
-  /**
-   * Dragging the specimen. The position is computed here from the basis, so
-   * the mark follows the pointer at once; the outlines to draw it with are
-   * asked for at whatever rate the server can answer, and the last answer is
-   * what gets shown. Nothing is recorded until the drag ends.
-   */
   const dragStart = useCallback((_aiming: HandleKind[]) => {
     strokePath.current = z ? [z] : []
   }, [z])
@@ -321,14 +310,46 @@ export default function App() {
              : `toward ${w.x.toFixed(1)}, ${w.y.toFixed(1)}`),
     [travel])
 
-  /** A long push along one property, rather than a step. */
-  const steerHard = useCallback((key: string, sign: number) => {
+  // Where the current location stands on each measured property: its
+  // projection onto that direction, which is what a slider can show.
+  const standing = useMemo(() => {
+    const src = dragZ.current ?? z
+    const out: Record<string, number> = {}
+    if (!src) return out
+    for (const d of directions) {
+      if (d.vector) out[d.key] = dot(src, d.vector)
+    }
+    return out
+  }, [z, directions, location])
+
+  /** Travel along one property until its projection reads the asked-for value. */
+  const slideTo = useCallback((key: string, value: number) => {
     const d = directions.find((x) => x.key === key)
-    const way = sign > 0 ? d?.plus : d?.minus
-    return travel({ mode: "steer", direction: key, sign,
-                    amount: (d?.spread ?? 3) * 0.75 },
-                  "steer", `hard ${way ?? key}`)
-  }, [travel, directions])
+    if (!d?.vector) return
+    const from = dragZ.current ?? z
+    if (!from) return
+    const delta = value - dot(from, d.vector)
+    if (Math.abs(delta) < 1e-6) return
+    const nz = from.map((c, i) => c + delta * d.vector![i])
+    dragZ.current = nz
+    if (!strokePath.current.length) strokePath.current = [from]
+    strokePath.current.push(nz)
+
+    if (dragPending.current) return
+    dragPending.current = true
+    api.location(nz, text, false, true)
+      .then((loc) => setLocation(loc))
+      .catch(() => {})
+      .finally(() => { dragPending.current = false })
+  }, [directions, z, text])
+
+  /** The slider was let go: the move becomes one stop. */
+  const slideCommit = useCallback(() => {
+    const nz = dragZ.current
+    dragZ.current = null
+    strokePath.current = []
+    if (nz) push(nz, "steer", "set by slider")
+  }, [push])
 
   const goToFamily = useCallback(async (name: string) => {
     try {
@@ -451,6 +472,13 @@ export default function App() {
         { kind: "item", label: "Back to the centroid",
           onSelect: () => setCursor(trail[0]?.id ?? 0),
           title: "The average of every font in the corpus" },
+      ],
+    },
+    {
+      label: "Help",
+      items: [
+        { kind: "item", label: "About Vectorography\u2026",
+          onSelect: () => setAbout(true) },
       ],
     },
     {
@@ -579,8 +607,9 @@ export default function App() {
               </div>
               {directions.length > 0 && (
                 <div className="shrink-0 border-t border-border pt-2">
-                  <DirectionPad directions={directions} onSteer={steer}
-                                onHard={steerHard} busy={busy} />
+                  <DirectionPad directions={directions} at={standing}
+                                onSlide={slideTo} onCommit={slideCommit}
+                                busy={busy} />
                 </div>
               )}
             </div>
@@ -673,6 +702,16 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {about && (
+        <About
+          version={__APP_VERSION__}
+          model={corpus.model?.id ?? "VectorModel"}
+          families={corpus.count}
+          dims={corpus.dims}
+          onClose={() => setAbout(false)}
+        />
+      )}
 
       {testing && ancestry.length >= 2 && (
         <JourneyTester

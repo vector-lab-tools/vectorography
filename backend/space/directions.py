@@ -188,9 +188,16 @@ def build(Z: np.ndarray, X: np.ndarray, decile: float = 0.15) -> dict[str, dict]
         if norm < 1e-9:
             continue
         label, minus, plus = LABELS[key]
+        unit = v / norm
+        # Where the corpus sits along this direction, so a control can show a
+        # position on it rather than only offer a step along it.
+        proj = Z @ unit
         dirs[key] = {
             "key": key, "label": label, "minus": minus, "plus": plus,
-            "vector": (v / norm).tolist(),
+            "vector": unit.tolist(),
+            "lo": float(np.quantile(proj, 0.02)),
+            "hi": float(np.quantile(proj, 0.98)),
+            "min": float(proj.min()), "max": float(proj.max()),
             # How much of this direction the whole corpus spans, in the same
             # whitened units the compass radius uses, so a step can be sized.
             "spread": float(np.linalg.norm(hi - lo)),

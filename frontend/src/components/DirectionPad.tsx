@@ -1,70 +1,68 @@
 import type { NamedDirection } from "../api"
 
 /**
- * Measured axes, as steps rather than as gestures.
+ * Where the type stands on each measured property, and a handle to move it.
  *
- * Shaping happens on the letterform now, which is better for "a bit heavier"
- * and worse for "one notch heavier, again, again". This is the second of those:
- * a countable, repeatable step along a property somebody measured, for when the
- * hand is not the right instrument.
+ * A slider needs a position, and a position in a 128-dimensional space is not a
+ * number. What it does have is a projection: how far along the weight direction
+ * this location sits, against how far the corpus itself runs. So the slider
+ * reads the projection and setting it travels along that one direction until
+ * the projection matches. The ends are the corpus's own 2nd and 98th
+ * percentiles; past them the track is still there and the type keeps changing,
+ * but there are no real families left to interpolate toward and the outlines
+ * start to guess.
  */
-export function DirectionPad({ directions, onSteer, onHard, busy }: {
+export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
   directions: NamedDirection[]
-  onSteer: (key: string, sign: number) => void
-  /** A long push along one property rather than a step. */
-  onHard: (key: string, sign: number) => void
+  /** Current projection along each direction, keyed by property. */
+  at: Record<string, number>
+  onSlide: (key: string, value: number) => void
+  onCommit: () => void
   busy: boolean
 }) {
-  const straight = directions.find((d) => d.key === "straightness")
   return (
     <div>
       <div className="rail-label mb-1">Steer</div>
-      <div className="space-y-px">
-        {directions.map((d) => (
-          <div key={d.key} className="flex items-center gap-1">
-            <span className="flex-1 min-w-0 truncate text-[10.5px] font-display"
-                  title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
-              {d.label}
-            </span>
-            {([[-1, "\u2212", d.minus], [1, "+", d.plus]] as const).map(
-              ([sign, glyph, way]) => (
-                <button
-                  key={sign}
-                  className="w-5 h-[17px] border border-border rounded-sm
-                             bg-card font-mono text-[10px] leading-none
-                             hover:border-burgundy hover:text-burgundy
-                             active:translate-y-px disabled:opacity-40
-                             transition-colors"
-                  disabled={busy}
-                  onClick={() => onSteer(d.key, sign)}
-                  title={`More ${way}`}
-                >
-                  {glyph}
-                </button>
-              ))}
-          </div>
-        ))}
+      <div className="space-y-1">
+        {directions.map((d) => {
+          const lo = d.lo ?? -2.2
+          const hi = d.hi ?? 2.2
+          const pad = (hi - lo) * 0.35
+          const now = at[d.key] ?? 0
+          const outside = now < lo || now > hi
+          return (
+            <div key={d.key}>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10.5px] font-display truncate"
+                      title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
+                  {d.label}
+                </span>
+                <span className={`font-mono text-[8.5px] ${outside
+                  ? "text-gold" : "text-muted-foreground"}`}>
+                  {outside ? "beyond" : pct(now, lo, hi)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={lo - pad}
+                max={hi + pad}
+                step={(hi - lo) / 400}
+                value={now}
+                disabled={busy}
+                onChange={(e) => onSlide(d.key, Number(e.target.value))}
+                onPointerUp={onCommit}
+                onKeyUp={onCommit}
+                className="w-full h-3 accent-burgundy"
+                title={`${d.minus} to ${d.plus}`}
+              />
+            </div>
+          )
+        })}
       </div>
-
-      {/* A long push rather than a step. It travels the same direction the
-          Shape row does, as far as the corpus will carry it: past the point
-          where real families stop being straight-sided there is nothing to
-          interpolate toward, and the letters begin to guess. */}
-      {straight && (
-        <button
-          onClick={() => onHard("straightness", 1)}
-          disabled={busy}
-          title="Push hard toward straight-sided letters, as far as the corpus
-                 supports. Past that the outlines are guesses."
-          className="mt-1.5 w-full font-mono text-[9px] uppercase
-                     tracking-[0.1em] px-2 py-1 rounded-sm border border-border
-                     bg-card hover:border-burgundy hover:text-burgundy
-                     active:translate-y-px disabled:opacity-40
-                     transition-colors"
-        >
-          rigidify
-        </button>
-      )}
     </div>
   )
+}
+
+function pct(v: number, lo: number, hi: number) {
+  return `${Math.round(((v - lo) / Math.max(hi - lo, 1e-6)) * 100)}`
 }

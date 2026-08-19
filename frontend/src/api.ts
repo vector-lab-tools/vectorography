@@ -18,6 +18,9 @@ export type Altitude = {
 export type NamedDirection = {
   key: string; label: string; minus: string; plus: string; spread: number
   vector?: number[]
+  /** Where the corpus sits along this direction, so a slider can show a
+   *  position rather than only offer a step. */
+  lo?: number; hi?: number; min?: number; max?: number
 }
 
 export type AtlasPoint = { i: number; name: string; x: number; y: number
