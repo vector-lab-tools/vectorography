@@ -61,6 +61,7 @@ class LocationReq(Z):
     text: str = "Hamburgefonstiv"
     full: bool = False
     geometry: bool = False
+    neighbours: int = Field(5, ge=1, le=40)
 
 
 def _basis(s: StyleSpace, req) -> tuple:
@@ -196,7 +197,7 @@ def location(req: LocationReq):
     return {
         "glyphs": glyphs,
         "altitude": s.altitude(req.z),
-        "neighbours": s.neighbours(req.z, k=5),
+        "neighbours": s.neighbours(req.z, k=req.neighbours),
     }
 
 

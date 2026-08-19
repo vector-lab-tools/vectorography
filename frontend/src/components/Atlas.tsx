@@ -971,7 +971,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           {hover.name}
         </div>
       )}
-      <div className="absolute left-1.5 top-14 bottom-10 w-8 flex flex-col">
+      <div className="absolute left-1.5 top-7 bottom-9 w-8 flex flex-col">
         <AltitudeStrip altitude={altitude} corpus={corpus} />
       </div>
 

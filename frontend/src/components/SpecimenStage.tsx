@@ -32,7 +32,7 @@ const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
-  hasSnapshot, setText, proofs, busy,
+  hasSnapshot, setText, proofs, neighbours, onGoToFamily, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -58,6 +58,9 @@ export function SpecimenStage({
   /** The word being set, and the proofs worth setting it in. */
   setText: (t: string) => void
   proofs: string[]
+  /** Real families, nearest first, and travel to the one chosen. */
+  neighbours: { family: string; distance: number }[]
+  onGoToFamily: (name: string) => void
   busy: boolean
   xProp: HandleKind; yProp: HandleKind; zProp: HandleKind
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
@@ -277,11 +280,35 @@ export function SpecimenStage({
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          className="font-mono text-[10px] w-40 bg-background border
+          className="font-mono text-[10px] w-32 bg-background border
                      border-border rounded-sm px-1.5 py-0.5 ml-1"
           title="What the specimen sets. Reading the letters is how you decide
                  where to go."
         />
+
+        {/* The real families you are standing among, nearest first. Choosing
+            one travels there: the list was a readout, and every line of it was
+            somewhere the traveller might want to be. */}
+        <select
+          value=""
+          disabled={!neighbours.length}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => { if (e.target.value) onGoToFamily(e.target.value) }}
+          className="font-mono text-[9px] bg-card border border-border
+                     rounded-sm px-1 py-1 max-w-[150px] disabled:opacity-40"
+          title="Real families nearest this location. Choosing one travels to it."
+        >
+          <option value="">
+            {neighbours.length
+              ? `nearest: ${neighbours[0].family} · ${neighbours[0].distance.toFixed(2)}`
+              : "nearest: \u2014"}
+          </option>
+          {neighbours.map((n) => (
+            <option key={n.family} value={n.family}>
+              {n.family} · {n.distance.toFixed(2)}
+            </option>
+          ))}
+        </select>
       </div>
 
       {showing && marker && (

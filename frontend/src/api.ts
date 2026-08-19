@@ -92,8 +92,9 @@ export const api = {
   atlas: (body: Record<string, unknown>) =>
     post<AtlasData>("/api/atlas", body),
 
-  location: (z: number[], text: string, full = false, geometry = false) =>
-    post<Location>("/api/location", { z, text, full, geometry }),
+  location: (z: number[], text: string, full = false, geometry = false,
+             neighbours = 5) =>
+    post<Location>("/api/location", { z, text, full, geometry, neighbours }),
 
   compass: (
     z: number[], text: string, radius: number,

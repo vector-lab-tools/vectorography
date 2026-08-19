@@ -19,11 +19,11 @@ export function AltitudeStrip({ altitude, corpus }:
 
   // Beside the map, because it is a reading of the position the map shows.
   return (
-    <div className="pointer-events-none flex flex-col items-center gap-1">
+    <div className="pointer-events-none h-full flex flex-col items-center gap-1">
       <span className="font-mono text-[8px] text-muted-foreground">
         {max.toFixed(0)}
       </span>
-      <div className="relative w-3 flex-1 min-h-[70px] bg-muted/50 border
+      <div className="relative w-4 flex-1 min-h-[120px] bg-muted/50 border
                       border-border rounded-sm overflow-hidden">
         <div className="absolute inset-0 flex flex-col-reverse">
           {bins.map((v, i) => (

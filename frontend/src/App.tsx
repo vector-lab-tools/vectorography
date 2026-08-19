@@ -8,7 +8,6 @@ import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
 import { MenuBar, type Menu } from "./components/MenuBar"
-import { Neighbours } from "./components/Neighbours"
 import { SpecimenStage, type Depth, type DragReport }
   from "./components/SpecimenStage"
 import type { HandleKind } from "./components/handles"
@@ -161,7 +160,7 @@ export default function App() {
     const n = ++seq.current
     setBusy(true)
     Promise.all([
-      api.location(z, text, false, true),
+      api.location(z, text, false, true, 24),
       api.compass(z, compassText, radius, axX, axY, ride?.vec ?? null),
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
@@ -295,7 +294,7 @@ export default function App() {
     }
     if (dragPending.current) return
     dragPending.current = true
-    api.location(nz, text)
+    api.location(nz, text, false, false, 24)
       .then((loc) => setLocation(loc))
       .catch(() => {})
       .finally(() => { dragPending.current = false })
@@ -550,6 +549,8 @@ export default function App() {
               onReset={resetToSane}
               setText={setText}
               proofs={PROOFS}
+              neighbours={location?.neighbours ?? []}
+              onGoToFamily={goToFamily}
               onSnapshot={() => { if (z) setSnapshot([...z]) }}
               onRecall={() => {
                 // With nothing kept, back means the centroid: the average of
@@ -673,7 +674,6 @@ export default function App() {
               onClearOrbit={() => setOrbit(null)}
               busy={busy}
             />
-            <Neighbours neighbours={location?.neighbours ?? []} onPick={goToFamily} />
           </div>
 
           <div className="min-w-0 min-h-0 flex flex-col md:col-span-2 xl:col-span-1">
