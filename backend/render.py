@@ -192,10 +192,10 @@ def share_card_svg(glyphs: list[dict], text: str, location: dict,
         ("nearest five, mean", f"{alt.get('knn_distance', 0):.2f}"),
     ]
     cols = "".join(
-        f'<text x="{80 + i * 250}" y="470" font-family="ui-monospace,monospace" '
-        f'font-size="15" fill="#8a8378" letter-spacing="1.4">{k.upper()}</text>'
-        f'<text x="{80 + i * 250}" y="512" font-family="Georgia,serif" '
-        f'font-size="38" fill="#1a1a1a">{v}</text>'
+        f'<text x="{80 + i * 230}" y="470" font-family="ui-monospace,monospace" '
+        f'font-size="14" fill="#8a8378" letter-spacing="1.4">{k.upper()}</text>'
+        f'<text x="{80 + i * 230}" y="510" font-family="Georgia,serif" '
+        f'font-size="36" fill="#1a1a1a">{v}</text>'
         for i, (k, v) in enumerate(readings))
 
     names = " · ".join(n["family"] for n in near) or "—"

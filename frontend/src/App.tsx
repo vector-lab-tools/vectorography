@@ -5,6 +5,7 @@ import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ShareCard } from "./components/ShareCard"
+import { cardPng, cardSvg, sendCard } from "./components/cardImage"
 import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
@@ -509,6 +510,19 @@ export default function App() {
     catch (e) { setError(String(e)) }
   }, [z, text])
 
+  /** Straight to the share sheet, without stopping to look at it. */
+  const shareNow = useCallback(async () => {
+    if (!z) return
+    setBusy(true)
+    try {
+      const svg = await cardSvg({ z, text, family })
+      const png = await cardPng(svg)
+      const how = await sendCard(png, (family || text).replace(/ /g, ""),
+                                 family || text)
+      if (how !== "shared" && how !== "cancelled") setError(`Share card ${how}`)
+    } catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [z, text, family])
+
   const exportFont = useCallback(async (format: "otf" | "ttf") => {
     if (!z) return
     setBusy(true)
@@ -545,10 +559,13 @@ export default function App() {
             ? "Travel somewhere first: a journey needs at least two stops"
             : "Compile the journey and test the actual variable font here" },
         { kind: "sep" },
-        { kind: "item", label: "Share card\u2026", hint: "here",
+        { kind: "item", label: "Share image", hint: "here",
+          disabled: !z || busy, onSelect: shareNow,
+          title: "Send this location straight to the share sheet as a PNG, "
+                 + "which is what WhatsApp and Messages take" },
+        { kind: "item", label: "Share card\u2026",
           disabled: !z, onSelect: () => setSharing(true),
-          title: "This location as a card: the specimen, its readings and its "
-                 + "neighbours, to hand to someone" },
+          title: "Look at the card first, then send, copy or save it" },
         { kind: "item", label: "Export Specimen Sheet (SVG)",
           disabled: !z, onSelect: exportSvg,
           title: "This location as a specimen sheet, with its map reading" },
@@ -629,7 +646,7 @@ export default function App() {
     },
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
-      isSane, resetToSane, trail])
+      isSane, resetToSane, trail, shareNow])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />

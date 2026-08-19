@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { cardPng, cardSvg, saveBlob, sendCard } from "./cardImage"
 import { Modal } from "./Modal"
 
 /**
@@ -16,66 +17,41 @@ export function ShareCard({ z, text, family, onClose }: {
   onClose: () => void
 }) {
   const [svg, setSvg] = useState<string | null>(null)
+  // The preview is the PNG itself, not the SVG it came from. WhatsApp and
+  // Messages take an image and not an outline, and on a phone the most
+  // reliable way to send one is still to press and hold the picture on screen.
+  const [png, setPng] = useState<{ url: string; blob: Blob } | null>(null)
   const [note, setNote] = useState("")
   const holder = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let dead = false
-    fetch("/api/export/card", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ z, text, family }),
-    })
-      .then((r) => r.text())
+    cardSvg({ z, text, family })
       .then((t) => { if (!dead) setSvg(t) })
       .catch((e) => { if (!dead) setNote(String(e)) })
     return () => { dead = true }
   }, [z, text, family])
 
-  const png = async (): Promise<Blob | null> => {
-    if (!svg) return null
-    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }))
-    try {
-      const img = new Image()
-      img.src = url
-      await img.decode()
-      const cv = document.createElement("canvas")
-      cv.width = 1200; cv.height = 630
-      cv.getContext("2d")!.drawImage(img, 0, 0, 1200, 630)
-      return await new Promise((res) => cv.toBlob((b) => res(b), "image/png"))
-    } finally {
-      URL.revokeObjectURL(url)
-    }
-  }
-
-  const save = (blob: Blob, name: string) => {
-    const u = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = u; a.download = name; a.click()
-    setTimeout(() => URL.revokeObjectURL(u), 1000)
-  }
+  // Rasterised as soon as the card arrives, since the picture is the thing
+  // being sent and the preview should be the picture.
+  useEffect(() => {
+    if (!svg) return
+    let dead = false
+    let made: string | null = null
+    cardPng(svg)
+      .then((b) => {
+        if (dead) return
+        made = URL.createObjectURL(b)
+        setPng({ url: made, blob: b })
+      })
+      .catch((e) => { if (!dead) setNote(String(e)) })
+    return () => { dead = true; if (made) URL.revokeObjectURL(made) }
+  }, [svg])
 
   const shareIt = async () => {
-    const blob = await png()
-    if (!blob) return
-    const file = new File([blob], "vectorography.png", { type: "image/png" })
-    // The share sheet where there is one, the clipboard where there is not.
-    const nav = navigator as Navigator & {
-      canShare?: (d: { files: File[] }) => boolean
-      share?: (d: { files: File[]; title?: string }) => Promise<void>
-    }
-    if (nav.canShare?.({ files: [file] }) && nav.share) {
-      try { await nav.share({ files: [file], title: family || text }); return }
-      catch { /* dismissed */ }
-    }
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ])
-      setNote("copied to the clipboard")
-    } catch {
-      save(blob, "vectorography.png")
-    }
+    if (!png) return
+    const name = (family || text).replace(/ /g, "")
+    setNote(await sendCard(png.blob, name, family || text))
   }
 
   return (
@@ -83,29 +59,32 @@ export function ShareCard({ z, text, family, onClose }: {
            subtitle="the specimen, its readings, and where it came from"
            onClose={onClose}>
       <div className="space-y-4">
-        <div ref={holder}
-             className="rounded-sm border border-border overflow-hidden
-                        [&>svg]:w-full [&>svg]:h-auto"
-             dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}>
-          {!svg && (
+        {png ? (
+          <div ref={holder} className="rounded-sm border border-border
+                                       overflow-hidden">
+            <img src={png.url} alt="Share card"
+                 className="w-full h-auto block" />
+          </div>
+        ) : (
+          <div className="rounded-sm border border-border">
             <p className="font-mono text-[11px] text-muted-foreground py-16
-                          text-center">drawing the card…</p>
-          )}
-        </div>
+                          text-center">
+              {note || (svg ? "drawing the image\u2026" : "drawing the card\u2026")}
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn" disabled={!svg} onClick={shareIt}>
-            Share or copy
+          <button className="btn" disabled={!png} onClick={shareIt}>
+            Share image
           </button>
-          <button className="btn" disabled={!svg}
-                  onClick={async () => {
-                    const b = await png()
-                    if (b) save(b, `${(family || text).replace(/ /g, "")}.png`)
-                  }}>
+          <button className="btn" disabled={!png}
+                  onClick={() => png && saveBlob(
+                    png.blob, `${(family || text).replace(/ /g, "")}.png`)}>
             Download PNG
           </button>
           <button className="btn" disabled={!svg}
-                  onClick={() => svg && save(
+                  onClick={() => svg && saveBlob(
                     new Blob([svg], { type: "image/svg+xml" }),
                     `${(family || text).replace(/ /g, "")}.svg`)}>
             Download SVG
@@ -115,6 +94,10 @@ export function ShareCard({ z, text, family, onClose }: {
               {note}
             </span>
           )}
+          <span className="font-mono text-[10px] text-muted-foreground w-full">
+            PNG for WhatsApp and Messages, which take a picture rather than an
+            outline. The SVG keeps the letterforms as outlines.
+          </span>
         </div>
       </div>
     </Modal>
