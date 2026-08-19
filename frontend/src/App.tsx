@@ -4,6 +4,7 @@ import { api, type AtlasData, type CompassPoint, type CorpusInfo, type Glyph,
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
@@ -130,6 +131,7 @@ export default function App() {
   /** The name the journey was last saved under, for Save to reuse. */
   const [file, setFile] = useState<string | null>(null)
   const [licensing, setLicensing] = useState(false)
+  const [exporting, setExporting] = useState(false)
   /** Loaded, edited or saved. What the title bar of any editor tells you. */
   const [fileState, setFileState] =
     useState<"new" | "loaded" | "edited" | "saved">("new")
@@ -628,6 +630,9 @@ export default function App() {
       }
       if (meta && e.key.toLowerCase() === "o") { e.preventDefault(); openProject() }
       if (meta && e.key.toLowerCase() === "n") { e.preventDefault(); newProject() }
+      if (meta && e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault(); setExporting(true)
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -706,6 +711,20 @@ export default function App() {
     catch (e) { setError(String(e)) } finally { setBusy(false) }
   }, [z, family])
 
+  const runExport = useCallback((kind: ExportKind) => {
+    switch (kind) {
+      case "otf": return void exportFont("otf")
+      case "ttf": return void exportFont("ttf")
+      case "variable": return void exportJourney()
+      case "ufo": return void exportUfo()
+      case "ufo-journey": return void exportUfoJourney()
+      case "glyph-svg": return void exportGlyphSvg()
+      case "specimen": return void exportSvg()
+      case "test": return setTesting(true)
+    }
+  }, [exportFont, exportJourney, exportUfo, exportUfoJourney, exportGlyphSvg,
+      exportSvg])
+
   const menus: Menu[] = useMemo(() => [
     {
       label: "File",
@@ -725,42 +744,10 @@ export default function App() {
           disabled: !z, onSelect: saveAs,
           title: "Save the journey under a new name" },
         { kind: "sep" },
-        { kind: "item", label: "OTF font \u00b7 to install", hint: "here",
-          disabled: !z || busy, onSelect: () => exportFont("otf"),
-          title: "This location as an installable static OTF, cubic outlines" },
-        { kind: "item", label: "TTF font \u00b7 to install", hint: "here",
-          disabled: !z || busy, onSelect: () => exportFont("ttf"),
-          title: "This location as a static TrueType font" },
-        { kind: "item", label: "Variable font \u00b7 the whole journey\u2026",
-          hint: `${ancestry.length} stop${ancestry.length === 1 ? "" : "s"}`,
-          disabled: ancestry.length < 2 || busy, onSelect: exportJourney,
-          title: ancestry.length < 2
-            ? "Travel somewhere first: a journey needs at least two stops"
-            : "The whole path as a variable font, plus every stop as an OTF" },
-        { kind: "sep" },
-        { kind: "item", label: "UFO source \u00b7 to edit", hint: "here",
-          disabled: !z || busy, onSelect: exportUfo,
-          title: "This location as UFO 3, the source format Glyphs, RoboFont, "
-                 + "FontLab and FontForge all open" },
-        { kind: "item", label: "Designspace + UFO masters \u00b7 to edit\u2026",
-          hint: `${ancestry.length} stop${ancestry.length === 1 ? "" : "s"}`,
-          disabled: ancestry.length < 2 || busy, onSelect: exportUfoJourney,
-          title: ancestry.length < 2
-            ? "Travel somewhere first: a journey needs at least two stops"
-            : "The standard source of a variable font: one UFO per stop and "
-              + "the designspace binding them to a Journey axis" },
-        { kind: "sep" },
-        { kind: "item", label: "SVG outlines \u00b7 one per glyph",
-          disabled: !z || busy, onSelect: exportGlyphSvg,
-          title: "Shapes for drawing software. No metrics, no kerning: for "
-                 + "type a font editor can open, take the UFO" },
-        { kind: "sep" },
-        { kind: "item", label: "Test Journey\u2026", hint: "compiled",
-          disabled: ancestry.length < 2 || busy,
-          onSelect: () => setTesting(true),
-          title: ancestry.length < 2
-            ? "Travel somewhere first: a journey needs at least two stops"
-            : "Compile the journey and test the actual variable font here" },
+        { kind: "item", label: "Export\u2026", hint: "\u21e7\u2318E",
+          disabled: !z, onSelect: () => setExporting(true),
+          title: "Fonts to install, source to keep working on, or outlines to "
+                 + "draw with" },
         { kind: "sep" },
         { kind: "item", label: "Share image", hint: "here",
           disabled: !z || busy, onSelect: shareNow,
@@ -769,15 +756,6 @@ export default function App() {
         { kind: "item", label: "Share card\u2026",
           disabled: !z, onSelect: () => setSharing(true),
           title: "Look at the card first, then send, copy or save it" },
-        { kind: "sep" },
-        { kind: "item", label: "Licence for exports\u2026",
-          hint: LICENCE_LABEL[licence.id] ?? licence.id,
-          onSelect: () => setLicensing(true),
-          title: "Choose the terms a compiled typeface goes out under" },
-        { kind: "sep" },
-        { kind: "item", label: "Specimen sheet \u00b7 to look at",
-          disabled: !z, onSelect: exportSvg,
-          title: "This location as a specimen sheet, with its map reading" },
       ],
     },
     {
@@ -860,8 +838,7 @@ export default function App() {
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
-      newProject, openProject, save, saveAs, file, licence,
-      exportUfo, exportUfoJourney, exportGlyphSvg])
+      newProject, openProject, save, saveAs, file, licence])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -1081,6 +1058,16 @@ export default function App() {
       )}
 
       {help && <Help topic={help} onClose={() => setHelp(null)} />}
+
+      {exporting && (
+        <ExportPanel
+          stops={ancestry.length}
+          busy={busy}
+          licence={LICENCE_LABEL[licence.id] ?? licence.id}
+          onLicence={() => { setExporting(false); setLicensing(true) }}
+          onRun={runExport}
+          onClose={() => setExporting(false)} />
+      )}
 
       {licensing && (
         <LicencePicker
