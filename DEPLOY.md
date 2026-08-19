@@ -108,3 +108,30 @@ model, and compiling a journey holds a font per master.
 
 The container binds `$PORT` when the environment sets one and 7860 when it
 does not, so the same image serves both Cloud Run and Spaces.
+
+### If the first build is refused
+
+A project created after mid-2024 starts with a Compute Engine default service
+account that holds no build permissions, and the first deploy stops with
+`PERMISSION_DENIED ... could not resolve source`. Cloud Build runs as that
+account, so it needs granting once:
+
+```
+SA="$(gcloud projects describe "$PROJECT" \
+      --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:$SA" --role=roles/cloudbuild.builds.builder
+```
+
+The grant takes a minute or so to propagate. Deploy again after it does.
+
+### Billing
+
+Linking a billing account is not the same as billing being on. An account that
+has been closed still links, `billingEnabled` stays false, and the API enable
+step fails with `UREQ_PROJECT_BILLING_NOT_OPEN`. Check with:
+
+```
+gcloud billing accounts list          # the OPEN column
+gcloud billing projects describe "$PROJECT"
+```

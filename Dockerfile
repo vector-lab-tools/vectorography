@@ -7,6 +7,9 @@ WORKDIR /build
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+# The version lives at the repository root, one level above the frontend the
+# build stage is given.
+COPY VERSION /VERSION
 RUN npm run build
 
 # ---- serve it, and the space it reads from ----------------------------------
