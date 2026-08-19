@@ -35,7 +35,8 @@ export function TravelBar({
   const dirs = corpus?.directions ?? []
 
   return (
-    <div className="panel p-3 flex flex-wrap items-end gap-x-4 gap-y-3 overflow-hidden">
+    <div className="panel p-3 w-full min-w-0 flex flex-wrap items-end
+                    gap-x-4 gap-y-3 overflow-hidden">
       <Slider label="radius" value={radius} min={0.05} max={3} step={0.05}
               onChange={setRadius} />
 

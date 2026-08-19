@@ -9,7 +9,7 @@ export function Neighbours({ neighbours, onPick }:
   { neighbours: Neighbour[]; onPick: (family: string) => void }) {
   const far = neighbours[0]?.distance ?? 0
   return (
-    <div>
+    <div className="min-w-0">
       <div className="rail-label mb-2">Nearest real families</div>
       <ul className="space-y-1">
         {neighbours.map((n) => (

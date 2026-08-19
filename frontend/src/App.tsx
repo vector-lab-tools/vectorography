@@ -623,11 +623,13 @@ export default function App() {
         </div>
 
         {/* Bottom: readings and controls. */}
-        <section className="min-h-0 overflow-y-auto px-3 pb-3
-                            grid gap-4 grid-cols-2
-                            xl:grid-cols-[180px_minmax(0,1fr)_210px]"
+        <section className="min-h-0 overflow-y-auto px-3 pb-3 grid gap-4
+                            grid-cols-1 md:grid-cols-2
+                            xl:grid-cols-[176px_minmax(0,1fr)_212px]"
                  style={{ flex: `${1 - split} 1 0%` }}>
-          <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
+          <div className="min-w-0">
+            <AltitudeMeter altitude={location?.altitude ?? null} corpus={corpus} />
+          </div>
 
           <div className="min-w-0 flex flex-col gap-3">
             <TravelBar
@@ -666,7 +668,7 @@ export default function App() {
             <Neighbours neighbours={location?.neighbours ?? []} onPick={goToFamily} />
           </div>
 
-          <div className="min-h-0 flex flex-col">
+          <div className="min-w-0 min-h-0 flex flex-col md:col-span-2 xl:col-span-1">
             <input
               value={family}
               onChange={(e) => setFamily(e.target.value)}

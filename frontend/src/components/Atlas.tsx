@@ -40,6 +40,26 @@ const RAMP: [number, number, number][] = [
   [30, 74, 106],    // deep blue: the high end
 ]
 
+/** An `H S% L%` token as rgb, so the canvas can use the theme's own ink. */
+function tokenRgb(token: string): [number, number, number] {
+  const m = token.trim().match(/([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/)
+  if (!m) return [26, 26, 26]
+  const h = +m[1] / 360, sat = +m[2] / 100, l = +m[3] / 100
+  if (sat === 0) { const v = Math.round(l * 255); return [v, v, v] }
+  const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat
+  const pp = 2 * l - q
+  const f = (t: number) => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return pp + (q - pp) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return pp + (q - pp) * (2 / 3 - t) * 6
+    return pp
+  }
+  return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255),
+          Math.round(f(h - 1 / 3) * 255)]
+}
+
 function ramp(t: number): [number, number, number] {
   const x = Math.max(0, Math.min(1, t)) * (RAMP.length - 1)
   const i = Math.min(Math.floor(x), RAMP.length - 2)
@@ -261,6 +281,10 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     const burg = `hsl(${css.getPropertyValue("--burgundy")})`
     const here = `hsl(${css.getPropertyValue("--here")})`
     const muted = `hsl(${css.getPropertyValue("--muted-foreground")})`
+    // Names and letterforms are set in the theme's ink. Colour is the dots'
+    // job: a name tinted by the property it scores on is harder to read and
+    // says nothing the dot beside it has not already said.
+    const inkRgb = tokenRgb(css.getPropertyValue("--ink"))
     const axisHeight = data.axes.height === "axis"
     const span = Math.max(data.range.h_max - data.range.h_min, 1e-6)
     hs.current = axisHeight ? span : HEIGHT_SCALE
@@ -357,39 +381,78 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
     items.sort((a, b) => b.depth - a.depth)
 
-    // The isotropic ball: where the corpus actually sits in the three
-    // directions on screen. Its radius is measured here rather than taken from
-    // the full space, where the median is seven and these three coordinates
-    // carry only a fraction of it.
+    // The ball the corpus sits in.
+    //
+    // Under an orthographic projection the silhouette of a sphere is exactly a
+    // circle, so the outer edge is drawn as one and the wireframe is drawn
+    // inside it: rings of latitude and longitude, with the far half of every
+    // ring fainter than the near half, which is what makes it read as a solid
+    // shape rather than as a stack of ellipses.
     if (ball.current && axisHeight && data.ball) {
       const hOf = (raw: number) => (raw - data.range.h_min) / span
-      const ring = (r: number, plane: 0 | 1 | 2) => {
-        ctx.beginPath()
-        for (let i = 0; i <= 72; i++) {
-          const t = (i / 72) * Math.PI * 2
-          const a = Math.cos(t) * r, b = Math.sin(t) * r
-          const q = plane === 0 ? P(a, b, hOf(0))
-                  : plane === 1 ? P(a, 0, hOf(b))
-                                : P(0, a, hOf(b))
-          i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)
+      const centre = P(0, 0, hOf(0))
+
+      // A ring, drawn segment by segment so depth can fade it.
+      const ring = (r: number, fn: (t: number) => [number, number, number],
+                    base: number) => {
+        const N = 96
+        let prev: { sx: number; sy: number; depth: number } | null = null
+        for (let i = 0; i <= N; i++) {
+          const t = (i / N) * Math.PI * 2
+          const [a, b, c2] = fn(t)
+          const q = P(a * r, b * r, hOf(c2 * r))
+          if (prev) {
+            const near = (q.depth + prev.depth) / 2
+            const front = 1 / (1 + Math.exp(-near * 1.4))
+            ctx.globalAlpha = base * (0.28 + 0.72 * front)
+            ctx.beginPath()
+            ctx.moveTo(prev.sx, prev.sy)
+            ctx.lineTo(q.sx, q.sy)
+            ctx.stroke()
+          }
+          prev = q
         }
-        ctx.stroke()
+        ctx.globalAlpha = 1
       }
-      const shells: [number, number][] = [
-        [data.ball.q50, 0.30], [data.ball.q90, 0.16]]
+
+      const hull = data.ball.max
+      const shells: [number, number, number][] = [
+        [hull, 0.30, 3], [data.ball.q90, 0.18, 2], [data.ball.q50, 0.13, 2]]
+
       ctx.strokeStyle = muted
       ctx.lineWidth = 1
-      for (const [r, alpha] of shells) {
-        ctx.globalAlpha = alpha
-        ring(r, 0); ring(r, 1); ring(r, 2)
+
+      for (const [r, alpha, lats] of shells) {
+        // Longitudes.
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * Math.PI
+          ring(r, (t) => [Math.cos(t) * Math.cos(a), Math.cos(t) * Math.sin(a),
+                          Math.sin(t)], alpha)
+        }
+        // Latitudes, evenly in angle so they crowd toward the poles as they
+        // should rather than being spaced evenly in height.
+        for (let k = 1; k <= lats; k++) {
+          const phi = (k / (lats + 1)) * Math.PI - Math.PI / 2
+          const rr = Math.cos(phi), zz = Math.sin(phi)
+          ring(r, (t) => [Math.cos(t) * rr, Math.sin(t) * rr, zz], alpha)
+        }
       }
+
+      // The edge of the known space, as a hard line.
+      ctx.globalAlpha = 0.5
+      ctx.strokeStyle = muted
+      ctx.beginPath()
+      ctx.arc(centre.sx, centre.sy, hull * c.zoom, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+
       // From the average of every font to where you are standing.
-      ctx.globalAlpha = 0.4
+      ctx.globalAlpha = 0.45
       ctx.strokeStyle = here
       ctx.setLineDash([3, 3])
-      const o2 = P(0, 0, hOf(0))
       const meNow = P(cx, cy0, ch)
-      ctx.beginPath(); ctx.moveTo(o2.sx, o2.sy); ctx.lineTo(meNow.sx, meNow.sy)
+      ctx.beginPath(); ctx.moveTo(centre.sx, centre.sy)
+      ctx.lineTo(meNow.sx, meNow.sy)
       ctx.stroke(); ctx.setLineDash([])
       ctx.globalAlpha = 1
     }
@@ -447,7 +510,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       const fade = alphas.get(it.p.i) ?? 0
       if (fade > 0.02) {
         const text = marks === "names" ? it.p.name : sample
-        const img = labelImage(it.p.name, text, [r, g, b], schedule)
+        const img = labelImage(it.p.name, text, inkRgb, schedule)
         if (img) {
           const px = marks === "names" ? 9 + 3 * near : 13 + 11 * near
           const scale = px / LABEL_PX

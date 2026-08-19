@@ -25,7 +25,7 @@ export function Trail({ trail, cursor, onGo, onExport, onTest, canCompile, busy 
   busy: boolean
 }) {
   return (
-    <div className="flex flex-col min-h-0 flex-1">
+    <div className="flex flex-col min-h-0 min-w-0 flex-1">
       <div className="flex items-baseline justify-between mb-2">
         <span className="rail-label">Trail</span>
         <span className="font-mono text-[10px] text-muted-foreground">
