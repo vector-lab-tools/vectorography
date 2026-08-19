@@ -135,3 +135,21 @@ step fails with `UREQ_PROJECT_BILLING_NOT_OPEN`. Check with:
 gcloud billing accounts list          # the OPEN column
 gcloud billing projects describe "$PROJECT"
 ```
+
+## A name worth typing
+
+<https://vectorography.web.app> is Firebase Hosting standing in front of the
+Cloud Run service. Hosting serves nothing itself: `firebase.json` rewrites
+every path to the container, which already serves the app and the space
+together.
+
+```
+firebase deploy --only hosting --project vectorography
+```
+
+The rewrite only works because Hosting and the service are in the same
+project. Adding Firebase to an existing Cloud project is what makes that true,
+and it is `firebase projects:addfirebase vectorography`, not the console's
+"Add project", which creates a separate project with a name of its own and no
+way to reach the service. That command returned 403 the first time and
+succeeded unchanged the second, so retry before believing it.
