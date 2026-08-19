@@ -48,9 +48,9 @@ def space() -> StyleSpace:
     return _space
 
 
-def _glyph_subset(vec: np.ndarray, text: str) -> list[dict]:
+def _glyph_subset(vec: np.ndarray, text: str, geometry: bool = False) -> list[dict]:
     want = {c for c in text if c in set(GLYPHS)}
-    return [g for g in decode_to_glyphs(vec) if g["char"] in want]
+    return [g for g in decode_to_glyphs(vec, geometry) if g["char"] in want]
 
 
 class Z(BaseModel):
@@ -60,6 +60,7 @@ class Z(BaseModel):
 class LocationReq(Z):
     text: str = "Hamburgefonstiv"
     full: bool = False
+    geometry: bool = False
 
 
 def _basis(s: StyleSpace, req) -> tuple:
@@ -190,7 +191,8 @@ def directions():
 def location(req: LocationReq):
     s = space()
     vec = s.decode(req.z)
-    glyphs = decode_to_glyphs(vec) if req.full else _glyph_subset(vec, req.text)
+    glyphs = (decode_to_glyphs(vec, req.geometry) if req.full
+              else _glyph_subset(vec, req.text, req.geometry))
     return {
         "glyphs": glyphs,
         "altitude": s.altitude(req.z),
@@ -408,7 +410,7 @@ def export_svg(req: LocationReq):
     svg = specimen_sheet_svg(decode_to_glyphs(vec), {
         "altitude": s.altitude(req.z),
         "neighbours": s.neighbours(req.z, k=5),
-    })
+    }, model=f"{MODEL_NAME} {MODEL_VERSION}")
     return Response(svg, media_type="image/svg+xml", headers={
         "Content-Disposition": "attachment; filename=vectorography-specimen.svg"})
 

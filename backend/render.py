@@ -41,16 +41,28 @@ def glyph_path(contours: np.ndarray) -> str:
     return "".join(contour_path(c) for c in contours if _area(c) > MIN_AREA)
 
 
-def decode_to_glyphs(vec: np.ndarray) -> list[dict]:
+def decode_to_glyphs(vec: np.ndarray, geometry: bool = False) -> list[dict]:
+    """Glyphs as drawable paths, and optionally as the points behind them.
+
+    The points are what makes the specimen touchable: deciding whether a
+    pointer is on the side of a stem or the shoulder of a bowl needs the
+    outline itself, not a path string to re-parse.
+    """
     from corpus.outlines import decode_vector
     dec = decode_vector(vec)
     out = []
     for i, ch in enumerate(GLYPHS):
-        out.append({
+        entry = {
             "char": ch,
             "path": glyph_path(dec["contours"][i]),
             "advance": float(dec["advances"][i]),
-        })
+        }
+        if geometry:
+            entry["contours"] = [
+                [[round(float(x), 4), round(float(y), 4)] for x, y in c]
+                for c in dec["contours"][i] if _area(c) > MIN_AREA
+            ]
+        out.append(entry)
     return out
 
 
@@ -96,7 +108,8 @@ def _line(glyphs_by: dict, text: str, size: float, baseline: float) -> tuple[str
     return body, x * size
 
 
-def specimen_sheet_svg(glyphs: list[dict], location: dict) -> str:
+def specimen_sheet_svg(glyphs: list[dict], location: dict,
+                       model: str = "VectorModel") -> str:
     """A specimen sheet for the current location: a waterfall, plus the map
     reading that produced it. The reading travels with the artefact."""
     lines = [("Hamburgefonstiv", 0.20),
@@ -136,6 +149,6 @@ def specimen_sheet_svg(glyphs: list[dict], location: dict) -> str:
         f'font-size="0.028" fill="#666">neighbours  {prov}</text>'
         f'<text x="0.10" y="{H - 0.04:.3f}" font-family="monospace" '
         f'font-size="0.028" fill="#999">'
-        f'vectorography  ·  corpus: Google Fonts, OFL-1.1</text>'
+        f'vectorography  ·  corpus: {model}</text>'
         f'</svg>'
     )

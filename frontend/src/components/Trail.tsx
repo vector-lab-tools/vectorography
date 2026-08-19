@@ -5,6 +5,9 @@ export type Crumb = {
   label: string
   parent: number | null
   depth: number
+  /** Every position a gesture passed through, when it was one. A drag from
+   *  thin to fat is an axis drawn by hand, and it exports as one. */
+  path?: number[][]
 }
 
 /**

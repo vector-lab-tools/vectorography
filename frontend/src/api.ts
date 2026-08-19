@@ -1,4 +1,9 @@
-export type Glyph = { char: string; path: string; advance: number }
+export type Glyph = {
+  char: string; path: string; advance: number
+  /** Outline points, present when the location was asked for with geometry.
+   *  This is what makes the specimen touchable. */
+  contours?: number[][][]
+}
 
 export type Altitude = {
   centroid_distance: number
@@ -84,8 +89,8 @@ export const api = {
   atlas: (body: Record<string, unknown>) =>
     post<AtlasData>("/api/atlas", body),
 
-  location: (z: number[], text: string, full = false) =>
-    post<Location>("/api/location", { z, text, full }),
+  location: (z: number[], text: string, full = false, geometry = false) =>
+    post<Location>("/api/location", { z, text, full, geometry }),
 
   compass: (
     z: number[], text: string, radius: number,

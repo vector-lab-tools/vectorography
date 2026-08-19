@@ -173,3 +173,124 @@ retail typeface, and any form of text-conditioned generation.
 
 Stack decision: Vite + React + TS + Tailwind. Space decision: whitened PCA now,
 VAE later behind the same interface as a switchable second space.
+
+## 7. Direct manipulation: what the hand wants
+
+Written after building it, before it has met a type designer. Everything below
+that is a claim about use rather than about code is marked as untested, because
+which of these survives contact with Marcus is the question the build exists to
+answer.
+
+### The gap it closes
+
+Until now every change to the type was made at one remove from the type: a mark
+on a map, a row of plus and minus buttons, a compass tile. The designer read the
+letters in one place and changed them in another. The specimen is now the
+instrument: the hand goes on the letters, and approaching a part of a letter
+says what that part controls.
+
+The important consequence is not the gesture, it is the vocabulary. Choosing
+"which axis do I want" is a question about the tool. Grabbing a stem because it
+is too thin is a question about the type. The handles let the second question be
+asked directly, and the axis is inferred from where the hand went.
+
+### What the outline is asked
+
+Handles are not drawn on the letter, they are found in it. Given the decoded
+contours of the specimen actually on screen and a pointer position, the nearest
+outline point is found and classified by what part of a letter it is:
+
+| Where the hand is | What it controls |
+|---|---|
+| the side of a stroke, inside the letter | weight, and modulation across |
+| the outermost edge of a letter | width, and shape across |
+| the top of a lowercase letter | x-height |
+| the space between two letters | spacing |
+| along the baseline | slant |
+| the end of a stroke | serif |
+| a thin stroke where it meets a thick one | contrast |
+| the shoulder of a curve | shape |
+
+Two rules earned their keep during the build. The outline wins over the gap
+when the hand is within about a twentieth of an em of ink, or reaching for a
+stem from slightly the wrong side adjusts the spacing instead of the weight. And
+the baseline test is made on where the *pointer* is, not on where the nearest
+outline point is: an outline point near the baseline is often the closest thing
+to a pointer halfway up a letter, and reading that as "the hand is on the
+baseline" was wrong in about a third of the specimen.
+
+### The three depth schemes
+
+All three are built and switchable from under the specimen, because which one a
+designer can use is not something the code can settle.
+
+1. **Handles.** No depth gesture at all. A handle gives its own property along
+   its natural direction and a second across it, so a stem thickens under a
+   sideways pull and its modulation changes under a vertical one. Two properties
+   per gesture, and the third is reached by letting go and grabbing somewhere
+   else.
+2. **Modifier.** Drag for two properties, wheel during the drag for the third.
+   Cheapest to build and, as expected, the most awkward: it needs a second
+   input device mid-gesture, and on a trackpad the wheel is itself a drag.
+3. **Perspective.** The specimen is set in a shallow three-dimensional
+   presentation, and pushing into the picture moves the third property. The
+   letters stay flat and readable; the depth is in how the specimen sits in its
+   box, not in extruded type.
+
+**Untested prediction, to be checked rather than believed:** handles will make
+the other two unnecessary for shaping, and the third dimension will turn out not
+to be wanted during a gesture at all. The reason is that a designer's question
+is serial rather than simultaneous. "What does this look like a bit heavier" is
+asked forty times in a row, not once alongside two other questions. If that
+holds, depth is a solution to a problem the hand does not have, and the modifier
+and perspective schemes should be deleted rather than kept as options.
+
+### Answers to the four questions
+
+**Which depth scheme survives.** Provisionally, handles, for the reason above.
+Modifier is built but is already unpleasant on a trackpad. Perspective is the
+one worth watching: it is the only one that makes the third property visible
+rather than modal, and if a designer does want three at once it is the one that
+will be usable.
+
+**Hover or pinned handles.** Built as hover-only, and the letterform stays a
+letterform until the hand approaches. A permanent cage of handles over the type
+is a diagram of the tool rather than a specimen, and the specimen is the thing
+being judged. The counter-argument is discoverability: nothing announces that
+the type can be touched. The compromise, if hover proves too hidden, is to
+reveal all handles briefly on first entry into the panel and then let them fade,
+rather than to pin them.
+
+**What happens to the steer list.** It should stay, and it has been re-cast
+rather than duplicated. The chips are now what the drag moves along, so a
+gesture on a handle lights that property for the duration and restores the
+previous selection afterwards: the two systems agree instead of competing. The
+plus and minus buttons remain the route for a repeatable, countable step, which
+a gesture is bad at. A designer who wants "one notch heavier, again, again" is
+better served by a button than by a hand.
+
+**One gesture or a held state.** Built as one gesture per stop, which keeps the
+trail honest: a drag is one move that can be undone in one step. But the serial
+question above argues for a held state, and the cheap version of it is already
+there: the chips persist, so the properties stay aimed between gestures and the
+hand can go back to the same stem forty times without re-choosing anything.
+
+### What was constrained, and why
+
+- **The letters move at pointer speed.** Position is computed from the basis in
+  the browser; the server is asked only for outlines, and the last answer wins.
+  Nothing in a gesture waits on a round trip.
+- **A drag is a path.** Every position passed through is kept, not just where
+  the hand stopped, so a pull from thin to fat is a weight axis drawn by hand
+  and can be compiled as one.
+- **Departure stays visible.** The altitude and density reading is shown in the
+  specimen panel during a gesture, where the eye already is. Direct manipulation
+  is exactly when a designer stops watching the meters across the screen.
+- **Resistance rather than a fence.** Past the corpus the drag is damped to
+  under half speed and the degradation is not hidden. The edge of the data is
+  something the hand meets.
+- **Sanity, in the space rather than on the screen.** A single step is capped in
+  em and again in the space, and the position is bounded to a little beyond the
+  furthest real family. Before this, a slip could send the specimen to four
+  million units from the centroid, where the decode is meaningless. There is
+  also a reset to the last stop that was still inside the corpus.

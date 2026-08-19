@@ -8,7 +8,9 @@ import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
 import { MenuBar, type Menu } from "./components/MenuBar"
 import { Neighbours } from "./components/Neighbours"
-import { Specimen } from "./components/Specimen"
+import { SpecimenStage, type Depth, type DragReport }
+  from "./components/SpecimenStage"
+import type { HandleKind } from "./components/handles"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
 
@@ -21,6 +23,9 @@ const DEFAULT_TEXT = "Hamburgefonstiv"
  * spacing test. The pangram is for reading running text, which is a different
  * judgement from reading a shape.
  */
+const dot = (a: number[], c: number[]) =>
+  a.reduce((t, ai, i) => t + ai * c[i], 0)
+
 const PROOFS = [
   "Hamburgefonstiv",
   "Vectorography",
@@ -69,6 +74,25 @@ export default function App() {
   const dragPending = useRef(false)
   const [liveSelf, setLiveSelf] = useState<
     { x: number; y: number; h: number } | null>(null)
+
+  // Direct manipulation of the specimen.
+  const [depth, setDepth] = useState<Depth>("handles")
+  const [props3, setProps3] = useState<[HandleKind, HandleKind, HandleKind]>(
+    ["weight", "x-height", "width"])
+  // A gesture on the type lights the properties it is about, and puts the
+  // previous selection back when the hand lets go, so the chips and the
+  // letterform agree rather than fight.
+  const chipsBefore = useRef<Set<string> | null>(null)
+  // Every position passed through, not just where the hand stopped: a drag
+  // from thin to fat is a weight axis drawn by hand, and the export should be
+  // able to use it.
+  const strokePath = useRef<number[][]>([])
+
+  // Undo and redo walk the trail rather than keeping a second history. A stop
+  // is already a record of a move, so undo steps back to the parent and redo
+  // returns to the stop that was left; nothing is deleted, and a step taken
+  // after an undo simply branches, which is what the trail already does.
+  const [redoStack, setRedoStack] = useState<number[]>([])
   const [split, setSplit] = useState(0.7)
 
   const [location, setLocation] = useState<Location | null>(null)
@@ -127,7 +151,7 @@ export default function App() {
     const n = ++seq.current
     setBusy(true)
     Promise.all([
-      api.location(z, text),
+      api.location(z, text, false, true),
       api.compass(z, compassText, radius, axX, axY, ride?.vec ?? null),
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
@@ -149,16 +173,53 @@ export default function App() {
   // effect, which React is free to run twice, and it duplicated crumbs.
   const nextId = useRef(1)
 
-  const push = useCallback((nz: number[], mode: string, label: string) => {
+  const push = useCallback((nz: number[], mode: string, label: string,
+                            path?: number[][]) => {
     const id = nextId.current++
     setTrail((prev) => {
       const parent = prev.find((c) => c.id === cursor)
       const isTip = prev.length > 0 && prev[prev.length - 1].id === cursor
-      const depth = parent ? (isTip ? parent.depth : parent.depth + 1) : 0
-      return [...prev, { id, z: nz, mode, label, parent: cursor, depth }]
+      const d = parent ? (isTip ? parent.depth : parent.depth + 1) : 0
+      return [...prev, { id, z: nz, mode, label, parent: cursor, depth: d,
+                         path: path && path.length > 2 ? path : undefined }]
     })
     setCursor(id)
+    setRedoStack([])
   }, [cursor])
+
+  // Sane means inside the corpus: the space is centred, so a position's
+  // distance from the origin is its distance from the average of every font,
+  // and past the furthest real family the decoded outlines are guesses.
+  const hull = corpus?.centroid_max ?? Infinity
+  const isSane = useCallback((p: number[]) =>
+    Math.hypot(...p) <= hull, [hull])
+
+  /** Back to the last place that was still in the corpus. */
+  const resetToSane = useCallback(() => {
+    const byId = new Map(trail.map((c) => [c.id, c]))
+    let c = byId.get(cursor)
+    while (c) {
+      if (isSane(c.z)) { setCursor(c.id); return }
+      c = c.parent != null ? byId.get(c.parent) : undefined
+    }
+    setCursor(trail[0]?.id ?? 0)
+  }, [trail, cursor, isSane])
+
+  const undo = useCallback(() => {
+    const cur = trail.find((c) => c.id === cursor)
+    if (!cur || cur.parent == null) return
+    setRedoStack((r) => [...r, cur.id])
+    setCursor(cur.parent)
+  }, [trail, cursor])
+
+  const redo = useCallback(() => {
+    setRedoStack((r) => {
+      if (!r.length) return r
+      const id = r[r.length - 1]
+      if (trail.some((c) => c.id === id)) setCursor(id)
+      return r.slice(0, -1)
+    })
+  }, [trail])
 
   const travel = useCallback(async (body: Record<string, unknown>,
                                     mode: string, label: string) => {
@@ -194,9 +255,6 @@ export default function App() {
     const b = basis.current
     const from = dragZ.current ?? z
     if (!b || !from) return
-    const dot = (a: number[], c: number[]) =>
-      a.reduce((t, ai, i) => t + ai * c[i], 0)
-
     // Pointer movement is a proposal, scaled well down. A drag across the map
     // spans the whole corpus, and letterforms fall apart long before its edge,
     // so a hand's width of travel should be a few steps rather than a leap out
@@ -257,6 +315,75 @@ export default function App() {
     if (nz) push(nz, "drag", "dragged")
   }, [push])
 
+  const dragStart = useCallback((aiming: HandleKind[]) => {
+    chipsBefore.current = new Set(active)
+    if (aiming.length) setActive(new Set(aiming))
+    strokePath.current = z ? [z] : []
+  }, [active, z])
+
+  /** One step of a gesture on the letterform. */
+  const dragMove = useCallback((r: DragReport) => {
+    const from = dragZ.current ?? z
+    if (!from) return
+    // Movement is per property, in whitened units. The scale is set so that
+    // pulling a stem across its own width is a step, not a leap.
+    const GAIN = 5.2
+    let nz = [...from]
+    for (const m of r.moves) {
+      const d = directions.find((x) => x.key === m.key)
+      if (!d?.vector) continue
+      const k = m.amount * GAIN * (d.spread || 1) * 0.1
+      for (let i = 0; i < nz.length; i++) nz[i] += k * d.vector[i]
+    }
+    if (nz.every((v, i) => v === from[i])) return
+
+    // Sanity, in the space rather than on the screen. Nothing legitimate moves
+    // you a long way in one step, and past the corpus the outlines are guesses,
+    // so a single step is bounded and the total is not allowed to run off to
+    // somewhere no font has ever been.
+    const STEP_MAX = 0.6
+    const step = Math.hypot(...nz.map((v, i) => v - from[i]))
+    if (step > STEP_MAX) {
+      const k = STEP_MAX / step
+      nz = from.map((v, i) => v + (nz[i] - v) * k)
+    }
+    const OUT_MAX = (corpus?.centroid_max ?? 22) * 1.35
+    const out = Math.hypot(...nz)
+    if (out > OUT_MAX) {
+      const k = OUT_MAX / out
+      nz = nz.map((v) => v * k)
+    }
+
+    dragZ.current = nz
+    strokePath.current.push(nz)
+
+    if (basis.current) {
+      const b = basis.current
+      setLiveSelf({ x: dot(nz, b.u), y: dot(nz, b.v), h: liveSelf?.h ?? 0 })
+    }
+    if (dragPending.current) return
+    dragPending.current = true
+    api.location(nz, text)
+      .then((loc) => setLocation(loc))
+      .catch(() => {})
+      .finally(() => { dragPending.current = false })
+  }, [z, text, directions, liveSelf, corpus])
+
+  const dragEnd = useCallback(() => {
+    const path = strokePath.current
+    const nz = dragZ.current
+    dragZ.current = null
+    strokePath.current = []
+    setLiveSelf(null)
+    if (chipsBefore.current) {
+      setActive(chipsBefore.current)
+      chipsBefore.current = null
+    }
+    // The whole gesture goes on the trail as one stop, with the path it took
+    // kept alongside so it can be compiled as an axis of its own.
+    if (nz) push(nz, "shape", "shaped by hand", path)
+  }, [push])
+
   const goToward = useCallback((w: Waypoint, amount: number | null) =>
     travel({ mode: "toward", target_x: w.x, target_y: w.y, amount },
            "toward", amount === null
@@ -284,12 +411,18 @@ export default function App() {
       if (e.key === "r") travel({ mode: "repel" }, "repel",
                                 `repel s${step.toFixed(2)}`)
       if (e.key === "Backspace" && here?.parent != null) {
-        e.preventDefault(); setCursor(here.parent)
+        e.preventDefault(); undo()
+      }
+      if (e.key === "Escape") { e.preventDefault(); resetToSane(); return }
+      const meta = e.metaKey || e.ctrlKey
+      if (meta && e.key.toLowerCase() === "z") {
+        e.preventDefault()
+        e.shiftKey ? redo() : undo()
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [walk, travel, temperature, step, here])
+  }, [walk, travel, temperature, step, here, undo, redo, resetToSane])
 
   // The journey exported is the path actually taken to get here, root to
   // cursor, so a branch exports its own line rather than the whole tree.
@@ -362,6 +495,26 @@ export default function App() {
       ],
     },
     {
+      label: "Edit",
+      items: [
+        { kind: "item", label: "Undo", hint: "\u2318Z",
+          disabled: here?.parent == null, onSelect: undo,
+          title: "Step back to where you came from" },
+        { kind: "item", label: "Redo", hint: "\u21e7\u2318Z",
+          disabled: !redoStack.length, onSelect: redo,
+          title: "Return to the stop you stepped back from" },
+        { kind: "sep" },
+        { kind: "item", label: "Back to the last sane position", hint: "esc",
+          disabled: !z || isSane(z), onSelect: resetToSane,
+          title: "Walk back up the trail to the last stop still inside the "
+                 + "corpus, where the outlines are still readings rather than "
+                 + "guesses" },
+        { kind: "item", label: "Back to the centroid",
+          onSelect: () => setCursor(trail[0]?.id ?? 0),
+          title: "The average of every font in the corpus" },
+      ],
+    },
+    {
       label: "View",
       items: [
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
@@ -380,7 +533,8 @@ export default function App() {
       ],
     },
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
-      exportJourney, exportSvg])
+      exportJourney, exportSvg, here, redoStack.length, undo, redo,
+      isSane, resetToSane, trail])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -433,49 +587,63 @@ export default function App() {
       </header>
 
       <main className="flex-1 min-h-0 flex flex-col">
-        {/* Top: the space fills the frame, and the controls that move you
-            through it sit down one side, with the current location rendered
-            above them. */}
-        <section className="min-h-0 flex gap-3 px-3 pt-3"
+        {/* Top: the type itself, at a size the hand can work on, with the
+            space it sits in below and beside it. */}
+        <section className="min-h-0 flex flex-col gap-3 px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
-          <div className="flex-1 min-w-0">
-            <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                   directions={directions}
-                   colourBy={colourBy} setColourBy={setColourBy}
-                   waypoint={waypoint} setWaypoint={setWaypoint}
-                   onToward={goToward} radius={radius} sample={atlasChar}
-                   onGrabMove={grabMove} onGrabEnd={grabEnd}
-                   liveGlyphs={location?.glyphs ?? null}
-                   liveSelf={liveSelf}
-                   onWantAxisHeight={() => setAtlasHeight("axis")} />
+          <div className="panel shrink-0 h-[168px] px-3 py-2 text-ink">
+            <SpecimenStage
+              glyphs={location?.glyphs ?? []}
+              text={text}
+              altitude={location?.altitude ?? null}
+              hullRadius={atlas?.ball?.max ?? null}
+              radius={atlas?.ball?.self ?? null}
+              depth={depth}
+              setDepth={setDepth}
+              xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
+              setProps={(x, y, zz) => setProps3([x, y, zz])}
+              onDragStart={dragStart}
+              onDrag={dragMove}
+              onDragEnd={dragEnd}
+              lost={!!z && !isSane(z)}
+              onReset={resetToSane}
+              busy={false}
+            />
           </div>
 
-          <div className="w-[240px] lg:w-[280px] shrink-0 min-h-0
-                          flex flex-col gap-3">
-            <div className="panel shrink-0 h-[88px] px-3 py-2 flex items-center
-                            justify-center">
-              <Specimen glyphs={location?.glyphs ?? []} text={text}
-                        height={68} className="text-ink" />
+          <div className="flex-1 min-h-0 flex gap-3">
+            <div className="flex-1 min-w-0">
+              <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                     directions={directions}
+                     colourBy={colourBy} setColourBy={setColourBy}
+                     waypoint={waypoint} setWaypoint={setWaypoint}
+                     onToward={goToward} radius={radius} sample={atlasChar}
+                     onGrabMove={grabMove} onGrabEnd={grabEnd}
+                     liveGlyphs={location?.glyphs ?? null}
+                     liveSelf={liveSelf}
+                     onWantAxisHeight={() => setAtlasHeight("axis")} />
             </div>
 
-            <div className="flex-1 min-h-[168px]">
-              <CompassRose
-                points={compass}
-                centre={location?.glyphs ?? []}
-                compassText={compassText}
-                radius={radius}
-                onTravel={(p) => walk(p.bearing)}
-                busy={busy}
-              />
-            </div>
-
-            {directions.length > 0 && (
-              <div className="shrink-0 border-t border-border pt-2">
-                <DirectionPad directions={directions} onSteer={steer}
-                              busy={busy} active={active}
-                              toggle={toggleActive} />
+            <div className="w-[210px] lg:w-[240px] shrink-0 min-h-0
+                            flex flex-col gap-3">
+              <div className="flex-1 min-h-[150px]">
+                <CompassRose
+                  points={compass}
+                  centre={location?.glyphs ?? []}
+                  compassText={compassText}
+                  radius={radius}
+                  onTravel={(p) => walk(p.bearing)}
+                  busy={busy}
+                />
               </div>
-            )}
+              {directions.length > 0 && (
+                <div className="shrink-0 border-t border-border pt-2">
+                  <DirectionPad directions={directions} onSteer={steer}
+                                busy={busy} active={active}
+                                toggle={toggleActive} />
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -576,7 +744,7 @@ export default function App() {
       <footer className="h-8 shrink-0 px-4 flex items-center gap-4 border-t
                          border-border bg-card/60">
         <span className="font-mono text-[10px] text-muted-foreground">
-          arrows walk · d drift · r repel · backspace back
+          arrows walk · d drift · r repel · ⌘Z undo · ⇧⌘Z redo
         </span>
         <div className="flex-1" />
         {error && (
@@ -585,8 +753,10 @@ export default function App() {
             {error}
           </button>
         )}
-        <span className="font-mono text-[10px] text-muted-foreground">
-          corpus: Google Fonts, OFL-1.1
+        <span className="font-mono text-[10px] text-muted-foreground"
+              title={`${corpus.count} families from the Google Fonts OFL tree, `
+                     + `${corpus.dims} dimensions`}>
+          corpus: {corpus.model?.id ?? "VectorModel"}
         </span>
       </footer>
     </div>
