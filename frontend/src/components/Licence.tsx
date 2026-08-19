@@ -7,7 +7,7 @@ export const LICENCE_KEY = "vg.licence"
 export const AUTHOR_KEY = "vg.author"
 
 /** The terms on offer, and what each one asks of whoever receives the font. */
-const TERMS: { id: string; name: string; note: string }[] = [
+export const TERMS: { id: string; name: string; note: string }[] = [
   { id: "ofl", name: "SIL Open Font License 1.1",
     note: "What most released type uses. Free to use, study, modify and "
         + "redistribute; derivatives keep the licence and cannot be sold on "

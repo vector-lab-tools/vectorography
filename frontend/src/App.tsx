@@ -6,6 +6,8 @@ import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
+import { Settings, THEME_KEY, TEXT_KEY, type Theme }
+  from "./components/Settings"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
 import { download, parse, pickFile, projectFilename, serialise }
@@ -108,11 +110,16 @@ const PROOFS = [
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "system")
   const [dark, setDark] = useState(false)
 
   const [trail, setTrail] = useState<Crumb[]>([])
   const [cursor, setCursor] = useState(0)
-  const [text, setText] = useState(DEFAULT_TEXT)
+  const [defaultText, setDefaultText] = useState(
+    () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
+  const [text, setText] = useState(
+    () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
   const [radius, setRadius] = useState(0.6)
   const [temperature, setTemperature] = useState(0.5)
   const [step, setStep] = useState(0.5)
@@ -124,7 +131,7 @@ export default function App() {
   const [axZ, setAxZ] = useState("axis:2")
   const [ride, setRide] = useState<Ride>(null)
   const [orbit, setOrbit] = useState<Orbit>(null)
-  const [family, setFamily] = useState("Journey")
+  const [family, setFamily] = useState("Traversal")
   const [testing, setTesting] = useState(false)
   const [about, setAbout] = useState(false)
   const [help, setHelp] = useState<HelpTopic | null>(null)
@@ -132,9 +139,9 @@ export default function App() {
   const [file, setFile] = useState<string | null>(null)
   const [licensing, setLicensing] = useState(false)
   const [exporting, setExporting] = useState(false)
-  /** Loaded, edited or saved. What the title bar of any editor tells you. */
-  const [fileState, setFileState] =
-    useState<"new" | "loaded" | "edited" | "saved">("new")
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  /** True while the open file is still exactly as it came off disk. */
+  const opened = useRef(false)
   const [licence, setLicence] = useState<Licence>(() => ({
     id: localStorage.getItem(LICENCE_KEY) ?? "none",
     author: localStorage.getItem(AUTHOR_KEY) ?? "",
@@ -227,6 +234,9 @@ export default function App() {
       setTrail([{ id: 0, z: new Array(c.dims).fill(0), mode: "origin",
                   label: "origin · the centroid", parent: null, depth: 0 }])
       setCursor(0)
+      // The empty journey is the baseline, so work done before anything is
+      // saved still reports itself as unsaved work.
+      armSaved.current = true
     }).catch((e) => setError(String(e)))
     api.directions().then((d) => {
       setDirections(d.directions)
@@ -243,6 +253,18 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
+
+  // The theme is a preference, so it is kept; "system" means it is not ours
+  // to decide and we follow the machine, including when it changes under us.
+  useEffect(() => {
+    localStorage.setItem(THEME_KEY, theme)
+    if (theme !== "system") { setDark(theme === "dark"); return }
+    const mq = window.matchMedia("(prefers-color-scheme: dark)")
+    const apply = () => setDark(mq.matches)
+    apply()
+    mq.addEventListener("change", apply)
+    return () => mq.removeEventListener("change", apply)
+  }, [theme])
 
   // The atlas draws the first three letters of the specimen per font: enough
   // of a word to judge a face by, and few enough that the map stays a map.
@@ -316,20 +338,23 @@ export default function App() {
     radius, temperature, step,
   ]), [trail, cursor, text, family, snapshot, axX, axY, axZ, colourBy,
        atlasHeight, ballOn, depth, radius, temperature, step])
+  /** The signature as it was when the journey was last written or opened.
+   *  Taken during render rather than in an effect: an effect on mount runs
+   *  twice in development, and the second run took its reading after the first
+   *  move had already been made, so the first move never registered. */
   const savedSig = useRef<string | null>(null)
-  /** Set when a file has just been opened: the signature to compare against is
-   *  whatever the next render settles on, not the one standing now. */
-  const armSaved = useRef(false)
+  const armSaved = useRef(true)
+  const [, setMark] = useState(0)
 
-  useEffect(() => {
-    if (armSaved.current) {
-      armSaved.current = false
-      savedSig.current = signature
-      return
-    }
-    if (savedSig.current === null) return
-    setFileState(signature === savedSig.current ? "saved" : "edited")
-  }, [signature])
+  if (corpus && armSaved.current) {
+    armSaved.current = false
+    savedSig.current = signature
+  }
+
+  const fileState: "new" | "loaded" | "edited" | "saved" =
+    signature !== savedSig.current ? "edited"
+      : file ? (opened.current ? "loaded" : "saved")
+      : "new"
 
   /** Start again at the centroid, keeping the settings but not the journey. */
   const newProject = useCallback(() => {
@@ -344,8 +369,9 @@ export default function App() {
     setRedoStack([])
     setSnapshot(null)
     setFile(null)
-    savedSig.current = null
-    setFileState("new")
+    armSaved.current = true
+    opened.current = false
+    setMark((m) => m + 1)
   }, [corpus, trail.length])
 
   const saveAs = useCallback(() => {
@@ -360,7 +386,8 @@ export default function App() {
     }))
     setFile(full)
     savedSig.current = signature
-    setFileState("saved")
+    opened.current = false
+    setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, snapshot, step, temperature, text, trail])
 
@@ -375,7 +402,8 @@ export default function App() {
       travel: { radius, temperature, step },
     }))
     savedSig.current = signature
-    setFileState("saved")
+    opened.current = false
+    setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, saveAs, snapshot, step, temperature, text, trail])
 
@@ -404,9 +432,9 @@ export default function App() {
       setStep(doc.travel.step)
       setRedoStack([])
       setFile(picked.name)
-      // The signature is taken once the state above has landed, not here.
+      // The reading is taken once the state above has landed, not here.
       armSaved.current = true
-      setFileState("loaded")
+      opened.current = true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -633,6 +661,7 @@ export default function App() {
       if (meta && e.shiftKey && e.key.toLowerCase() === "e") {
         e.preventDefault(); setExporting(true)
       }
+      if (meta && e.key === ",") { e.preventDefault(); setSettingsOpen(true) }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -725,6 +754,31 @@ export default function App() {
   }, [exportFont, exportJourney, exportUfo, exportUfoJourney, exportGlyphSvg,
       exportSvg])
 
+  const changeBall = useCallback((v: boolean) => {
+    setBallOn(v)
+    localStorage.setItem("vg.ball", v ? "1" : "0")
+  }, [])
+
+  const changeLicence = useCallback((v: { id: string; author: string }) => {
+    setLicence(v)
+    localStorage.setItem(LICENCE_KEY, v.id)
+    localStorage.setItem(AUTHOR_KEY, v.author)
+  }, [])
+
+  const changeDefaultText = useCallback((t: string) => {
+    setDefaultText(t)
+    localStorage.setItem(TEXT_KEY, t)
+  }, [])
+
+  const forgetAll = useCallback(() => {
+    for (const k of Object.keys(localStorage))
+      if (k.startsWith("vg.")) localStorage.removeItem(k)
+    setTheme("system")
+    setDefaultText(DEFAULT_TEXT)
+    setLicence({ id: "none", author: "" })
+    setBallOn(true)
+  }, [])
+
   const menus: Menu[] = useMemo(() => [
     {
       label: "File",
@@ -776,6 +830,10 @@ export default function App() {
         { kind: "item", label: "Back to the centroid",
           onSelect: () => setCursor(trail[0]?.id ?? 0),
           title: "The average of every font in the corpus" },
+        { kind: "sep" },
+        { kind: "item", label: "Settings\u2026", hint: "\u2318,",
+          onSelect: () => setSettingsOpen(true),
+          title: "Theme, opening text, and the licence exports carry" },
       ],
     },
     {
@@ -798,7 +856,9 @@ export default function App() {
       label: "View",
       items: [
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
-          onSelect: () => setDark((d) => !d) },
+          onSelect: () => setTheme(dark ? "light" : "dark"),
+          title: "Remembered. Settings has a System option that follows the "
+                 + "machine" },
         { kind: "sep" },
         { kind: "item",
           label: `Atlas height: ${
@@ -838,7 +898,7 @@ export default function App() {
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
-      newProject, openProject, save, saveAs, file, licence])
+      newProject, openProject, save, saveAs, file, licence, theme])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -865,11 +925,13 @@ export default function App() {
         </span>
       </header>
 
-      <main className="flex-1 min-h-0 flex flex-col">
+      {/* The work area scrolls as a whole. The footer is a sibling of this,
+          not a child, so it stays where it is however far down you go. */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         {/* Top: the type itself, at a size the hand can work on, with the
             space it sits in below and beside it. */}
-        <section className="min-h-0 overflow-hidden flex flex-col gap-3
-                            px-3 pt-3"
+        <section className="shrink-0 min-h-[320px] overflow-hidden flex
+                            flex-col gap-3 px-3 pt-3"
                  style={{ flex: `${split} 1 0%` }}>
           <div className="panel shrink-0 h-[190px] sm:h-[168px] px-2 sm:px-3
                           py-2 text-ink">
@@ -980,7 +1042,7 @@ export default function App() {
         </div>
 
         {/* Bottom: readings and controls. */}
-        <section className="min-h-0 overflow-y-auto px-3 pb-3 grid gap-3
+        <section className="shrink-0 min-h-[300px] px-3 pb-3 grid gap-3
                             grid-cols-1 md:grid-cols-2"
                  style={{ flex: `${1 - split} 1 0%` }}>
           {/* Two panels, side by side: what moves you, and where you have
@@ -1030,7 +1092,7 @@ export default function App() {
             <span className="rail-label"
                   title={"Every stop on this journey, and the name it "
                     + "exports under"}>
-              Journey
+              Traversal
             </span>
             <div className="flex-1 min-h-0 flex flex-col rounded-md border
                             border-border/60 bg-muted/25 px-2.5 py-2">
@@ -1058,6 +1120,16 @@ export default function App() {
       )}
 
       {help && <Help topic={help} onClose={() => setHelp(null)} />}
+
+      {settingsOpen && (
+        <Settings
+          theme={theme} setTheme={setTheme}
+          defaultText={defaultText} setDefaultText={changeDefaultText}
+          ballOn={ballOn} setBallOn={changeBall}
+          licence={licence} setLicence={changeLicence}
+          onForget={forgetAll}
+          onClose={() => setSettingsOpen(false)} />
+      )}
 
       {exporting && (
         <ExportPanel
@@ -1106,7 +1178,8 @@ export default function App() {
                           : "This journey has never been saved"}>
           {file ?? "untitled"}
         </span>
-        <span className={`font-mono text-[9px] uppercase tracking-wider
+        <span data-state={fileState}
+              className={`font-mono text-[9px] uppercase tracking-wider
                           -ml-2.5 ${fileState === "edited"
                             ? "text-burgundy/75" : "text-muted-foreground/60"}`}
               title={fileState === "edited"
