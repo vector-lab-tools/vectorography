@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { Altitude, Glyph } from "../api"
+import { FamilyPicker } from "./FamilyPicker"
 import { handleAt, layout, lineWidth, xHeightOf,
          type Handle, type HandleKind } from "./handles"
 
@@ -257,17 +258,19 @@ export function SpecimenStage({
       {/* What the type is being set in, at the head of the panel it is set
           in. It had been up in the menu bar, a long way from the letters it
           changes. */}
-      <div className="absolute top-1 left-2 flex items-center gap-1">
+      <div className="absolute top-1 left-2 right-2 flex items-center gap-1">
         {proofs.map((t) => (
           <button
             key={t}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setText(t)}
             title={t}
-            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                        transition-colors ${text === t
-                          ? "border-burgundy text-burgundy bg-burgundy/5"
-                          : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`font-mono text-[9px] px-2 py-[3px] rounded-full border
+                        transition-all active:translate-y-px ${text === t
+                          ? "border-burgundy bg-burgundy text-ivory"
+                          : "border-border bg-muted/60 text-muted-foreground "
+                            + "hover:bg-card hover:text-foreground "
+                            + "hover:border-burgundy/60"}`}
           >
             {t === "Hamburgefonstiv" ? "Ham"
               : t === "Vectorography" ? "Vg"
@@ -280,35 +283,24 @@ export function SpecimenStage({
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          className="font-mono text-[10px] w-32 bg-background border
-                     border-border rounded-sm px-1.5 py-0.5 ml-1"
+          className="font-mono text-[10px] w-40 ml-2 px-2 py-1 rounded-sm
+                     bg-background border border-ink/25
+                     shadow-[inset_0_1px_2px_hsl(var(--ink)/0.08)]
+                     focus:outline-none focus:border-burgundy
+                     focus:ring-1 focus:ring-burgundy/30
+                     placeholder:text-muted-foreground/60"
+          placeholder="type anything"
           title="What the specimen sets. Reading the letters is how you decide
                  where to go."
         />
 
-        {/* The real families you are standing among, nearest first. Choosing
-            one travels there: the list was a readout, and every line of it was
+        {/* The real families you are standing among, nearest first, each set
+            in its own face: the list was a readout, and every line of it is
             somewhere the traveller might want to be. */}
-        <select
-          value=""
-          disabled={!neighbours.length}
-          onPointerDown={(e) => e.stopPropagation()}
-          onChange={(e) => { if (e.target.value) onGoToFamily(e.target.value) }}
-          className="font-mono text-[9px] bg-card border border-border
-                     rounded-sm px-1 py-1 max-w-[150px] disabled:opacity-40"
-          title="Real families nearest this location. Choosing one travels to it."
-        >
-          <option value="">
-            {neighbours.length
-              ? `nearest: ${neighbours[0].family} · ${neighbours[0].distance.toFixed(2)}`
-              : "nearest: \u2014"}
-          </option>
-          {neighbours.map((n) => (
-            <option key={n.family} value={n.family}>
-              {n.family} · {n.distance.toFixed(2)}
-            </option>
-          ))}
-        </select>
+        <div className="flex-1" />
+        <FamilyPicker neighbours={neighbours} onPick={onGoToFamily}
+                      sample={[...text].filter((c) => /[A-Za-z]/.test(c))
+                        .slice(0, 3).join("") || "Ham"} />
       </div>
 
       {showing && marker && (
@@ -321,19 +313,25 @@ export function SpecimenStage({
         </div>
       )}
 
-      {/* Departure, where the eye already is. A direct gesture is exactly when
-          a designer stops watching the meters across the room. */}
+      {/* Keep this place, and go back to the place kept. Shaping runs ahead of
+          the trail: a designer tries twenty things and wants the good one
+          back, not the twentieth. */}
       <div className="absolute bottom-1 right-2 flex items-center gap-1">
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onSnapshot}
           title="Keep this place"
           className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-[11px] leading-none
+                     border-border bg-card text-muted-foreground
                      hover:border-here hover:text-here active:translate-y-px
                      transition-colors"
         >
-          ⦿
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
+               stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+            <path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z" />
+            <path d="M5 2.5h5.5V6H5z" />
+            <path d="M4.5 9.5h7v4h-7z" />
+          </svg>
         </button>
         <button
           onPointerDown={(e) => e.stopPropagation()}
@@ -341,11 +339,16 @@ export function SpecimenStage({
           title={hasSnapshot ? "Back to the place you kept"
                              : "Nothing kept yet: back to the centroid"}
           className="w-6 h-6 flex items-center justify-center rounded-sm border
-                     border-border bg-card text-[11px] leading-none
+                     border-border bg-card text-muted-foreground
                      hover:border-here hover:text-here active:translate-y-px
                      transition-colors"
         >
-          ⟲
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none"
+               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
+               strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 8a5 5 0 1 1 1.6 3.7" />
+            <path d="M2.4 4.6v3.2h3.2" />
+          </svg>
         </button>
       </div>
 
@@ -360,19 +363,6 @@ export function SpecimenStage({
         >
           back to the last sane position
         </button>
-      )}
-
-      {altitude && (
-        <div className={`absolute top-1 right-2 font-mono text-[10px]
-                         pointer-events-none ${beyond ? "text-gold"
-                           : altitude.density_percentile > 75
-                             ? "text-burgundy" : "text-muted-foreground"}`}>
-          {beyond ? "off the map · outlines are guesses out here · esc to return"
-            : altitude.density_percentile > 75
-              ? `into the crowd · ${altitude.density_percentile.toFixed(0)}th`
-              : `${altitude.centroid_distance.toFixed(2)} out · ${
-                  altitude.density_percentile.toFixed(0)}th`}
-        </div>
       )}
 
       <div className="absolute bottom-1 left-2 flex items-center gap-1">
@@ -422,6 +412,25 @@ export function SpecimenStage({
         {depth === "handles" && !hasGeometry && (
           <span className="font-mono text-[9px] text-gold ml-1">
             waiting for outlines
+          </span>
+        )}
+
+        {/* Departure, on the same line as the controls that cause it. A direct
+            gesture is exactly when a designer stops watching the meters across
+            the room, so the reading sits where the hand already is. */}
+        {altitude && (
+          <span className={`font-mono text-[10px] ml-2 whitespace-nowrap
+                            ${beyond ? "text-gold"
+                              : altitude.density_percentile > 75
+                                ? "text-burgundy" : "text-muted-foreground"}`}
+                title={"r: distance from the corpus centroid, the average of "
+                  + "every font. \u03c1: how crowded this neighbourhood is, as a "
+                  + "percentile of the corpus. k\u2085: mean distance to the "
+                  + "five nearest real families, so how alone you are."}>
+            {beyond && "\u26a0 beyond the hull · "}
+            r {altitude.centroid_distance.toFixed(2)}
+            {" \u00b7 \u03c1 "}{altitude.density_percentile.toFixed(0)}
+            {"pc \u00b7 k\u2085 "}{altitude.knn_distance.toFixed(2)}
           </span>
         )}
       </div>

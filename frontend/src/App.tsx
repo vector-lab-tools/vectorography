@@ -474,13 +474,6 @@ export default function App() {
       ],
     },
     {
-      label: "Help",
-      items: [
-        { kind: "item", label: "About Vectorography\u2026",
-          onSelect: () => setAbout(true) },
-      ],
-    },
-    {
       label: "View",
       items: [
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
@@ -496,6 +489,25 @@ export default function App() {
             h === "density" ? "centroid" : h === "centroid" ? "axis" : "density"),
           title: "What the vertical axis measures. On a latent axis it becomes "
                  + "a direction you can drag along." },
+      ],
+    },
+    {
+      label: "Help",
+      items: [
+        { kind: "item", label: "What the readings mean",
+          onSelect: () => setAbout(true),
+          title: "Stub: a page on altitude, density, the shell and the trail" },
+        { kind: "item", label: "Keyboard shortcuts",
+          onSelect: () => setAbout(true),
+          title: "Stub" },
+        { kind: "sep" },
+        { kind: "item", label: "Source on GitHub",
+          onSelect: () => window.open(
+            "https://github.com/vector-lab-tools/vectorography", "_blank",
+            "noopener") },
+        { kind: "sep" },
+        { kind: "item", label: "About Vectorography\u2026",
+          onSelect: () => setAbout(true) },
       ],
     },
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
