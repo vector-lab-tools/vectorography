@@ -6,8 +6,8 @@ import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
-import { Settings, GUIDE_KEY, INK_KEY, THEME_KEY, TEXT_KEY, type Theme }
-  from "./components/Settings"
+import { Settings, GUIDE_KEY, GUIDE_STYLE_KEY, INK_KEY, THEME_KEY, TEXT_KEY,
+         type GuideStyle, type Theme } from "./components/Settings"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
 import { download, parse, pickFile, projectFilename, serialise }
@@ -197,6 +197,15 @@ export default function App() {
   // twenty things in a row and wants the good one back, not the twentieth.
   // Stops the traveller has marked, by id. Several, because a session worth
   // recording has more than one place worth returning to.
+  const [guideStyle, setGuideStyle] = useState<GuideStyle>(() => {
+    const kept = localStorage.getItem(GUIDE_STYLE_KEY)
+    return kept === "dashed" || kept === "dotted" || kept === "hair"
+      || kept === "solid" ? kept : "solid"
+  })
+  const changeGuideStyle = useCallback((v: GuideStyle) => {
+    setGuideStyle(v)
+    localStorage.setItem(GUIDE_STYLE_KEY, v)
+  }, [])
   const [ink, setInk] = useState(
     () => localStorage.getItem(INK_KEY) || "auto")
   const changeInk = useCallback((v: string) => {
@@ -1072,7 +1081,7 @@ export default function App() {
               onRedo={redo}
               canUndo={trail.find((c) => c.id === cursor)?.parent != null}
               canRedo={redoStack.length > 0}
-              guideInk={guideInk}
+              guideInk={guideInk} guideStyle={guideStyle}
               busy={false}
             />
           </div>
@@ -1428,6 +1437,7 @@ export default function App() {
                 setProps={(x, y, zz) => setProps3([x, y, zz])}
                 guideInk={guideInk} setGuideInk={changeGuideInk}
                 ink={ink} setInk={changeInk}
+                guideStyle={guideStyle} setGuideStyle={changeGuideStyle}
                 onForget={forgetAll}
                 onClose={() => pickTab("atlas")} />
             </div>
@@ -1507,6 +1517,7 @@ export default function App() {
           setProps={(x, y, zz) => setProps3([x, y, zz])}
           guideInk={guideInk} setGuideInk={changeGuideInk}
           ink={ink} setInk={changeInk}
+          guideStyle={guideStyle} setGuideStyle={changeGuideStyle}
           onForget={forgetAll}
           onClose={() => setSettingsOpen(false)} />
       )}

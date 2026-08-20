@@ -9,6 +9,17 @@ export const THEME_KEY = "vg.theme"
 export const TEXT_KEY = "vg.text"
 export const GUIDE_KEY = "vg.guide.ink"
 export const INK_KEY = "vg.specimen.ink"
+export const GUIDE_STYLE_KEY = "vg.guide.style"
+
+export type GuideStyle = "solid" | "dashed" | "dotted" | "hair"
+
+/** Dash pattern and weight for each, in the specimen's own em units. */
+export const GUIDE_STROKE: Record<GuideStyle, { w: number; dash?: string }> = {
+  solid: { w: 0.004 },
+  dashed: { w: 0.004, dash: "0.03 0.02" },
+  dotted: { w: 0.005, dash: "0.001 0.014" },
+  hair: { w: 0.0018 },
+}
 
 /** A few inks that hold up on both grounds, and the theme's own. */
 export const INKS: [string, string][] = [
@@ -25,7 +36,7 @@ function Field({ label, note, children }: {
   label: string; note?: string; children: React.ReactNode
 }) {
   return (
-    <div className="grid grid-cols-[8.5rem_1fr] gap-3 items-baseline py-2
+    <div className="grid grid-cols-[8.5rem_1fr] gap-3 items-baseline py-1.5
                     border-b border-border/40 last:border-0">
       <div>
         <span className="rail-label !text-[8px] block">{label}</span>
@@ -53,7 +64,7 @@ export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
   xProp, yProp, zProp, setProps, guideInk, setGuideInk, ink, setInk,
-  inline = false,
+  guideStyle, setGuideStyle, inline = false,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -74,6 +85,8 @@ export function Settings({
   /** The specimen's colour: a hex, or "auto" for the theme's own ink. */
   ink: string
   setInk: (v: string) => void
+  guideStyle: GuideStyle
+  setGuideStyle: (v: GuideStyle) => void
   /** Shown in place, as one of the phone's tabs, rather than over the work. */
   inline?: boolean
 }) {
@@ -110,9 +123,9 @@ export function Settings({
   const body = (
     <>
       <div className={`${inline ? "flex-1 min-h-0" : "max-h-[58vh]"}
-                       overflow-y-auto pr-2 space-y-5`}>
+                       overflow-y-auto pr-2 space-y-3.5`}>
         <section>
-          <h3 className="font-display text-[13px] mb-1">Appearance</h3>
+          <h3 className="font-display text-[13px] mb-0.5">Appearance</h3>
           <Field label="Theme"
                  note="System follows the one your machine is set to">
             <select className={SELECT} value={theme}
@@ -125,7 +138,7 @@ export function Settings({
         </section>
 
         <section>
-          <h3 className="font-display text-[13px] mb-1">Specimen and map</h3>
+          <h3 className="font-display text-[13px] mb-0.5">Specimen and map</h3>
           <Field label="Opening text"
                  note="What the specimen is set in when the app starts">
             <input value={defaultText}
@@ -162,16 +175,54 @@ export function Settings({
                                 rounded-sm cursor-pointer" />
             </span>
           </Field>
-          <Field label="Guide strength"
+          <Field label="Guides"
                  note="Baseline, x-height and cap behind the letters, and the
-                       depth rails in perspective mode">
-            <span className="flex items-center gap-2">
-              <input type="range" min={0.05} max={1} step={0.05}
-                     value={guideInk} className="flex-1 accent-burgundy"
-                     onChange={(e) => setGuideInk(Number(e.target.value))} />
-              <span className="font-mono text-[10px] text-muted-foreground
-                               w-8 text-right">
-                {Math.round(guideInk * 100)}
+                       shell in perspective">
+            <span className="flex flex-col gap-1.5">
+              {/* The setting, drawn. A number from one to ten says nothing
+                  about what a guide will look like against a letter. */}
+              <svg viewBox="0 0 120 34" className="w-full h-[34px] border
+                                                   border-border rounded-sm
+                                                   bg-background">
+                <g stroke="hsl(var(--ink))" strokeOpacity={guideInk}
+                   strokeWidth={GUIDE_STROKE[guideStyle].w * 250}
+                   strokeDasharray={GUIDE_STROKE[guideStyle].dash
+                     ? GUIDE_STROKE[guideStyle].dash!.split(" ")
+                         .map((n) => +n * 250).join(" ")
+                     : undefined}
+                   strokeLinecap={guideStyle === "dotted" ? "round" : "butt"}>
+                  <line x1="4" x2="116" y1="27" y2="27" />
+                  <line x1="4" x2="116" y1="16" y2="16" />
+                  <line x1="4" x2="116" y1="7" y2="7" />
+                </g>
+                <text x="8" y="27" fontSize="20" fontFamily="Georgia, serif"
+                      fill="currentColor">Hxn</text>
+              </svg>
+              <span className="flex items-center gap-1 flex-wrap">
+                {Array.from({ length: 10 }, (_, i) => (i + 1) / 10).map((v) => (
+                  <button key={v} onClick={() => setGuideInk(v)}
+                          title={`${Math.round(v * 100)} per cent`}
+                          className={`w-5 h-5 rounded-sm border font-mono
+                                      text-[8px] transition-colors
+                                      ${Math.abs(guideInk - v) < 0.05
+                                        ? "border-burgundy text-burgundy"
+                                        : "border-border text-muted-foreground"}`}>
+                    {Math.round(v * 10)}
+                  </button>
+                ))}
+              </span>
+              <span className="flex items-center gap-1 flex-wrap">
+                {(["solid", "dashed", "dotted", "hair"] as GuideStyle[])
+                  .map((g) => (
+                  <button key={g} onClick={() => setGuideStyle(g)}
+                          className={`font-mono text-[9px] px-1.5 py-0.5
+                                      rounded-sm border transition-colors
+                                      ${guideStyle === g
+                                        ? "border-burgundy text-burgundy"
+                                        : "border-border text-muted-foreground"}`}>
+                    {g}
+                  </button>
+                ))}
               </span>
             </span>
           </Field>
@@ -186,12 +237,11 @@ export function Settings({
         </section>
 
         <section>
-          <h3 className="font-display text-[13px] mb-1">Dragging the specimen</h3>
-          <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
-            In modifier and perspective modes the whole word is one control:
-            these say which property each direction of the hand moves. Handles
-            mode ignores them, since there the property comes from the part of
-            the letter being held.
+          <h3 className="font-display text-[13px] mb-0.5">Dragging the specimen</h3>
+          <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
+            In modifier and perspective the whole word is one control: these
+            say which property each direction of the hand moves. Handles mode
+            ignores them, since there the letter decides.
           </p>
           {([["\u2194 Sideways", xProp, 0],
              ["\u2195 Up and down", yProp, 1],
@@ -215,7 +265,7 @@ export function Settings({
         </section>
 
         <section>
-          <h3 className="font-display text-[13px] mb-1">Exports</h3>
+          <h3 className="font-display text-[13px] mb-0.5">Exports</h3>
           <Field label="Licence"
                  note="Written into the name table of every font you compile">
             <select className={SELECT} value={licence.id}

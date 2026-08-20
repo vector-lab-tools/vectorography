@@ -3,6 +3,7 @@ import type { Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
 import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
+import { GUIDE_STROKE, type GuideStyle } from "./Settings"
 import { LINE_H, allHandles, handleAt, layout, lineCount, lineWidth,
          xHeightOf, type Handle, type HandleKind } from "./handles"
 
@@ -34,7 +35,7 @@ export const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 export function SpecimenStage({
   glyphs, text, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset,
-  onUndo, onRedo, canUndo, canRedo, guideInk,
+  onUndo, onRedo, canUndo, canRedo, guideInk, guideStyle,
   setText, proofs, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
 }: {
@@ -60,6 +61,8 @@ export function SpecimenStage({
   canRedo: boolean
   /** How strongly the guides and the depth rails are drawn. */
   guideInk: number
+  /** And in what manner. */
+  guideStyle: GuideStyle
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
   /** The word being set, and the proofs worth setting it in. */
@@ -499,9 +502,11 @@ export function SpecimenStage({
           {guides && (
             <g pointerEvents="none"
                stroke={`hsl(var(--ink) / ${guideInk.toFixed(2)})`}
-               strokeWidth={0.004}>
+               strokeWidth={GUIDE_STROKE[guideStyle].w}
+               strokeDasharray={GUIDE_STROKE[guideStyle].dash}
+               strokeLinecap={guideStyle === "dotted" ? "round" : "butt"}>
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={0} y2={0}
-                    strokeWidth={0.006} />
+                    strokeWidth={GUIDE_STROKE[guideStyle].w * 1.5} />
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={xh} y2={xh} />
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
             </g>
