@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react"
-import type { Altitude, Glyph } from "../api"
+import type { Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
 import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
@@ -29,11 +29,12 @@ export type DragReport = {
 
 const DEPTH_SCREEN: [number, number] = [0.62, -0.78]   // "into" the perspective
 
-const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
-                             "contrast", "serif", "straightness", "slant"]
+export const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
+                                    "contrast", "serif", "straightness",
+                                    "slant"]
 
 export function SpecimenStage({
-  glyphs, text, altitude, hullRadius, radius, depth, setDepth,
+  glyphs, text, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset,
   onUndo, onRedo, canUndo, canRedo,
   setText, proofs, neighbours, onGoToFamily, geometry, busy,
@@ -41,7 +42,6 @@ export function SpecimenStage({
 }: {
   glyphs: Glyph[]
   text: string
-  altitude: Altitude | null
   /** Where the corpus runs out, so the drag can be made to feel heavier. */
   hullRadius: number | null
   radius: number | null
@@ -537,7 +537,7 @@ export function SpecimenStage({
           </button>
         ))}
         {depth !== "handles" && (
-          <span className="flex items-center gap-1 ml-1">
+          <span className="hidden lg:flex items-center gap-1 ml-1">
             {([["↔", xProp, 0], ["↕", yProp, 1], ["⌖", zProp, 2]] as const)
               .map(([sym, val, slot]) => (
                 <span key={slot} className="flex items-center gap-0.5">
@@ -562,22 +562,20 @@ export function SpecimenStage({
           </span>
         )}
 
-        {/* Departure, on the same line as the controls that cause it. A direct
-            gesture is exactly when a designer stops watching the meters across
-            the room, so the reading sits where the hand already is. */}
-        {altitude && (
-          <span className={`font-mono text-[10px] ml-2 whitespace-nowrap
-                            ${beyond ? "text-gold"
-                              : altitude.density_percentile > 75
-                                ? "text-burgundy" : "text-muted-foreground"}`}
-                title={"r: distance from the corpus centroid, the average of "
-                  + "every font. \u03c1: how crowded this neighbourhood is, as a "
-                  + "percentile of the corpus. k\u2085: mean distance to the "
-                  + "five nearest real families, so how alone you are."}>
-            {beyond && "\u26a0 beyond the hull · "}
-            r {altitude.centroid_distance.toFixed(2)}
-            {" \u00b7 \u03c1 "}{altitude.density_percentile.toFixed(0)}
-            {"pc \u00b7 k\u2085 "}{altitude.knn_distance.toFixed(2)}
+        {/* Departure, where the hand is. The three numbers this used to read
+            out, r and \u03c1 and k\u2085, are the altitude strip's job and are
+            written out in words there; under the letters they were a row of
+            Greek that had to be decoded before it said anything. What is left
+            is the one state a traveller must not miss: outlines out here are
+            guesses rather than readings. */}
+        {beyond && (
+          <span className="font-mono text-[10px] ml-2 whitespace-nowrap
+                           text-gold"
+                title={"Past the furthest real family in the corpus. The "
+                  + "shapes still draw, but nothing was ever fitted this far "
+                  + "out, so read them as guesses. The altitude strip in the "
+                  + "map says how far out you are."}>
+            {"\u26a0 beyond the hull"}
           </span>
         )}
 

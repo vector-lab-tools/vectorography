@@ -985,7 +985,6 @@ export default function App() {
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
               text={text}
-              altitude={location?.altitude ?? null}
               hullRadius={atlas?.ball?.max ?? null}
               radius={atlas?.ball?.self ?? null}
               depth={depth}
@@ -1314,6 +1313,8 @@ export default function App() {
           defaultText={defaultText} setDefaultText={changeDefaultText}
           ballOn={ballOn} setBallOn={changeBall}
           licence={licence} setLicence={changeLicence}
+          xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
+          setProps={(x, y, zz) => setProps3([x, y, zz])}
           onForget={forgetAll}
           onClose={() => setSettingsOpen(false)} />
       )}

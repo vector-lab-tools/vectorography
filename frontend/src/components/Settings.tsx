@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { Modal } from "./Modal"
 import { TERMS } from "./Licence"
+import { PROPS } from "./SpecimenStage"
+import type { HandleKind } from "./handles"
 
 export type Theme = "system" | "light" | "dark"
 export const THEME_KEY = "vg.theme"
@@ -37,6 +39,7 @@ const SELECT = "font-mono text-[11px] bg-card border border-border "
 export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
+  xProp, yProp, zProp, setProps,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -48,6 +51,10 @@ export function Settings({
   setLicence: (v: { id: string; author: string }) => void
   onForget: () => void
   onClose: () => void
+  xProp: HandleKind
+  yProp: HandleKind
+  zProp: HandleKind
+  setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
 }) {
   const [confirming, setConfirming] = useState(false)
 
@@ -114,6 +121,35 @@ export function Settings({
               Draw it in the atlas
             </label>
           </Field>
+        </section>
+
+        <section>
+          <h3 className="font-display text-[13px] mb-1">Dragging the specimen</h3>
+          <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
+            In modifier and perspective modes the whole word is one control:
+            these say which property each direction of the hand moves. Handles
+            mode ignores them, since there the property comes from the part of
+            the letter being held.
+          </p>
+          {([["\u2194 Sideways", xProp, 0],
+             ["\u2195 Up and down", yProp, 1],
+             ["\u2316 The third property", zProp, 2]] as const)
+            .map(([label, val, slot]) => (
+            <Field key={slot} label={label}
+                   note={slot === 2
+                     ? "Wheel while dragging, or the fader on a touchscreen"
+                     : ""}>
+              <select className={SELECT} value={val}
+                      onChange={(e) => {
+                        const v = e.target.value as HandleKind
+                        setProps(slot === 0 ? v : xProp,
+                                 slot === 1 ? v : yProp,
+                                 slot === 2 ? v : zProp)
+                      }}>
+                {PROPS.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </Field>
+          ))}
         </section>
 
         <section>

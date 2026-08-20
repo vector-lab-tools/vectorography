@@ -71,11 +71,16 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
               </span>
               <button
                 onClick={() => onGo(c.id)}
+                // The row itself marks and unmarks on a double press, so the
+                // flag is a target for those who find it and a shortcut for
+                // those who do not.
+                onDoubleClick={(e) => { e.preventDefault(); onFlag(c.id) }}
                 title={here
-                  ? "Where you are"
+                  ? "Where you are \u00b7 double-click to mark a waypoint"
                   : `Return to stop ${c.id}: ${c.label}. Nothing is lost by `
                     + "going back, and travelling on from here opens a branch "
-                    + "rather than overwriting what came after."}
+                    + "rather than overwriting what came after. Double-click "
+                    + "to mark it as a waypoint."}
                 className={`group flex-1 min-w-0 flex items-center gap-2
                             px-2 py-1
                             rounded-sm text-left transition-colors
@@ -94,7 +99,7 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                   ? "text-ivory/70"
                   : "text-burgundy opacity-0 group-hover:opacity-100 "
                     + "coarse:opacity-100 transition-opacity"}`}>
-                  {here ? "here" : "\u21a9"}
+                  {here ? "current loc" : "\u21a9"}
                 </span>
               </button>
             </li>
