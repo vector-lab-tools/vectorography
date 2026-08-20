@@ -27,8 +27,6 @@ export type DragReport = {
   aiming: HandleKind[]
 }
 
-const DEPTH_SCREEN: [number, number] = [0.62, -0.78]   // "into" the perspective
-
 export const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
                                     "contrast", "serif", "straightness",
                                     "slant"]
@@ -218,11 +216,13 @@ export function SpecimenStage({
           <span className="rail-label !text-[8px]">
             modifiers for dragging
           </span>
-          {([["\u2194 sideways", xProp, 0],
-             ["\u2195 up and down", yProp, 1],
-             [d === "perspective" ? "\u2316 into the picture"
-                                  : "\u2316 wheel or fader", zProp, 2],
-            ] as const).map(([label, val, slot]) => (
+          {(d === "perspective"
+            ? ([["\u2194 across the floor", xProp, 0],
+                ["\u2191 away from the eye", zProp, 2]] as const)
+            : ([["\u2194 sideways", xProp, 0],
+                ["\u2195 up and down", yProp, 1],
+                ["\u2316 wheel or fader", zProp, 2]] as const)
+          ).map(([label, val, slot]) => (
             <span key={slot} className="flex items-center justify-between gap-2">
               <span className="font-mono text-[9px] text-muted-foreground
                                whitespace-nowrap">
@@ -340,11 +340,17 @@ export function SpecimenStage({
     }
 
     if (grabbed === "plane") {
-      add(xProp, dxEm * drag)
-      add(yProp, dyEm * drag)
       if (depth === "perspective") {
-        const along = dxEm * DEPTH_SCREEN[0] + (-dyEm) * DEPTH_SCREEN[1]
-        add(zProp, along * drag * 0.6)
+        // The word stands on a floor. Sideways moves it across the floor and
+        // up the screen pushes it away, which is where the third property
+        // lives: one gesture, two properties, and the recession says which
+        // is which without a caption. Modifier is the flat pad next door;
+        // this is the one that has a distance in it.
+        add(xProp, dxEm * drag)
+        add(zProp, dyEm * drag * 1.15)
+      } else {
+        add(xProp, dxEm * drag)
+        add(yProp, dyEm * drag)
       }
     } else {
       // A handle points along its own property, and gives the perpendicular
@@ -445,44 +451,34 @@ export function SpecimenStage({
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
             </g>
           )}
-          {/* The direction that counts as "into the picture", drawn. Without
-              it perspective was modifier with a secret: a drag along one
-              unnamed diagonal moved a third property and nothing on screen
-              said which diagonal, so the two modes behaved identically until
-              they suddenly did not. The rails run along the axis the drag is
-              measured against; they brighten while the plane is being
-              dragged, when the reading matters. */}
+          {/* The floor the word stands on. Lines converge on a vanishing
+              point above it, so up the screen reads as away from the eye
+              before anything is dragged at all. This is the whole of what
+              makes perspective a different instrument from modifier: the
+              hand moves the type in a place rather than on a pad. */}
           {depth === "perspective" && (() => {
-            const [dx, dy] = [DEPTH_SCREEN[0], -DEPTH_SCREEN[1]]
             const lit = dragging === "plane"
-            const rails = []
-            for (let a = VB.x0 - 1.2; a < VB.x0 + VB.w + 0.4; a += 0.52) {
-              rails.push(
-                <line key={a} x1={a} y1={-0.28}
-                      x2={a + dx * 1.35} y2={-0.28 + dy * 1.35} />)
+            const vpX = VB.x0 + VB.w / 2
+            const vpY = 0.78
+            const floor = -0.22
+            const rays = []
+            for (let a = VB.x0 - 0.8; a < VB.x0 + VB.w + 0.8; a += 0.42) {
+              rays.push(<line key={`r${a}`} x1={a} y1={floor}
+                              x2={vpX} y2={vpY} />)
             }
+            // Distance bands, closer together as they recede.
+            const bands = [0, 0.18, 0.33, 0.45, 0.55, 0.63, 0.69].map((t) => {
+              const y = floor + (vpY - floor) * t
+              return <line key={`b${t}`} x1={VB.x0} y1={y}
+                           x2={VB.x0 + VB.w} y2={y} />
+            })
             return (
-              <g pointerEvents="none"
-                 stroke="hsl(var(--here))"
+              <g pointerEvents="none" stroke="hsl(var(--here))"
                  strokeWidth={0.0035}
                  opacity={lit ? Math.min(1, guideInk * 1.8) : guideInk}
                  style={{ transition: "opacity 120ms" }}>
-                {rails}
-                {/* One rail said with an arrowhead, so the sense of the axis
-                    is there as well as its slope. */}
-                <g strokeWidth={0.007} opacity={lit ? 1 : 0.75}>
-                  <line x1={VB.x0 + 0.08} y1={-0.2}
-                        x2={VB.x0 + 0.08 + dx * 0.34}
-                        y2={-0.2 + dy * 0.34} />
-                  <line x1={VB.x0 + 0.08 + dx * 0.34}
-                        y1={-0.2 + dy * 0.34}
-                        x2={VB.x0 + 0.08 + dx * 0.34 - 0.075}
-                        y2={-0.2 + dy * 0.34 - 0.035} />
-                  <line x1={VB.x0 + 0.08 + dx * 0.34}
-                        y1={-0.2 + dy * 0.34}
-                        x2={VB.x0 + 0.08 + dx * 0.34 - 0.015}
-                        y2={-0.2 + dy * 0.34 - 0.085} />
-                </g>
+                {rays}
+                {bands}
               </g>
             )
           })()}
@@ -493,7 +489,7 @@ export function SpecimenStage({
           <g transform={depth === "perspective"
             ? "matrix(1,0,-0.16,1,0.06,0)" : undefined}>
             {depth === "perspective" && (
-              <g opacity="0.10"
+              <g opacity={dragging === "plane" ? 0.2 : 0.1}
                  transform="translate(0.055,0.045) scale(0.985)"
                  fill="currentColor" fillRule="evenodd">
                 {placed.map((p, i) => (
@@ -537,8 +533,10 @@ export function SpecimenStage({
 
           {depth === "perspective" && (
         <div className="absolute left-2 bottom-7 rail-label !text-[8px]
-                        text-here pointer-events-none">
-          {"\u2197 "}{zProp}
+                        text-here pointer-events-none leading-tight">
+          {"\u2191 away \u00b7 "}{zProp}
+          <br />
+          {"\u2194 across \u00b7 "}{xProp}
         </div>
       )}
 
@@ -550,7 +548,9 @@ export function SpecimenStage({
         {depth === "handles"
           ? priority === "all" ? "handles \u00b7 all"
                                : `handles \u00b7 ${priority}`
-          : `${depth} \u00b7 ${xProp}/${yProp}/${zProp}`}
+          : depth === "perspective"
+            ? `perspective \u00b7 ${xProp}/${zProp}`
+            : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
       </div>
 
       {showing && marker && (
@@ -625,8 +625,10 @@ export function SpecimenStage({
 
       {depth === "perspective" && (
         <div className="absolute left-2 bottom-7 rail-label !text-[8px]
-                        text-here pointer-events-none">
-          {"\u2197 "}{zProp}
+                        text-here pointer-events-none leading-tight">
+          {"\u2191 away \u00b7 "}{zProp}
+          <br />
+          {"\u2194 across \u00b7 "}{xProp}
         </div>
       )}
 
@@ -638,7 +640,9 @@ export function SpecimenStage({
         {depth === "handles"
           ? priority === "all" ? "handles \u00b7 all"
                                : `handles \u00b7 ${priority}`
-          : `${depth} \u00b7 ${xProp}/${yProp}/${zProp}`}
+          : depth === "perspective"
+            ? `perspective \u00b7 ${xProp}/${zProp}`
+            : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
       </div>
 
       {showing && marker && (

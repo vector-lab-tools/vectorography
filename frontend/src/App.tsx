@@ -207,7 +207,7 @@ export default function App() {
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
-  const TABS = ["atlas", "steer", "trail", "walk"]
+  const TABS = ["atlas", "steer", "trail", "walk", "settings"]
   // How the phone's window is shared between the specimen and whatever tab
   // is showing. Kept, because it is a decision about the desk, and a
   // designer who wants a big map wants it on every visit.
@@ -948,13 +948,14 @@ export default function App() {
     <div className="h-full flex flex-col">
       {/* Not a scroll container: overflow-x on the bar forces overflow-y with
           it, and the menus, which hang below the bar, were clipped away. */}
-      <header className="flex items-stretch gap-2 sm:gap-3 pl-2 sm:pl-4 pr-2
+      <header className="flex items-stretch gap-1 sm:gap-3 pl-2 sm:pl-4 pr-2
                          sm:pr-3 h-11 border-b border-border bg-card/60
                          shrink-0 px-safe">
-        <h1 className="font-display text-base tracking-tight self-center
-                       whitespace-nowrap shrink-0">
+        <h1 className="font-display text-[13px] sm:text-base tracking-tight
+                       self-center whitespace-nowrap min-w-0 truncate">
           Vectorography
-          <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+          <span className="ml-2 font-mono text-[10px] text-muted-foreground
+                           hidden sm:inline">
             {__APP_VERSION__}
           </span>
         </h1>
@@ -1303,6 +1304,20 @@ export default function App() {
                      waypoints={waypoints} onFlag={flagStop}
                      onClearFlags={() => setWaypoints([])} />
             </div>
+            <div className={`h-full pt-1 overflow-hidden
+                             ${tab === "settings" ? "" : "hidden"}`}>
+              <Settings
+                inline
+                theme={theme} setTheme={setTheme}
+                defaultText={defaultText} setDefaultText={changeDefaultText}
+                ballOn={ballOn} setBallOn={changeBall}
+                licence={licence} setLicence={changeLicence}
+                xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
+                setProps={(x, y, zz) => setProps3([x, y, zz])}
+                guideInk={guideInk} setGuideInk={changeGuideInk}
+                onForget={forgetAll}
+                onClose={() => pickTab("atlas")} />
+            </div>
             <div className={`h-full pt-1
                              ${tab === "walk" ? "" : "hidden"}`}>
               <CompassRose
@@ -1331,12 +1346,18 @@ export default function App() {
                 {label}
               </button>
             ))}
-            <button onClick={undo}
-                    disabled={trail.find((c) => c.id === cursor)?.parent == null}
-                    className="w-14 rail-label !text-[13px] border-l
-                               border-border disabled:opacity-30"
-                    title="Step back along the trail">
-              ↩
+            {/* Undo sits on the specimen's own toolbar, under the hand that
+                needs it. This corner is better spent on the settings, which
+                a phone otherwise reaches only through a menu. */}
+            <button onClick={() => pickTab("settings")}
+                    aria-selected={tab === "settings"}
+                    className={`w-14 rail-label !text-[13px] border-l
+                                border-border border-t-2 -mt-px
+                                transition-colors ${tab === "settings"
+                                  ? "border-t-burgundy text-burgundy"
+                                  : "border-t-transparent"}`}
+                    title="Settings">
+              ⚙
             </button>
           </nav>
 

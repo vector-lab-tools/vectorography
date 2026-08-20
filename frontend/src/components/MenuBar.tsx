@@ -30,13 +30,14 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
   }, [open])
 
   return (
-    <div ref={root} className="flex items-stretch h-full">
+    <div ref={root} className="flex items-stretch h-full shrink-0">
       {menus.map((m) => (
         <div key={m.label} className="relative flex items-stretch">
           <button
             onClick={() => setOpen((o) => (o === m.label ? null : m.label))}
             onMouseEnter={() => setOpen((o) => (o ? m.label : o))}
-            className={`px-3 font-mono text-[11px] uppercase tracking-[0.1em]
+            className={`px-1.5 sm:px-3 font-mono text-[10px] sm:text-[11px]
+                        uppercase tracking-[0.06em] sm:tracking-[0.1em]
                         transition-colors
                         ${open === m.label
                           ? "bg-burgundy text-ivory"

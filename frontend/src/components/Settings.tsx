@@ -40,7 +40,7 @@ const SELECT = "font-mono text-[11px] bg-card border border-border "
 export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
-  xProp, yProp, zProp, setProps, guideInk, setGuideInk,
+  xProp, yProp, zProp, setProps, guideInk, setGuideInk, inline = false,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -58,6 +58,8 @@ export function Settings({
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
   guideInk: number
   setGuideInk: (v: number) => void
+  /** Shown in place, as one of the phone's tabs, rather than over the work. */
+  inline?: boolean
 }) {
   const [confirming, setConfirming] = useState(false)
 
@@ -89,10 +91,10 @@ export function Settings({
     )
   }
 
-  return (
-    <Modal title="Settings" wide onClose={onClose}
-           subtitle="Kept between sessions, on this machine only">
-      <div className="max-h-[58vh] overflow-y-auto pr-2 space-y-5">
+  const body = (
+    <>
+      <div className={`${inline ? "flex-1 min-h-0" : "max-h-[58vh]"}
+                       overflow-y-auto pr-2 space-y-5`}>
         <section>
           <h3 className="font-display text-[13px] mb-1">Appearance</h3>
           <Field label="Theme"
@@ -206,6 +208,15 @@ export function Settings({
           Clear settings
         </button>
       </div>
+    </>
+  )
+
+  if (inline) return <div className="h-full flex flex-col">{body}</div>
+
+  return (
+    <Modal title="Settings" wide onClose={onClose}
+           subtitle="Kept between sessions, on this machine only">
+      {body}
     </Modal>
   )
 }
