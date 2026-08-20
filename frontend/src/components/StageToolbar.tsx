@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { Fragment, useRef, useState } from "react"
 
 /**
  * The switches that belong to the specimen, as icons, docked to one of its
@@ -18,6 +18,10 @@ export type Tool = {
   icon: React.ReactNode
   /** Nothing to act on: shown, but plainly not available. */
   disabled?: boolean
+  /** Draw a rule before this one: it begins a different kind of tool. */
+  divider?: boolean
+  /** Held down, or right-clicked, the tool can offer its own choices. */
+  menu?: React.ReactNode
 }
 
 export function StageToolbar({ tools, dock, setDock }: {
@@ -26,6 +30,11 @@ export function StageToolbar({ tools, dock, setDock }: {
   setDock: (d: Dock) => void
 }) {
   const [dragging, setDragging] = useState(false)
+  // A tool with choices of its own opens them on a long press, which is a
+  // right-click that a thumb can perform.
+  const [open, setOpen] = useState<string | null>(null)
+  const hold = useRef<number | null>(null)
+  const held = useRef(false)
   const root = useRef<HTMLDivElement>(null)
 
   // Vertical only when docked to a side; a corner reads as a horizontal
@@ -99,10 +108,51 @@ export function StageToolbar({ tools, dock, setDock }: {
       </div>
 
       {tools.map((t) => (
+        <Fragment key={t.key}>
+        {t.divider && (
+          <span className={`shrink-0 bg-border ${vertical
+            ? "h-px w-4 my-0.5" : "w-px h-4 mx-0.5"}`} />
+        )}
+        <span className="relative flex">
+        {open === t.key && t.menu && (
+          <>
+            <span className="fixed inset-0 z-30"
+                  onPointerDown={(e) => { e.stopPropagation(); setOpen(null) }} />
+            <span className={`absolute z-40 panel p-2 w-max max-w-[240px]
+                              ${vertical ? "left-full ml-1 top-0"
+                                         : "bottom-full mb-1 left-0"}`}
+                  onPointerDown={(e) => e.stopPropagation()}>
+              {t.menu}
+            </span>
+          </>
+        )}
         <button
-          key={t.key}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={t.onClick}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            if (!t.menu) return
+            held.current = false
+            hold.current = window.setTimeout(() => {
+              held.current = true
+              setOpen(t.key)
+            }, 420)
+          }}
+          onPointerUp={() => {
+            if (hold.current) { clearTimeout(hold.current); hold.current = null }
+          }}
+          onPointerLeave={() => {
+            if (hold.current) { clearTimeout(hold.current); hold.current = null }
+          }}
+          onContextMenu={(e) => {
+            if (!t.menu) return
+            e.preventDefault()
+            setOpen(t.key)
+          }}
+          onClick={() => {
+            // The press that opened the choices is not also a press of the
+            // tool itself.
+            if (held.current) { held.current = false; return }
+            t.onClick()
+          }}
           disabled={t.disabled}
           title={`${t.label} — ${t.title}`}
           aria-label={t.label}
@@ -116,6 +166,8 @@ export function StageToolbar({ tools, dock, setDock }: {
         >
           {t.icon}
         </button>
+        </span>
+        </Fragment>
       ))}
     </div>
   )
@@ -159,6 +211,30 @@ export const ICONS = {
   guides: (
     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
       <path d="M2 4h12M2 8h12M2 12h12" strokeDasharray="3 2" />
+    </svg>
+  ),
+  /** Handles: a point taken hold of on the edge of a stem. */
+  handles: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <path d="M5 2.5v11" strokeWidth="2.2" />
+      <circle cx="10.5" cy="6.5" r="2" fill="currentColor" stroke="none" />
+      <path d="M7 6.5h1.4" />
+    </svg>
+  ),
+  /** Modifier: the whole word as a pad, driven in two directions. */
+  modifier: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <path d="M8 2.6v10.8M2.6 8h10.8" />
+      <path d="M6.2 4.4 8 2.6l1.8 1.8M6.2 11.6 8 13.4l1.8-1.8" />
+      <path d="M4.4 6.2 2.6 8l1.8 1.8M11.6 6.2 13.4 8l-1.8 1.8" />
+    </svg>
+  ),
+  /** Perspective: the same pad, with a third direction into the picture. */
+  perspective: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <path d="M2.5 5.5 8 2.5l5.5 3-5.5 3z" />
+      <path d="M2.5 5.5v5l5.5 3 5.5-3v-5" />
+      <path d="M8 8.5v5" />
     </svg>
   ),
   keep: (

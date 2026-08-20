@@ -148,8 +148,57 @@ export function SpecimenStage({
     || (hullRadius != null && radius != null && radius > hullRadius)
 
   const tools: Tool[] = [
+    // How the hand drives the letters, first, because it decides what every
+    // other gesture on the drawing means.
+    ...(["handles", "modifier", "perspective"] as Depth[]).map((d) => ({
+      key: d,
+      on: depth === d,
+      icon: d === "handles" ? ICONS.handles
+        : d === "modifier" ? ICONS.modifier : ICONS.perspective,
+      label: d === "handles" ? "Handles"
+        : d === "modifier" ? "Modifier" : "Perspective",
+      title: d === "handles"
+        ? "grab the part of the letter that expresses the property"
+        : d === "modifier"
+          ? "drag anywhere for two properties, wheel or fader for the third"
+          : "drag anywhere for two properties, into the picture for the third",
+      onClick: () => setDepth(d),
+      // Held down, the plane modes offer the properties the hand drives.
+      // Handles has none to offer: there the letter decides.
+      menu: d === "handles" ? undefined : (
+        <span className="flex flex-col gap-1.5">
+          <span className="rail-label !text-[8px]">
+            what the hand moves
+          </span>
+          {([["\u2194 sideways", xProp, 0],
+             ["\u2195 up and down", yProp, 1],
+             [d === "perspective" ? "\u2316 into the picture"
+                                  : "\u2316 wheel or fader", zProp, 2],
+            ] as const).map(([label, val, slot]) => (
+            <span key={slot} className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[9px] text-muted-foreground
+                               whitespace-nowrap">
+                {label}
+              </span>
+              <select
+                value={val}
+                onChange={(e) => {
+                  const v = e.target.value as HandleKind
+                  setProps(slot === 0 ? v : xProp, slot === 1 ? v : yProp,
+                           slot === 2 ? v : zProp)
+                }}
+                className="font-mono text-[10px] bg-background border
+                           border-border rounded-sm px-1 py-0.5"
+              >
+                {PROPS.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </span>
+          ))}
+        </span>
+      ),
+    })),
     {
-      key: "points", on: points !== "off",
+      key: "points", divider: true, on: points !== "off",
       icon: points === "on" ? ICONS.points
         : points === "minimal" ? ICONS.pointsMinimal : ICONS.pointsOff,
       label: points === "on" ? "Grab points: all"
@@ -181,7 +230,7 @@ export function SpecimenStage({
     // tooltip to read, a press that changes nothing on screen is a press that
     // did not work. Both still live in the Edit menu.
     {
-      key: "undo", on: false, icon: ICONS.recall, label: "Undo",
+      key: "undo", on: false, divider: true, icon: ICONS.recall, label: "Undo",
       title: "back to the last stop on the trail",
       disabled: !canUndo,
       onClick: onUndo,
@@ -487,8 +536,8 @@ export function SpecimenStage({
           back to rest, so it deals in movement rather than position, exactly
           as the wheel does. Coarse pointers only. */}
       {depth === "modifier" && (
-        <div className="hidden coarse:flex absolute left-0.5 top-16 bottom-16
-                        w-7 flex-col items-center"
+        <div className="hidden coarse:flex absolute left-1 top-1/3 bottom-1/4
+                        w-6 flex-col items-center opacity-70"
              title={`${zProp}: drag up or down, springs back`}
              onPointerDown={(e) => e.stopPropagation()}>
           <input
@@ -518,24 +567,6 @@ export function SpecimenStage({
       <div className={`absolute bottom-1 left-2 flex flex-wrap items-center
                        gap-1 ${dock === "bottom-right" ? "right-[124px]"
                          : dock === "bottom" ? "right-[124px]" : "right-2"}`}>
-        {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
-          <button
-            key={d}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setDepth(d)}
-            title={d === "handles"
-              ? "Grab the part of the letter that expresses the property."
-              : d === "modifier"
-                ? "Drag for two properties, wheel during the drag for the third."
-                : "Drag for two properties, push into the picture for the third."}
-            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
-                        transition-colors ${depth === d
-                          ? "border-here text-here bg-here/10"
-                          : "border-border text-muted-foreground"}`}
-          >
-            {d}
-          </button>
-        ))}
         {depth !== "handles" && (
           <span className="hidden lg:flex items-center gap-1 ml-1">
             {([["↔", xProp, 0], ["↕", yProp, 1], ["⌖", zProp, 2]] as const)
