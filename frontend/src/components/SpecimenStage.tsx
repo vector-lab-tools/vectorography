@@ -654,6 +654,11 @@ export function SpecimenStage({
                 && hover.glyph === h.glyph
               const singled = !!dragging || !!hover
               if (points === "minimal" && !held && !near) return null
+              // While a handle is in hand the rest go: the question has
+              // become this stem, and seventy points around the letters it is
+              // changing are something to read past rather than something to
+              // use. They come back the moment it is let go.
+              if (dragging && !held) return null
               const alpha = held || near ? 0.95 : singled ? 0.09 : 0.4
               return (
                 <circle
