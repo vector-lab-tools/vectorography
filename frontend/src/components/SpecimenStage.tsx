@@ -114,32 +114,37 @@ export function SpecimenStage({
   // readable size; a short one keeps to one, as before. The measure is
   // whatever width gives every line about the same height as the box allows,
   // so dragging the divider changes the setting rather than the scale.
-  const [rows, setRows] = useState(1)
+  // The measure the text is set to, in ems. Chosen by working out how big
+  // each candidate setting would actually be drawn, which is the same sum the
+  // SVG does when it fits the drawing to the box: the smaller of what the
+  // width allows and what the height allows. Deriving it from the height
+  // alone made a tall panel ask for an impossibly narrow measure, every
+  // multi-line setting wrapped to more lines than it had asked for and was
+  // thrown out, and the specimen fell back to one line drawn small. Dragging
+  // the panel taller made the letters smaller, which is the opposite of what
+  // dragging it taller is for.
   const [measure, setMeasure] = useState(Infinity)
   useEffect(() => {
     const el = box.current
     if (!el) return
-    // For each number of lines, the em size the box could show it at, and the
-    // measure that fills the width at that size. Wrapping to a measure taken
-    // from the text's own width instead left short lines with the room they
-    // could have used sitting empty on both sides.
     const read = () => {
       const w = el.clientWidth, h = el.clientHeight
       if (!w || !h) return
-      let best = { n: 1, size: 0 }
+      const wide = lineWidth(layout(glyphs, text))
+      let best = { measure: Infinity, size: 0 }
       for (let n = 1; n <= 4; n++) {
-        const size = h / (n * LINE_H + 0.24)       // px per em at n lines
-        const measure = w / size                    // ems across the box
-        const wrapped = layout(glyphs, text, measure)
-        // Wrapping may need more lines than asked for, or fewer; a setting is
-        // only what it says it is when the two agree.
-        if (lineCount(wrapped) !== n) continue
-        const fits = Math.min(size, w / (lineWidth(wrapped) + 0.12))
-        if (fits > best.size * 1.02) best = { n, size: fits }
+        // Lines of roughly equal length, which is what a measure of the whole
+        // divided by the count gives.
+        const m = n === 1 ? Infinity : (wide / n) * 1.02
+        const set = layout(glyphs, text, m)
+        const vbW = lineWidth(set) + 0.12
+        const vbH = 1.24 + (lineCount(set) - 1) * LINE_H
+        const size = Math.min(w / vbW, h / vbH)
+        // A further line has to earn its place by a clear margin, or the
+        // setting flickers between two of them as the panel is dragged.
+        if (size > best.size * 1.04) best = { measure: m, size }
       }
-      setRows(best.n)
-      setMeasure(best.n === 1 ? Infinity
-        : w / (h / (best.n * LINE_H + 0.24)))
+      setMeasure(best.measure)
     }
     read()
     const ro = new ResizeObserver(read)
@@ -148,13 +153,10 @@ export function SpecimenStage({
   }, [glyphs, text])
 
   const placed = useMemo(
-    () => layout(glyphs, text, rows <= 1 ? Infinity : measure),
-    [glyphs, text, rows, measure])
-  // Laid out from the outlines, which lag the specimen by a beat. The handles
-  // follow that copy; the letters are drawn from the fresh one.
+    () => layout(glyphs, text, measure), [glyphs, text, measure])
+
   const probed = useMemo(
-    () => layout(geometry ?? [], text, rows <= 1 ? Infinity : measure),
-    [geometry, text, rows, measure])
+    () => layout(geometry ?? [], text, measure), [geometry, text, measure])
   const width = useMemo(() => lineWidth(placed), [placed])
   const xh = useMemo(() => xHeightOf(placed), [placed])
   // Cap height, read off a capital if the specimen has one.
