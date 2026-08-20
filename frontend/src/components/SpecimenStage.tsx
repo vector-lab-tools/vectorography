@@ -645,7 +645,12 @@ export function SpecimenStage({
               "this stem", and the other seventy points are no longer part of
               it. */}
           <g pointerEvents="none">
-            {(points === "off" || depth !== "handles" ? [] : handles)
+            {(points === "off" || depth !== "handles" ? []
+              // With one property asked for, only its points are drawn. The
+              // rest are not what a press will take hold of, and showing
+              // them said the letter could still be grabbed anywhere.
+              : priority === "all" ? handles
+                : handles.filter((h) => h.kind === priority))
               .map((h, i) => {
               const held = dragging !== "plane" && dragging?.kind === h.kind
                 && dragging.glyph === h.glyph
