@@ -211,6 +211,12 @@ export default function App() {
   // How the phone's window is shared between the specimen and whatever tab
   // is showing. Kept, because it is a decision about the desk, and a
   // designer who wants a big map wants it on every visit.
+  // How tall the letters are at desk widths. The atlas takes what is left,
+  // so this handle is the same bargain as the one below it.
+  const [specimenH, setSpecimenH] = useState(() => {
+    const kept = Number(localStorage.getItem("vg.specimen"))
+    return kept >= 90 && kept <= 900 ? kept : 168
+  })
   const [phoneSplit, setPhoneSplit] = useState(() => {
     const kept = Number(localStorage.getItem("vg.split"))
     return kept >= 0.18 && kept <= 0.82 ? kept : 0.4
@@ -996,7 +1002,8 @@ export default function App() {
                  style={isMobile ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
                    : { flex: `0 0 calc((100dvh - 96px) * ${split})` }}>
           <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
-                          lg:h-[168px] px-2 sm:px-3 py-2 text-ink">
+                          px-2 sm:px-3 py-2 text-ink"
+               style={isMobile ? undefined : { height: specimenH }}>
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
@@ -1024,6 +1031,49 @@ export default function App() {
               busy={false}
             />
           </div>
+
+          {!isMobile && (
+            <div
+              className="hidden lg:flex h-3 shrink-0 -my-1 cursor-row-resize
+                         group items-center justify-center"
+              style={{ touchAction: "none" }}
+              title="Drag to give the specimen or the space more room. Double-click to reset."
+              onDoubleClick={() => {
+                setSpecimenH(168)
+                localStorage.setItem("vg.specimen", "168")
+              }}
+              onPointerDown={(e) => {
+                e.preventDefault()
+                try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                const host = e.currentTarget.parentElement as HTMLElement
+                const startY = e.clientY
+                const start = specimenH
+                let latest = start
+                const move = (ev: PointerEvent) => {
+                  const room = host.clientHeight - 140
+                  latest = Math.max(90, Math.min(Math.max(140, room),
+                    start + (ev.clientY - startY)))
+                  setSpecimenH(latest)
+                }
+                const up = () => {
+                  localStorage.setItem("vg.specimen", String(latest))
+                  window.removeEventListener("pointermove", move)
+                  window.removeEventListener("pointerup", up)
+                  window.removeEventListener("pointercancel", up)
+                }
+                window.addEventListener("pointermove", move)
+                window.addEventListener("pointerup", up)
+                window.addEventListener("pointercancel", up)
+              }}
+            >
+              <div className="h-px flex-1 bg-transparent
+                              group-hover:bg-burgundy/40 transition-colors" />
+              <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
+                              group-hover:bg-burgundy transition-colors" />
+              <div className="h-px flex-1 bg-transparent
+                              group-hover:bg-burgundy/40 transition-colors" />
+            </div>
+          )}
 
           {!isMobile && (
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
