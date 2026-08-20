@@ -101,14 +101,6 @@ const PLANNED: Record<"glyph" | "set" | "compare" | "licence", Planned> = {
 const dot = (a: number[], c: number[]) =>
   a.reduce((t, ai, i) => t + ai * c[i], 0)
 
-const PROOFS = [
-  "Hamburgefonstiv",
-  "Vectorography",
-  "adhesion",
-  "HHOOHO nnoonn",
-  "Sphinx of black quartz, judge my vow",
-]
-
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -1074,7 +1066,6 @@ export default function App() {
               lost={!!z && !isSane(z)}
               onReset={resetToSane}
               setText={setText}
-              proofs={PROOFS}
               neighbours={location?.neighbours ?? []}
               onGoToFamily={goToFamily}
               onUndo={undo}

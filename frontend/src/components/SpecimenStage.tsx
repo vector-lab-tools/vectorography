@@ -37,7 +37,7 @@ export function SpecimenStage({
   glyphs, text, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset,
   onUndo, onRedo, canUndo, canRedo, guideInk, guideStyle,
-  setText, proofs, neighbours, onGoToFamily, geometry, busy,
+  setText, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -66,9 +66,8 @@ export function SpecimenStage({
   guideStyle: GuideStyle
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
-  /** The word being set, and the proofs worth setting it in. */
+  /** The word being set. */
   setText: (t: string) => void
-  proofs: string[]
   /** Real families, nearest first, and travel to the one chosen. */
   neighbours: { family: string; distance: number }[]
   onGoToFamily: (name: string) => void
@@ -715,35 +714,12 @@ export function SpecimenStage({
       {/* What the type is being set in, at the head of the panel it is set
           in. It had been up in the menu bar, a long way from the letters it
           changes. */}
-      {/* The row does not clip: only the chips inside it scroll. With the
-          overflow on the row itself, the family list opened inside a box that
-          cut it off, so pressing where it should have been hit the drawing
-          underneath instead. */}
+      {/* What the type is being set in, at the head of the panel it is set
+          in. The five chips that stood here were the same strings the list
+          holds, abbreviated to Ham and adh and HHOO, which read as words
+          only to someone who already knew them. */}
       <div className="absolute top-1 left-2 right-2 z-30 flex items-center
-                      gap-1">
-      <div className="flex items-center gap-1 flex-1 min-w-0
-                      overflow-x-auto no-scrollbar">
-        {proofs.map((t) => (
-          <button
-            key={t}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setText(t)}
-            title={t}
-            className={`font-mono text-[9px] px-2 py-[3px] rounded-full border
-                        transition-all active:translate-y-px ${text === t
-                          ? "border-burgundy bg-burgundy text-ivory"
-                          : "border-border bg-muted/60 text-muted-foreground "
-                            + "hover:bg-card hover:text-foreground "
-                            + "hover:border-burgundy/60"}`}
-          >
-            {t === "Hamburgefonstiv" ? "Ham"
-              : t === "Vectorography" ? "Vg"
-              : t === "adhesion" ? "adh"
-              : t.startsWith("HHOO") ? "HHOO" : "pangram"}
-          </button>
-        ))}
-      </div>
-
+                      justify-end gap-1">
         <ProofBox text={text} setText={setText} />
 
         {/* The real families you are standing among, nearest first, each set
