@@ -23,6 +23,7 @@ import { SpecimenStage, type Depth, type DragReport }
 import type { HandleKind } from "./components/handles"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
+import { useIsMobile } from "./hooks/useIsMobile"
 
 const DEFAULT_TEXT = "Hamburgefonstiv"
 
@@ -190,6 +191,14 @@ export default function App() {
   // twenty things in a row and wants the good one back, not the twentieth.
   const [snapshot, setSnapshot] = useState<number[] | null>(null)
   const [split, setSplit] = useState(0.7)
+  // Below lg the instruments share one region and swap by tab; the specimen
+  // and the atlas stay on screen throughout, because they are the work.
+  const isMobile = useIsMobile()
+  const [tab, setTab] = useState(() =>
+    localStorage.getItem("vg.tab") ?? "steer")
+  const pickTab = (t: string) => {
+    setTab(t); localStorage.setItem("vg.tab", t)
+  }
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -909,7 +918,7 @@ export default function App() {
           it, and the menus, which hang below the bar, were clipped away. */}
       <header className="flex items-stretch gap-2 sm:gap-3 pl-2 sm:pl-4 pr-2
                          sm:pr-3 h-11 border-b border-border bg-card/60
-                         shrink-0">
+                         shrink-0 px-safe">
         <h1 className="font-display text-base tracking-tight self-center
                        whitespace-nowrap shrink-0">
           Vectorography
@@ -944,14 +953,16 @@ export default function App() {
 
       {/* The work area scrolls as a whole. The footer is a sibling of this,
           not a child, so it stays where it is however far down you go. */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto
+                       max-lg:overflow-hidden">
         {/* Top: the type itself, at a size the hand can work on, with the
             space it sits in below and beside it. */}
-        <section className="shrink-0 min-h-[320px] overflow-hidden flex
-                            flex-col gap-3 px-3 pt-3"
-                 style={{ flex: `${split} 1 0%` }}>
-          <div className="panel shrink-0 h-[190px] sm:h-[168px] px-2 sm:px-3
-                          py-2 text-ink">
+        <section className="shrink-0 overflow-hidden flex flex-col gap-2
+                            lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
+                            max-lg:flex-1 max-lg:min-h-0"
+                 style={isMobile ? undefined : { flex: `${split} 1 0%` }}>
+          <div className="panel shrink-0 h-[30dvh] min-h-[200px] lg:h-[168px]
+                          lg:min-h-0 px-2 sm:px-3 py-2 text-ink">
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
@@ -986,7 +997,7 @@ export default function App() {
           </div>
 
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
-            <div className="flex-1 min-w-0 min-h-[180px]">
+            <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]">
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
                      directions={directions}
                      colourBy={colourBy} setColourBy={setColourBy}
@@ -999,6 +1010,7 @@ export default function App() {
                      liveRadius={liveRadius} />
             </div>
 
+            {!isMobile && (
             <div className="w-full lg:w-[240px] shrink-0 min-h-0
                             flex flex-col gap-2 overflow-hidden">
               <div className="flex-1 min-h-[96px] shrink">
@@ -1023,17 +1035,21 @@ export default function App() {
                 </div>
               )}
             </div>
+            )}
           </div>
         </section>
 
         {/* The divider is draggable: how much room the space gets against how
             much the instruments get is the user's call, not ours. */}
         <div
-          className="h-3 shrink-0 mx-3 my-1 cursor-row-resize group flex
-                     items-center"
+          className="hidden lg:flex h-3 shrink-0 mx-3 my-1 cursor-row-resize
+                     group items-center justify-center"
+          style={{ touchAction: "none" }}
           title="Drag to give either half more room. Double-click to even it up."
           onDoubleClick={() => setSplit(0.7)}
           onPointerDown={(e) => {
+            // Without this the drag sweeps a text selection across the page.
+            e.preventDefault()
             const startY = e.clientY
             const start = split
             const host = (e.currentTarget.parentElement as HTMLElement)
@@ -1054,12 +1070,18 @@ export default function App() {
             window.addEventListener("pointerup", up)
           }}
         >
-          <div className="h-px w-full bg-border group-hover:bg-burgundy
+          <div className="h-px flex-1 bg-border group-hover:bg-burgundy
+                          transition-colors" />
+          {/* The bar alone read as a border; a grip says it can be held. */}
+          <div className="mx-2 h-1.5 w-10 shrink-0 rounded-full bg-border
+                          group-hover:bg-burgundy transition-colors" />
+          <div className="h-px flex-1 bg-border group-hover:bg-burgundy
                           transition-colors" />
         </div>
 
         {/* Bottom: readings and controls. */}
-        <section className="shrink-0 min-h-[300px] px-3 pb-3 grid gap-3
+        {!isMobile && (
+        <section className="shrink-0 px-3 pb-3 grid gap-3
                             grid-cols-1 md:grid-cols-2"
                  style={{ flex: `${1 - split} 1 0%` }}>
           {/* Two panels, side by side: what moves you, and where you have
@@ -1117,6 +1139,114 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
+
+        {isMobile && (<>
+          {/* The lower half of a phone: one instrument at a time, all of
+              them mounted so a slider keeps its place across a swap. */}
+          <div className="shrink-0 h-[34dvh] min-h-[230px] px-2 pb-1
+                          overflow-hidden">
+            <div className={`h-full overflow-y-auto pt-1
+                             ${tab === "steer" ? "" : "hidden"}`}>
+              {directions.length > 0 ? (
+                <DirectionPad directions={directions} at={standing}
+                              onSlide={slideTo} onCommit={slideCommit}
+                              busy={busy} />
+              ) : (
+                <p className="font-mono text-[10px] text-muted-foreground p-2">
+                  No measured directions in this model.
+                </p>
+              )}
+            </div>
+            <div className={`h-full overflow-y-auto pt-1
+                             ${tab === "travel" ? "" : "hidden"}`}>
+              <TravelBar
+                corpus={corpus}
+                radius={radius} setRadius={setRadius}
+                temperature={temperature} setTemperature={setTemperature}
+                step={step} setStep={setStep}
+                axX={axX} axY={axY} axZ={axZ}
+                setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
+                overlap={atlas?.axes.overlap ?? null}
+                ride={ride} orbit={orbit}
+                onDrift={() => travel({ mode: "drift" }, "drift",
+                                      `drift t${temperature.toFixed(2)}`)}
+                onRepel={() => travel({ mode: "repel" }, "repel",
+                                      `repel s${step.toFixed(2)}`)}
+                onOrbit={() => orbit && travel(
+                  { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
+                  `orbit ${orbit.name} +20°`)}
+                onSetRide={async (a, b) => {
+                  try {
+                    const [za, zb] = await Promise.all(
+                      [api.fontPosition(a), api.fontPosition(b)])
+                    setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
+                  } catch (e) { setError(String(e)) }
+                }}
+                onClearRide={() => setRide(null)}
+                onSetOrbit={async (name) => {
+                  try {
+                    const r = await api.fontPosition(name)
+                    setOrbit({ name, z: r.z })
+                  } catch (e) { setError(String(e)) }
+                }}
+                onClearOrbit={() => setOrbit(null)}
+                busy={busy}
+              />
+            </div>
+            <div className={`h-full min-h-0 flex-col rounded-md border
+                             border-border/60 bg-muted/25 px-2.5 py-2
+                             overflow-y-auto
+                             ${tab === "trail" ? "flex" : "hidden"}`}>
+              <Trail trail={trail} cursor={cursor} onGo={setCursor} />
+            </div>
+            <div className={`h-full pt-1
+                             ${tab === "walk" ? "" : "hidden"}`}>
+              <CompassRose
+                points={compass}
+                compassText={compassText}
+                radius={radius}
+                onTravel={(p) => walk(p.bearing)}
+                busy={busy}
+              />
+            </div>
+          </div>
+
+          <nav className="shrink-0 h-12 flex items-stretch border-t
+                          border-border bg-card/60 pb-safe px-safe">
+            {([["steer", "Steer"], ["travel", "Travel"],
+               ["trail", "Trail"], ["walk", "Walk"]] as const)
+              .map(([key, label]) => (
+              <button key={key}
+                      aria-selected={tab === key}
+                      onClick={() => pickTab(key)}
+                      className={`flex-1 rail-label !text-[10px] border-t-2
+                                  -mt-px transition-colors
+                                  ${tab === key
+                                    ? "border-burgundy text-burgundy"
+                                    : "border-transparent"}`}>
+                {label}
+              </button>
+            ))}
+            <button onClick={undo}
+                    disabled={trail.find((c) => c.id === cursor)?.parent == null}
+                    className="w-14 rail-label !text-[13px] border-l
+                               border-border disabled:opacity-30"
+                    title="Step back along the trail">
+              ↩
+            </button>
+          </nav>
+
+          {error && (
+            <button
+              className="fixed left-2 right-2 z-40 panel px-3 py-2 font-mono
+                         text-[10px] text-burgundy text-left truncate"
+              style={{ bottom: "calc(3.25rem + env(safe-area-inset-bottom))" }}
+              onClick={() => setError(null)}>
+              {error}
+            </button>
+          )}
+        </>)}
       </main>
 
       {sharing && z && (
@@ -1181,7 +1311,7 @@ export default function App() {
         />
       )}
 
-      <footer className="h-8 shrink-0 px-4 flex items-center gap-4 border-t
+      <footer className="h-8 shrink-0 px-4 hidden sm:flex items-center gap-4 border-t
                          border-border bg-card/60">
         <span className="font-mono text-[10px] text-muted-foreground"
               title={file ? `Saved as ${file}`

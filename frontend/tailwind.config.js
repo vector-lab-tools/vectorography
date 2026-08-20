@@ -4,6 +4,12 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Not widths: these switch on how the pointer works, so a tablet in
+      // the desktop layout still gets touch-sized targets.
+      screens: {
+        coarse: { raw: "(pointer: coarse)" },
+        fine: { raw: "(pointer: fine)" },
+      },
       colors: {
         ink: "hsl(var(--ink) / <alpha-value>)",
         ivory: "hsl(var(--ivory) / <alpha-value>)",

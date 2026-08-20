@@ -39,6 +39,8 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     overflow: hidden;
+    /* A drag at the top of the page must move the specimen, not refresh it. */
+    overscroll-behavior: none;
   }
 }
 
@@ -57,6 +59,17 @@
   }
   .btn-active {
     @apply bg-burgundy text-ivory border-burgundy hover:bg-burgundy;
+  }
+  /* A finger needs more to land on than a pointer does. */
+  @media (pointer: coarse) {
+    .btn { @apply min-h-[44px] py-2.5; }
+    input[type="range"] { @apply h-6; }
+  }
+  /* The parts of the screen an iPhone reserves for itself. */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .px-safe {
+    padding-left: max(env(safe-area-inset-left), 0.5rem);
+    padding-right: max(env(safe-area-inset-right), 0.5rem);
   }
 }
 
