@@ -136,13 +136,23 @@ export function SpecimenStage({
       const wide = lineWidth(layout(glyphs, text))
       let best = { measure: Infinity, size: 0 }
       for (let n = 1; n <= 4; n++) {
-        // Lines of roughly equal length, which is what a measure of the whole
-        // divided by the count gives.
-        const m = n === 1 ? Infinity : (wide / n) * 1.02
-        const set = layout(glyphs, text, m)
-        const vbW = lineWidth(set) + 0.12
-        const vbH = 1.24 + (lineCount(set) - 1) * LINE_H
-        const size = Math.min(w / vbW, h / vbH)
+        // Start from lines of roughly equal length, then let the measure grow
+        // to whatever the box can actually show at the size that setting is
+        // drawn at. Stopping at the first guess set the text to a measure
+        // taken from its own length rather than from the room available, and
+        // left a wide panel with margins down both sides.
+        let m = n === 1 ? Infinity : (wide / n) * 1.02
+        let size = 0
+        for (let pass = 0; pass < 4; pass++) {
+          const set = layout(glyphs, text, m)
+          const vbW = lineWidth(set) + 0.12
+          const vbH = 1.24 + (lineCount(set) - 1) * LINE_H
+          size = Math.min(w / vbW, h / vbH)
+          if (n === 1) break
+          const grown = w / size - 0.12
+          if (grown <= m + 0.02) break
+          m = grown
+        }
         // A further line has to earn its place by a clear margin, or the
         // setting flickers between two of them as the panel is dragged.
         if (size > best.size * 1.04) best = { measure: m, size }

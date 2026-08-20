@@ -308,7 +308,7 @@ export function Settings({
   if (inline) return <div className="h-full flex flex-col">{body}</div>
 
   return (
-    <Modal title="Settings" wide onClose={onClose}
+    <Modal title="Settings" onClose={onClose}
            subtitle="Kept between sessions, on this machine only">
       {body}
     </Modal>
