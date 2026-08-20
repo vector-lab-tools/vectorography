@@ -119,6 +119,7 @@ export function StageToolbar({ tools, dock, setDock }: {
             <span className="fixed inset-0 z-30"
                   onPointerDown={(e) => { e.stopPropagation(); setOpen(null) }} />
             <span className={`absolute z-40 panel p-2 w-max max-w-[240px]
+                              max-h-[34dvh] overflow-y-auto
                               ${vertical ? "left-full ml-1 top-0"
                                          : "bottom-full mb-1 left-0"}`}
                   onPointerDown={(e) => e.stopPropagation()}>
@@ -151,6 +152,11 @@ export function StageToolbar({ tools, dock, setDock }: {
             // The press that opened the choices is not also a press of the
             // tool itself.
             if (held.current) { held.current = false; return }
+            // A tool already doing its job has nothing to switch to, so the
+            // second press asks it what it is set to instead. First press
+            // chooses the tool, second opens its choices, and holding does
+            // the same from anywhere.
+            if (t.menu && t.on) { setOpen(t.key); return }
             t.onClick()
           }}
           disabled={t.disabled}

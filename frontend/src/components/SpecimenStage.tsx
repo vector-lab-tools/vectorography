@@ -76,6 +76,16 @@ export function SpecimenStage({
   const svg = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<Handle | null>(null)
   const [dragging, setDragging] = useState<Handle | "plane" | null>(null)
+  // Which handle a press is asking for. With one chosen, a press anywhere on
+  // the drawing takes hold of that property, so a designer working on weight
+  // does not have to find a stem edge every time. "all" is the letterform
+  // answering for itself, which is the mode the tool is named after.
+  const [priority, setPriority] = useState<HandleKind | "all">(
+    () => (localStorage.getItem("vg.handle") as HandleKind | null) ?? "all")
+  const choosePriority = useCallback((k: HandleKind | "all") => {
+    setPriority(k)
+    localStorage.setItem("vg.handle", k)
+  }, [])
   const [fader, setFader] = useState(0)
   const faderLast = useRef(0)
   // Metrics are wanted while judging a shape and in the way while reading a
@@ -141,8 +151,20 @@ export function SpecimenStage({
   const probe = useCallback((cx: number, cy: number) => {
     const p = toEm(cx, cy)
     if (!p) return null
+    if (priority !== "all") {
+      // The nearest handle of the kind asked for. Nearest, not the first,
+      // so a word of many letters is still worked on where the hand is.
+      let best: Handle | null = null
+      let bestD = Infinity
+      for (const h of handles) {
+        if (h.kind !== priority) continue
+        const d = Math.hypot(h.at[0] - p.x, h.at[1] - p.y)
+        if (d < bestD) { bestD = d; best = h }
+      }
+      if (best) return best
+    }
     return handleAt(probed, p.x, p.y, xh)
-  }, [probed, toEm, xh])
+  }, [handles, priority, probed, toEm, xh])
 
   const beyond = lost
     || (hullRadius != null && radius != null && radius > hullRadius)
@@ -165,7 +187,31 @@ export function SpecimenStage({
       onClick: () => setDepth(d),
       // Held down, the plane modes offer the properties the hand drives.
       // Handles has none to offer: there the letter decides.
-      menu: d === "handles" ? undefined : (
+      menu: d === "handles" ? (
+        <span className="flex flex-col gap-1">
+          <span className="rail-label !text-[8px]">handle to grab</span>
+          {(["all", ...PROPS] as (HandleKind | "all")[]).map((k) => {
+            const offered = k === "all" || handles.some((h) => h.kind === k)
+            return (
+              <button key={k} onClick={() => choosePriority(k)}
+                      disabled={!offered}
+                      title={k === "all"
+                        ? "The part of the letter under the hand decides"
+                        : offered
+                          ? `A press anywhere takes hold of ${k}`
+                          : `This specimen offers no ${k} handle`}
+                      className={`text-left font-mono text-[10px] px-1.5 py-1
+                                  max-lg:py-1.5 rounded-sm transition-colors
+                                  disabled:opacity-30
+                                  ${priority === k
+                                    ? "bg-here/10 text-here"
+                                    : "hover:bg-muted"}`}>
+                {k === "all" ? "all \u00b7 wherever the hand lands" : k}
+              </button>
+            )
+          })}
+        </span>
+      ) : (
         <span className="flex flex-col gap-1.5">
           <span className="rail-label !text-[8px]">
             modifiers for dragging
