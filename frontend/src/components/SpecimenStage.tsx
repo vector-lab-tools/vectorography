@@ -250,7 +250,8 @@ export function SpecimenStage({
       ),
     })),
     {
-      key: "points", divider: true, on: points !== "off",
+      key: "points", divider: true, on: points !== "off" && depth === "handles",
+      disabled: depth !== "handles",
       icon: points === "on" ? ICONS.points
         : points === "minimal" ? ICONS.pointsMinimal : ICONS.pointsOff,
       label: points === "on" ? "Grab points: all"
@@ -572,7 +573,8 @@ export function SpecimenStage({
               "this stem", and the other seventy points are no longer part of
               it. */}
           <g pointerEvents="none">
-            {(points === "off" ? [] : handles).map((h, i) => {
+            {(points === "off" || depth !== "handles" ? [] : handles)
+              .map((h, i) => {
               const held = dragging !== "plane" && dragging?.kind === h.kind
                 && dragging.glyph === h.glyph
               const near = !dragging && hover?.kind === h.kind
@@ -592,14 +594,6 @@ export function SpecimenStage({
             })}
           </g>
 
-          {depth === "perspective" && (
-        <div className="absolute left-2 bottom-7 rail-label !text-[8px]
-                        text-here pointer-events-none leading-tight">
-          {"\u2191 away \u00b7 "}{zProp}
-          <br />
-          {"\u2194 across \u00b7 "}{xProp}
-        </div>
-      )}
 
       {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that

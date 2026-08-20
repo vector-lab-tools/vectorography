@@ -192,10 +192,9 @@ export function Settings({
                               border border-border rounded-sm px-2 py-1" />
           </Field>
         </section>
-      </div>
 
-      <div className="mt-3 pt-3 border-t border-border/60 flex items-baseline
-                      justify-between gap-3">
+        <div className="mt-10 pt-4 border-t-2 border-border flex items-baseline
+                        justify-between gap-3 flex-wrap">
         <span className="text-[10px] text-muted-foreground">
           Nothing here leaves this machine. There is no account and no
           telemetry.
@@ -207,6 +206,7 @@ export function Settings({
                   + "position, and start from the defaults"}>
           Clear settings
         </button>
+        </div>
       </div>
     </>
   )

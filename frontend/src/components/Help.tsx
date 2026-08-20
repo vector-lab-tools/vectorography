@@ -23,7 +23,7 @@ function What({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="What is Vectorography" wide onClose={onClose}
            subtitle="Type design by traversal">
-      <div className="max-h-[62vh] overflow-y-auto pr-2 space-y-3
+      <div className="max-h-none sm:max-h-[62vh] overflow-y-auto pr-2 space-y-3
                       text-[12px] leading-relaxed">
         <p>
           Vectorography is an instrument for designing type by <em>moving
@@ -87,7 +87,8 @@ function What({ onClose }: { onClose: () => void }) {
 
 function Row({ term, children }: { term: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[7.5rem_1fr] gap-3 items-baseline py-1.5
+    <div className="grid grid-cols-1 sm:grid-cols-[7.5rem_1fr] gap-1 sm:gap-3
+                    items-baseline py-1.5
                     border-b border-border/40 last:border-0">
       <span className="rail-label !text-[8px] pt-0.5">{term}</span>
       <span className="text-[12px] leading-relaxed">{children}</span>
@@ -110,7 +111,7 @@ function Readings({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="What the readings mean" wide onClose={onClose}
            subtitle="The instrument measures where you are, not only what you drew">
-      <div className="max-h-[62vh] overflow-y-auto pr-2">
+      <div className="max-h-none sm:max-h-[62vh] overflow-y-auto pr-2">
         <Section title="The pull towards the middle">
           <p className="text-[12px] leading-relaxed mb-2">
             A vector space fitted on a corpus has a centre, and the centre is
@@ -186,15 +187,49 @@ function Readings({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="Working the letterform">
-          <p className="text-[12px] leading-relaxed">
-            The grab points are found in the outlines, not drawn on top of
-            them: a point on the side of a stem moves weight, the outer edge
-            moves width, the top of a lowercase moves x-height, the gap moves
-            spacing. Colours match the property each one carries. The chips
-            decide which properties a drag is allowed to change, so you can
-            move through the space along one axis of the design and hold the
-            rest still.
+          <p className="text-[12px] leading-relaxed mb-2">
+            Three ways for the hand to drive the type, chosen from the first
+            group of the toolbar on the specimen. Press a tool a second time,
+            or hold it, to see what it is set to.
           </p>
+          <Row term="handles">
+            Grab the part of the letter that carries the property: the side of
+            a stem moves weight, the outer edge width, the top of a lowercase
+            x-height, the gap between letters spacing. The points are found in
+            the outlines rather than drawn on top of them, and each wears its
+            property's colour. Set it to one property and a press anywhere
+            takes hold of that one, which is how to spend a session on weight
+            alone.
+          </Row>
+          <Row term="modifier">
+            The whole word as a pad: sideways moves one property, up and down
+            a second, the wheel or the fader at the edge a third. You say which
+            three.
+          </Row>
+          <Row term="perspective">
+            The word stands inside the corpus shell, the same sphere the map
+            draws. Sideways moves it across the floor, pushing up sends it
+            away, and away is where the second property lives. The shell turns
+            under the hand so the space answers the gesture.
+          </Row>
+          <Row term="rigidify">
+            Half the way to the nearest real family, and half again on the
+            next press. The way back from country where the outlines are
+            guesses toward something that was drawn.
+          </Row>
+        </Section>
+
+        <Section title="Keeping your place">
+          <Row term="waypoints">
+            Double-press a stop on the trail, or press its flag, to mark it
+            WP1, WP2 and so on. They are numbered down the trail, they travel
+            in a saved journey, and one control clears them all.
+          </Row>
+          <Row term="what is remembered">
+            How the desk is set up: the mode, the properties it drives, what
+            the map is coloured by, the axes, the dividers. The journey itself
+            is not, because that belongs in a file.
+          </Row>
         </Section>
       </div>
     </Modal>
@@ -212,22 +247,36 @@ const KEYS: [string, string][] = [
 
 const POINTER: [string, string][] = [
   ["Drag the letterform", "Move through the space by the shape rather than the map"],
+  ["Wheel on the letterform", "The third property, in modifier mode"],
   ["Drag in the map", "Turn the model"],
-  ["Alt-drag in the map", "Move the specimen through the space"],
-  ["Shift while moving", "Up and down the third axis"],
+  ["Wheel or pinch in the map", "Zoom"],
   ["Click a family", "Travel to it"],
   ["Hover a family", "Name it"],
   ["Click a stop", "Return to it, keeping everything after it"],
+  ["Double-click a stop", "Mark or unmark it as a waypoint"],
+  ["Hold a tool", "Open what it is set to"],
+  ["Drag the toolbar's grip", "Move it to another edge of the specimen"],
+  ["Drag a divider", "Trade room between the specimen, the map and the panels"],
+]
+
+const TOUCH: [string, string][] = [
+  ["The lower half", "One instrument at a time: map, steer, trail, traverse, settings"],
+  ["Two fingers in the map", "Pinch to zoom; one finger turns the model"],
+  ["Tap a family", "Names it; tap it again to travel there"],
+  ["The fader", "Stands in for the wheel when modifier drives a third property"],
+  ["Tap the altitude strip", "Show the readings, since there is nothing to hover"],
+  ["Hold a tool", "Open what it is set to"],
 ]
 
 function Keys({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Keyboard and pointer" wide onClose={onClose}
            subtitle="Every one of them is a movement">
-      <div className="max-h-[62vh] overflow-y-auto pr-2">
+      <div className="max-h-none sm:max-h-[62vh] overflow-y-auto pr-2">
         <Section title="Keys">
           {KEYS.map(([k, what]) => (
-            <div key={k} className="grid grid-cols-[7.5rem_1fr] gap-3
+            <div key={k} className="grid grid-cols-1 sm:grid-cols-[7.5rem_1fr]
+                                    gap-1 sm:gap-3
                                     items-baseline py-1.5 border-b
                                     border-border/40 last:border-0">
               <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm
@@ -240,6 +289,9 @@ function Keys({ onClose }: { onClose: () => void }) {
         </Section>
         <Section title="Pointer">
           {POINTER.map(([k, what]) => <Row key={k} term={k}>{what}</Row>)}
+        </Section>
+        <Section title="On a touchscreen">
+          {TOUCH.map(([k, what]) => <Row key={k} term={k}>{what}</Row>)}
         </Section>
       </div>
     </Modal>

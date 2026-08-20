@@ -80,7 +80,7 @@ One screen. No tabs, no routing, no modal dialogs.
 
 ```
 +----------------------------------------------------------------------+
-|  VECTOROGRAPHY            corpus: VectorModel 0.1       [?] [export]  |
+|  VECTOROGRAPHY            corpus: VectorModel 0.2       [?] [export]  |
 +--------------+-----------------------------------------+-------------+
 |              |                                         |             |
 |  ALTITUDE    |            NW    N    NE                |  NEAREST    |

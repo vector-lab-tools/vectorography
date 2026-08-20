@@ -557,6 +557,8 @@ export default function App() {
   // same breath, the letters waited on a payload twenty times their size and
   // the panel sat empty saying so.
   const [geometry, setGeometry] = useState<Glyph[] | null>(null)
+  /** Bumped by a slider so the readings recompute under the finger. */
+  const [slideTick, setSlideTick] = useState(0)
 
   const atlasPoint = useCallback((p: number[]) => {
     const b = basis.current
@@ -639,6 +641,11 @@ export default function App() {
 
   // Where the current location stands on each measured property: its
   // projection onto that direction, which is what a slider can show.
+  // Recomputed while a slider is under the finger, not when the server
+  // answers. Keyed on the location alone, the thumb moved at the rate of a
+  // round trip: on a phone the track lagged a finger by a visible margin, and
+  // the control felt like it was arguing rather than responding. Eight dot
+  // products against 128 numbers is nothing to do on a render.
   const standing = useMemo(() => {
     const src = dragZ.current ?? z
     const out: Record<string, number> = {}
@@ -647,10 +654,11 @@ export default function App() {
       if (d.vector) out[d.key] = dot(src, d.vector)
     }
     return out
-  }, [z, directions, location])
+  }, [z, directions, location, slideTick])
 
   /** Travel along one property until its projection reads the asked-for value. */
   const slideTo = useCallback((key: string, value: number) => {
+    setSlideTick((t) => t + 1)
     const d = directions.find((x) => x.key === key)
     if (!d?.vector) return
     const from = dragZ.current ?? z
@@ -667,7 +675,10 @@ export default function App() {
 
     if (dragPending.current) return
     dragPending.current = true
-    api.location(nz, text, false, true)
+    // No geometry and few neighbours: the grab points are refreshed by their
+    // own effect when the slide ends, and asking for them on every frame of a
+    // drag was the server's work, the wire's work, and the wait.
+    api.location(nz, text, false, false, 3)
       .then((loc) => setLocation(loc))
       .catch(() => {})
       .finally(() => { dragPending.current = false })
@@ -1179,7 +1190,14 @@ export default function App() {
               // below and a map worth studying is often taller than the
               // screen. Past the window a single gesture runs out of pointer,
               // so the range is covered by dragging twice.
-              latest = Math.max(0.02, Math.min(1.96, start + d))
+              // Never past the handle above it. The top section holds the
+              // specimen at its own dragged height plus the space; taking it
+              // below that pulled this divider over the other one and the two
+              // swapped places on screen.
+              const floor = (specimenH + 150)
+                / Math.max(1, window.innerHeight - 96)
+              latest = Math.max(Math.min(floor, 0.95),
+                                Math.min(1.96, start + d))
               setSplit(latest)
             }
             const up = () => {
