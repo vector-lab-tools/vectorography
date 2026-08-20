@@ -193,9 +193,20 @@ export function SpecimenStage({
   // The content group is flipped, so inside it coordinates are the font's own:
   // y up from the baseline. The viewBox is in the flipped frame, which is why
   // the ascender sits at a negative y here.
+  // How many screen pixels one em is, right now. The drawing is fitted to the
+  // box, and the box's contents change size as the type does, so anything
+  // meant to stay the same size on screen has to be divided by this. The
+  // grab points were fixed fractions of an em and grew as the letters got
+  // narrower, which made the instrument look like it was zooming while the
+  // type was being worked on.
   const lines = lineCount(placed)
   const VB = { x0: -0.06, y0: -0.94, w: width + 0.12,
                h: 1.24 + (lines - 1) * LINE_H }
+  const el = box.current
+  const scale = el && el.clientWidth
+    ? Math.min(el.clientWidth / VB.w, el.clientHeight / VB.h) : 0
+  /** A length in screen pixels, in the drawing's own units. */
+  const px = (n: number) => (scale > 0 ? n / scale : n / 260)
 
   /** A client point in the font's own coordinates: x along the line, y up. */
   const toEm = useCallback((cx: number, cy: number) => {
@@ -647,7 +658,7 @@ export function SpecimenStage({
                 <circle
                   key={`${h.glyph}:${h.kind}:${i}`}
                   cx={h.at[0]} cy={h.at[1]}
-                  r={held ? 0.052 : near ? 0.044 : 0.03}
+                  r={px(held ? 6.4 : near ? 5.6 : 3.8)}
                   fill={handleColour(h.kind, alpha)}
                 />
               )
@@ -674,21 +685,21 @@ export function SpecimenStage({
                   halo that separates the mark from whatever the letters are
                   drawn in, while the hue keeps saying which property. */}
               {dragging && (
-                <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
+                <circle cx={marker.at[0]} cy={marker.at[1]} r={px(8.6)}
                         fill="none" stroke="hsl(var(--card))"
-                        strokeWidth={0.022} opacity={0.85} />
+                        strokeWidth={px(2.8)} opacity={0.85} />
               )}
-              <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
+              <circle cx={marker.at[0]} cy={marker.at[1]} r={px(8.6)}
                       fill="none"
                       stroke={handleColour(marker.kind, 1)}
-                      strokeWidth={dragging ? 0.012 : 0.008} />
+                      strokeWidth={px(dragging ? 1.6 : 1)} />
               <line
-                x1={marker.at[0] - marker.along[0] * 0.085}
-                y1={marker.at[1] - marker.along[1] * 0.085}
-                x2={marker.at[0] + marker.along[0] * 0.085}
-                y2={marker.at[1] + marker.along[1] * 0.085}
+                x1={marker.at[0] - marker.along[0] * px(11)}
+                y1={marker.at[1] - marker.along[1] * px(11)}
+                x2={marker.at[0] + marker.along[0] * px(11)}
+                y2={marker.at[1] + marker.along[1] * px(11)}
                 stroke={handleColour(marker.kind, 1)}
-                strokeWidth={0.01}
+                strokeWidth={px(1.3)}
                 strokeLinecap="round" opacity={0.8} />
             </g>
           )}
@@ -698,7 +709,13 @@ export function SpecimenStage({
       {/* What the type is being set in, at the head of the panel it is set
           in. It had been up in the menu bar, a long way from the letters it
           changes. */}
-      <div className="absolute top-1 left-2 right-2 flex items-center gap-1
+      {/* The row does not clip: only the chips inside it scroll. With the
+          overflow on the row itself, the family list opened inside a box that
+          cut it off, so pressing where it should have been hit the drawing
+          underneath instead. */}
+      <div className="absolute top-1 left-2 right-2 z-30 flex items-center
+                      gap-1">
+      <div className="flex items-center gap-1 flex-1 min-w-0
                       overflow-x-auto no-scrollbar">
         {proofs.map((t) => (
           <button
@@ -736,10 +753,11 @@ export function SpecimenStage({
             + "decide where to go."}
         />
 
+      </div>
+
         {/* The real families you are standing among, nearest first, each set
             in its own face: the list was a readout, and every line of it is
             somewhere the traveller might want to be. */}
-        <div className="flex-1" />
         <FamilyPicker neighbours={neighbours} onPick={onGoToFamily}
                       sample={[...text].filter((c) => /[A-Za-z]/.test(c))
                         .slice(0, 3).join("") || "Ham"} />

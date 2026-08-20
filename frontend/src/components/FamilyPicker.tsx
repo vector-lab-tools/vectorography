@@ -19,14 +19,14 @@ export function FamilyPicker({ neighbours, onPick, sample }: {
 
   useEffect(() => {
     if (!open) return
-    const away = (e: MouseEvent) => {
+    const away = (e: Event) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false)
     }
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
-    document.addEventListener("mousedown", away)
+    document.addEventListener("pointerdown", away, true)
     document.addEventListener("keydown", esc)
     return () => {
-      document.removeEventListener("mousedown", away)
+      document.removeEventListener("pointerdown", away, true)
       document.removeEventListener("keydown", esc)
     }
   }, [open])
@@ -61,7 +61,7 @@ export function FamilyPicker({ neighbours, onPick, sample }: {
       </button>
 
       {open && (
-        <div className="absolute z-40 mt-1 left-0 w-[260px] max-h-[280px]
+        <div className="absolute z-50 mt-1 right-0 w-[260px] max-h-[280px]
                         overflow-y-auto bg-card border border-border rounded-sm
                         shadow-editorial-md py-1">
           {neighbours.map((n) => {
