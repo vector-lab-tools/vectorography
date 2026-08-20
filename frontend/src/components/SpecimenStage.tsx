@@ -86,6 +86,10 @@ export function SpecimenStage({
     setPriority(k)
     localStorage.setItem("vg.handle", k)
   }, [])
+  // Which way the shell is facing. A drag in perspective turns it, so the
+  // space answers the hand rather than sitting behind the letters as a
+  // decoration: moving across the floor spins it, pushing away tilts it.
+  const [spin, setSpin] = useState({ yaw: 0.5, pitch: 0.42 })
   const [fader, setFader] = useState(0)
   const faderLast = useRef(0)
   // Metrics are wanted while judging a shape and in the way while reading a
@@ -341,6 +345,12 @@ export function SpecimenStage({
 
     if (grabbed === "plane") {
       if (depth === "perspective") {
+        setSpin((v) => ({
+          yaw: v.yaw + dxEm * 1.6,
+          // Short of the poles, where a wireframe reads as a flat disc and
+          // the sense of turning is lost.
+          pitch: Math.max(0.08, Math.min(1.32, v.pitch + dyEm * 1.1)),
+        }))
         // The word stands on a floor. Sideways moves it across the floor and
         // up the screen pushes it away, which is where the third property
         // lives: one gesture, two properties, and the recession says which
@@ -462,32 +472,65 @@ export function SpecimenStage({
             const lit = dragging === "plane"
             const cx = VB.x0 + VB.w / 2
             const cy = 0.3
-            // Wider than the box is tall, so the letters sit inside the
-            // shell rather than in front of a badge of one.
             const R = Math.min(1.15, Math.max(0.62, VB.w * 0.28))
-            // The atlas's own tilt: the equator flattens to this much.
-            const flat = 0.42
             const ink = "hsl(var(--muted-foreground))"
+            const cy0 = Math.cos(spin.yaw), sy0 = Math.sin(spin.yaw)
+            const cp = Math.cos(spin.pitch), sp = Math.sin(spin.pitch)
+            // One projection, used for every ring: turn about the upright,
+            // then tilt. The same two angles the atlas turns its ball by.
+            const project = (a: number, b: number, c: number) => {
+              const x1 = a * cy0 + c * sy0
+              const z1 = -a * sy0 + c * cy0
+              const y2 = b * cp - z1 * sp
+              const depthOf = b * sp + z1 * cp
+              return { x: cx + R * x1, y: cy + R * y2, front: depthOf }
+            }
+            // A great circle as two paths: the half facing the eye, drawn
+            // plainly, and the half behind it, drawn fainter, which is what
+            // makes a wireframe read as a solid rather than a knot.
+            const ring = (key: string,
+                          at: (t: number) => [number, number, number]) => {
+              const near: string[] = []
+              const far: string[] = []
+              let wasFront: boolean | null = null
+              const N = 72
+              for (let i = 0; i <= N; i++) {
+                const t = (i / N) * Math.PI * 2
+                const q = project(...at(t))
+                const isFront = q.front >= 0
+                const into = isFront ? near : far
+                const cmd = (wasFront === isFront ? "L" : "M")
+                into.push(`${cmd}${q.x.toFixed(4)},${q.y.toFixed(4)}`)
+                if (wasFront !== isFront && wasFront !== null) {
+                  // Start the other run at the crossing too, so the two
+                  // halves meet instead of leaving a gap at the silhouette.
+                  ;(isFront ? far : near).push(
+                    `M${q.x.toFixed(4)},${q.y.toFixed(4)}`)
+                }
+                wasFront = isFront
+              }
+              return (
+                <g key={key}>
+                  <path d={far.join(" ")} opacity={0.35} />
+                  <path d={near.join(" ")} />
+                </g>
+              )
+            }
             return (
               <g pointerEvents="none" fill="none" stroke={ink}
                  strokeWidth={0.004} strokeDasharray="0.022 0.03"
                  opacity={lit ? Math.min(1, guideInk * 1.7) : guideInk * 0.85}
                  style={{ transition: "opacity 120ms" }}>
-                {/* The edge of the known space. */}
+                {/* The silhouette: a sphere's edge is a circle whichever way
+                    it is turned, so this one does not move. */}
                 <circle cx={cx} cy={cy} r={R} />
-                {/* Equator and two meridians: enough of a wireframe to read
-                    as a sphere, few enough not to compete with the type. */}
-                <ellipse cx={cx} cy={cy} rx={R} ry={R * flat} />
-                <ellipse cx={cx} cy={cy} rx={R * flat} ry={R} />
-                <ellipse cx={cx} cy={cy} rx={R * 0.82} ry={R}
-                         transform={`rotate(-24 ${cx} ${cy})`} />
-                {/* Rings above and below the equator, closer together as they
-                    approach the pole, which is what gives the tilt away. */}
-                {[0.55, -0.55].map((k) => (
-                  <ellipse key={k} cx={cx} cy={cy + k * R * flat * 1.9}
-                           rx={R * Math.sqrt(1 - k * k)}
-                           ry={R * flat * Math.sqrt(1 - k * k)} />
-                ))}
+                {ring("equator", (t) => [Math.cos(t), 0, Math.sin(t)])}
+                {ring("meridian", (t) => [Math.cos(t), Math.sin(t), 0])}
+                {ring("meridian2", (t) => [0, Math.cos(t), Math.sin(t)])}
+                {[0.5, -0.5].map((k) => ring(`lat${k}`, (t) => {
+                  const r = Math.sqrt(1 - k * k)
+                  return [r * Math.cos(t), k, r * Math.sin(t)]
+                }))}
                 {/* Where the eye is, so up reads as away rather than up. */}
                 <g strokeDasharray="none" strokeWidth={0.006}
                    opacity={lit ? 1 : 0.7}>
