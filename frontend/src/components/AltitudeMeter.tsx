@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import type { Altitude, CorpusInfo } from "../api"
 
 /**
@@ -13,6 +13,7 @@ export function AltitudeStrip({ altitude, corpus }:
   { altitude: Altitude | null; corpus: CorpusInfo | null }) {
   const bins = useBins(corpus)
   const max = corpus?.centroid_max ?? 1
+  const [open, setOpen] = useState(false)
   const cd = altitude?.centroid_distance ?? 0
   const frac = Math.min(cd / max, 1.35)
   const beyond = cd > max
@@ -22,7 +23,8 @@ export function AltitudeStrip({ altitude, corpus }:
   // where they said the same thing as the reading above the specimen; they live
   // on the strip now, for whoever wants them.
   return (
-    <div className="group h-full flex flex-col items-center gap-1 relative">
+    <div className="group h-full flex flex-col items-center gap-1 relative"
+         onClick={() => setOpen((o) => !o)}>
       <span className="font-mono text-[8px] text-muted-foreground">
         {max.toFixed(0)}
       </span>
@@ -43,10 +45,12 @@ export function AltitudeStrip({ altitude, corpus }:
       </div>
       <span className="font-mono text-[8px] text-muted-foreground">0</span>
 
-      <div className="pointer-events-none absolute right-6 top-0 w-[178px]
-                      opacity-0 group-hover:opacity-100 transition-opacity
+      {/* Hover opens this for a mouse; a tap toggles it for a finger. */}
+      <div className={`pointer-events-none absolute right-6 top-0 w-[178px]
+                      ${open ? "opacity-100" : "opacity-0"}
+                      group-hover:opacity-100 transition-opacity
                       bg-card border border-border rounded-sm shadow-editorial
-                      px-2.5 py-2 space-y-1.5 z-20">
+                      px-2.5 py-2 space-y-1.5 z-20`}>
         <Reading label="from centroid" value={cd.toFixed(2)}
                  note={`${altitude?.centroid_percentile.toFixed(0) ?? 0}th `
                        + `percentile · furthest family ${max.toFixed(1)}`} />

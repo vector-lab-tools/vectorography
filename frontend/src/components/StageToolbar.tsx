@@ -36,8 +36,10 @@ export function StageToolbar({ tools, dock, setDock }: {
     : dock === "bottom" ? "bottom-1.5 left-1/2 -translate-x-1/2"
     : dock === "bottom-right" ? "bottom-1.5 right-1.5"
     : dock === "bottom-left" ? "bottom-1.5 left-1.5"
-    : dock === "top-right" ? "top-1.5 right-1.5"
-    : "top-1.5 left-1.5"
+    // On a narrow panel the head row is already full of proof chips and the
+    // family picker, so the top docks sit just under it.
+    : dock === "top-right" ? "top-1.5 max-sm:top-11 right-1.5"
+    : "top-1.5 max-sm:top-11 left-1.5"
 
   /** Nearest edge of the panel to where the toolbar was let go. */
   const nearestEdge = (e: PointerEvent | React.PointerEvent): Dock => {
@@ -101,7 +103,7 @@ export function StageToolbar({ tools, dock, setDock }: {
           onClick={t.onClick}
           title={`${t.label} — ${t.title}`}
           aria-label={t.label}
-          className={`w-7 h-7 sm:w-6 sm:h-6 flex items-center justify-center
+          className={`w-7 h-7 sm:w-6 sm:h-6 coarse:w-10 coarse:h-10 flex items-center justify-center
                       rounded-sm
                       border transition-colors ${t.on
                         ? "border-here text-here bg-here/10"

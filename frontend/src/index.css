@@ -63,7 +63,7 @@
   /* A finger needs more to land on than a pointer does. */
   @media (pointer: coarse) {
     .btn { @apply min-h-[44px] py-2.5; }
-    input[type="range"] { @apply h-6; }
+    input[type="range"]:not(.vg-fader) { @apply h-6; }
   }
   /* The parts of the screen an iPhone reserves for itself. */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }

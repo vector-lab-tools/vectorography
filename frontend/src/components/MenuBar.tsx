@@ -48,7 +48,10 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
           {open === m.label && (
             <div className="absolute top-full left-0 z-50 min-w-[260px] py-1
                             bg-card border border-border rounded-sm
-                            shadow-editorial-md">
+                            shadow-editorial-md
+                            max-lg:fixed max-lg:left-2 max-lg:right-2
+                            max-lg:top-11 max-lg:min-w-0 max-lg:max-h-[70dvh]
+                            max-lg:overflow-y-auto">
               {m.items.map((it, i) =>
                 it.kind === "sep" ? (
                   <div key={i} className="my-1 border-t border-border" />
@@ -59,6 +62,7 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
                     title={it.title}
                     onClick={() => { setOpen(null); it.onSelect() }}
                     className="w-full flex items-center gap-4 px-3 py-1.5
+                               coarse:py-3
                                text-left text-[12px] hover:bg-muted
                                disabled:opacity-35 disabled:hover:bg-transparent
                                disabled:cursor-not-allowed transition-colors"

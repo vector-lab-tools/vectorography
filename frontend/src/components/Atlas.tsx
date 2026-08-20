@@ -189,6 +189,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const liveRef = useRef<Glyph[] | null>(null)
   liveRef.current = liveGlyphs
   const pending = useRef<{ mx: number; my: number } | null>(null)
+  // Touch bookkeeping. A mouse arrives one pointer at a time and hovers
+  // before it commits; fingers arrive in twos and never hover, so taps,
+  // orbits and pinches have to be told apart here.
+  const touches = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null)
+  const downAt = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const armed = useRef<{ name: string; at: number } | null>(null)
+  const wasTouch = useRef(false)
   const paths = useRef(new Map<string, Path2D>())
   const frame = useRef(0)
   const lastDraw = useRef(0)
@@ -905,12 +913,50 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                      bg-card overflow-hidden select-none touch-none
                      ${hover ? "cursor-pointer" : "cursor-grab"}`}
          onPointerDown={(e) => {
+           // Capture can refuse (a pointer already cancelled, a synthetic
+           // event); the tap logic below must not die with it.
+           try { (e.target as HTMLElement).setPointerCapture(e.pointerId) }
+           catch { /* uncaptured is fine: move/up still bubble here */ }
+           if (e.pointerType !== "mouse") {
+             touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+             if (touches.current.size === 2) {
+               // Second finger: whatever the first was doing becomes a pinch.
+               drag.current = null
+               const [a, b] = [...touches.current.values()]
+               pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y),
+                                 zoom: cam.current.zoom }
+               return
+             }
+             downAt.current = { x: e.clientX, y: e.clientY, moved: false }
+             drag.current = { x: e.clientX, y: e.clientY,
+                              cam: { ...cam.current } }
+             return
+           }
            // Dragging turns the model. Nothing here changes the type.
            drag.current = { x: e.clientX, y: e.clientY, cam: { ...cam.current } }
            if (hoverName.current) { hoverName.current = null; setHover(null) }
-           ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
          }}
          onPointerMove={(e) => {
+           if (e.pointerType !== "mouse" && touches.current.has(e.pointerId)) {
+             touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+             if (pinch.current && touches.current.size >= 2) {
+               const [a, b] = [...touches.current.values()]
+               const d = Math.hypot(a.x - b.x, a.y - b.y)
+               cam.current = { ...cam.current,
+                 zoom: Math.max(4, Math.min(120,
+                   pinch.current.zoom * d / Math.max(pinch.current.dist, 1))) }
+               setZoomLabel(cam.current.zoom)
+               schedule()
+               return
+             }
+             const d0 = downAt.current
+             if (d0 && !d0.moved
+                 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 8) {
+               d0.moved = true
+               // The finger is orbiting, not tapping: any armed name is stale.
+               if (hoverName.current) { hoverName.current = null; setHover(null) }
+             }
+           }
            if (drag.current) {
              const dx = e.clientX - drag.current.x
              const dy = e.clientY - drag.current.y
@@ -927,11 +973,59 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            pending.current = { mx: e.clientX - r.left, my: e.clientY - r.top }
            schedule()
          }}
-         onPointerUp={() => {
+         onPointerUp={(e) => {
+           if (e.pointerType !== "mouse") {
+             wasTouch.current = true
+             touches.current.delete(e.pointerId)
+             if (pinch.current) {
+               // A finger left the pinch; the survivor goes back to orbiting.
+               if (touches.current.size === 1) {
+                 const [q] = [...touches.current.values()]
+                 drag.current = { x: q.x, y: q.y, cam: { ...cam.current } }
+               }
+               if (touches.current.size === 0) pinch.current = null
+               downAt.current = null
+               schedule()
+               return
+             }
+             const d0 = downAt.current
+             downAt.current = null
+             drag.current = null
+             if (d0 && !d0.moved && !busy) {
+               // A tap. First one names the family under it; a second on the
+               // same family, while the name still shows, travels there.
+               const r = box.current!.getBoundingClientRect()
+               pending.current = { mx: e.clientX - r.left,
+                                   my: e.clientY - r.top }
+               draw()
+               const name = hoverName.current
+               const held = armed.current
+               if (name && held && held.name === name
+                   && performance.now() - held.at < 2500) {
+                 armed.current = null
+                 hoverName.current = null
+                 setHover(null)
+                 onPick(name)
+               } else if (name) {
+                 armed.current = { name, at: performance.now() }
+               } else {
+                 armed.current = null
+                 if (WAYPOINTS) {
+                   const g = unproject(e.clientX - r.left, e.clientY - r.top)
+                   if (g) setWaypoint(g)
+                 }
+               }
+             }
+             schedule()
+             return
+           }
            drag.current = null
            schedule()
          }}
-         onPointerCancel={() => {
+         onPointerCancel={(e) => {
+           touches.current.delete(e.pointerId)
+           if (touches.current.size < 2) pinch.current = null
+           downAt.current = null
            drag.current = null
            schedule()
          }}
@@ -949,6 +1043,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
            schedule()
          }}
          onClick={(e) => {
+           if (wasTouch.current) { wasTouch.current = false; return }
            if (busy) return
            // A font under the pointer is a place with a name; anywhere else is
            // a bearing on the map.
@@ -985,7 +1080,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             title={tip}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); fn() }}
-            className="w-6 h-6 flex items-center justify-center rounded-sm
+            className="w-6 h-6 coarse:w-10 coarse:h-10 flex items-center
+                       justify-center rounded-sm
                        border border-border bg-card font-mono text-[11px]
                        leading-none hover:border-burgundy hover:text-burgundy
                        active:translate-y-px transition-colors"
@@ -997,7 +1093,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           type="range" min={4} max={120} step={1} value={zoomLabel}
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => setZoom(Number(e.target.value))}
-          className="w-24 accent-burgundy ml-1"
+          className="w-24 coarse:w-32 accent-burgundy ml-1"
           title="Zoom"
         />
         <span className="font-mono text-[9px] text-muted-foreground w-8">

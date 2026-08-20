@@ -58,7 +58,7 @@ export function Trail({ trail, cursor, onGo }: {
                 <span className={`font-mono text-[10px] shrink-0 ${here
                   ? "text-ivory/70"
                   : "text-burgundy opacity-0 group-hover:opacity-100 "
-                    + "transition-opacity"}`}>
+                    + "coarse:opacity-100 transition-opacity"}`}>
                   {here ? "here" : "\u21a9"}
                 </span>
               </button>

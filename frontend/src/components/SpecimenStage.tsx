@@ -74,6 +74,8 @@ export function SpecimenStage({
   const svg = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<Handle | null>(null)
   const [dragging, setDragging] = useState<Handle | "plane" | null>(null)
+  const [fader, setFader] = useState(0)
+  const faderLast = useRef(0)
   // Metrics are wanted while judging a shape and in the way while reading a
   // word, so they come and go on their own switch, and the choice is kept.
   const [guides, setGuides] = useState(
@@ -318,7 +320,11 @@ export function SpecimenStage({
         onPointerDown={down}
         onPointerUp={up}
         onPointerCancel={up}
-        onPointerLeave={() => { if (!held.current) setHover(null) }}
+        onPointerLeave={(e) => {
+          if (held.current) return
+          if (e.pointerType !== "mouse") setTimeout(() => setHover(null), 1500)
+          else setHover(null)
+        }}
         onWheel={wheel}
       >
         <g transform="scale(1,-1)">
@@ -431,7 +437,7 @@ export function SpecimenStage({
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          className="font-mono text-[10px] w-40 ml-2 px-2 py-1 rounded-sm
+          className="font-mono text-[10px] w-24 sm:w-40 ml-2 px-2 py-1 rounded-sm
                      select-text
                      bg-background border border-ink/25
                      shadow-[inset_0_1px_2px_hsl(var(--ink)/0.08)]
@@ -469,6 +475,38 @@ export function SpecimenStage({
 
       <StageToolbar tools={tools} dock={dock}
                     setDock={(d) => { setDock(d); localStorage.setItem("vg.dock", d) }} />
+
+      {/* The wheel's job, for hands without a wheel: a fader that springs
+          back to rest, so it deals in movement rather than position, exactly
+          as the wheel does. Coarse pointers only. */}
+      {depth === "modifier" && (
+        <div className="hidden coarse:flex absolute right-0.5 top-16 bottom-16
+                        w-7 flex-col items-center"
+             title={`${zProp}: drag up or down, springs back`}
+             onPointerDown={(e) => e.stopPropagation()}>
+          <input
+            type="range" min={-50} max={50} value={fader}
+            style={{ writingMode: "vertical-lr", direction: "rtl",
+                     touchAction: "none" }}
+            className="vg-fader flex-1 w-4 accent-burgundy opacity-70"
+            onPointerDown={() => {
+              faderLast.current = 0
+              onDragStart([zProp as HandleKind])
+            }}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              const d = v - faderLast.current
+              faderLast.current = v
+              setFader(v)
+              const drag = beyond ? 0.45 : 1
+              onDrag({ moves: [{ key: zProp, amount: d * 0.012 * drag }],
+                       aiming: [zProp] })
+            }}
+            onPointerUp={() => { setFader(0); faderLast.current = 0; onDragEnd() }}
+            onPointerCancel={() => { setFader(0); faderLast.current = 0; onDragEnd() }}
+          />
+        </div>
+      )}
 
       <div className="absolute bottom-1 left-2 right-2 flex flex-wrap
                       items-center gap-1">

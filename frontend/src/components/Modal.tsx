@@ -17,11 +17,13 @@ export function Modal({ title, subtitle, onClose, children, wide }: {
   return (
     <div
       className="fixed inset-0 z-[100] bg-ink/40 backdrop-blur-[2px]
-                 flex items-center justify-center p-6 animate-[fadeIn_.12s_ease-out]"
+                 flex items-center justify-center p-0 sm:p-6
+                 animate-[fadeIn_.12s_ease-out]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className={`bg-background border border-border rounded-md
                        shadow-editorial-md flex flex-col max-h-full w-full
+                       max-sm:h-full max-sm:rounded-none pb-safe
                        ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
         <div className="flex items-baseline gap-3 px-5 py-3 border-b border-border
                         shrink-0">

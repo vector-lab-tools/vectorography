@@ -960,7 +960,8 @@ export default function App() {
         <section className="shrink-0 overflow-hidden flex flex-col gap-2
                             lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
                             max-lg:flex-1 max-lg:min-h-0"
-                 style={isMobile ? undefined : { flex: `${split} 1 0%` }}>
+                 style={isMobile ? undefined
+                   : { flex: `0 0 calc((100dvh - 96px) * ${split})` }}>
           <div className="panel shrink-0 h-[30dvh] min-h-[200px] lg:h-[168px]
                           lg:min-h-0 px-2 sm:px-3 py-2 text-ink">
             <SpecimenStage
@@ -1081,9 +1082,8 @@ export default function App() {
 
         {/* Bottom: readings and controls. */}
         {!isMobile && (
-        <section className="shrink-0 px-3 pb-3 grid gap-3
-                            grid-cols-1 md:grid-cols-2"
-                 style={{ flex: `${1 - split} 1 0%` }}>
+        <section className="px-3 pb-3 grid gap-3 grid-cols-1 md:grid-cols-2"
+                 style={{ flex: "1 0 auto" }}>
           {/* Two panels, side by side: what moves you, and where you have
               been. */}
           <div className="min-w-0 flex flex-col gap-1.5">
@@ -1127,7 +1127,7 @@ export default function App() {
             />
           </div>
 
-          <div className="min-w-0 min-h-0 flex flex-col gap-1.5">
+          <div className="min-w-0 min-h-[260px] flex flex-col gap-1.5">
             <span className="rail-label"
                   title={"Every stop on this journey, and the name it "
                     + "exports under"}>
