@@ -24,6 +24,7 @@ import type { HandleKind } from "./components/handles"
 import { Trail, type Crumb } from "./components/Trail"
 import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
 import { useIsMobile } from "./hooks/useIsMobile"
+import { useKept } from "./kept"
 
 const DEFAULT_TEXT = "Hamburgefonstiv"
 
@@ -121,15 +122,15 @@ export default function App() {
     () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
   const [text, setText] = useState(
     () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
-  const [radius, setRadius] = useState(0.6)
-  const [temperature, setTemperature] = useState(0.5)
-  const [step, setStep] = useState(0.5)
+  const [radius, setRadius] = useKept("vg.radius", 0.6, ((v) => typeof v === "number"))
+  const [temperature, setTemperature] = useKept("vg.temp", 0.5, ((v) => typeof v === "number"))
+  const [step, setStep] = useKept("vg.step", 0.5, ((v) => typeof v === "number"))
   // View axes, named either as a corpus index ("axis:0") or as a measured
   // property ("dir:weight"). Both are directions in the same space; they differ
   // in who chose them, which is the comparison the instrument exists to make.
-  const [axX, setAxX] = useState("axis:0")
-  const [axY, setAxY] = useState("axis:1")
-  const [axZ, setAxZ] = useState("axis:2")
+  const [axX, setAxX] = useKept("vg.axX", "axis:0", ((v) => typeof v === "string"))
+  const [axY, setAxY] = useKept("vg.axY", "axis:1", ((v) => typeof v === "string"))
+  const [axZ, setAxZ] = useKept("vg.axZ", "axis:2", ((v) => typeof v === "string"))
   const [ride, setRide] = useState<Ride>(null)
   const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Unnamed")
@@ -155,9 +156,11 @@ export default function App() {
   const [sharing, setSharing] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
-  const [atlasHeight, setAtlasHeight] =
-    useState<"density" | "centroid" | "axis">("density")
-  const [colourBy, setColourBy] = useState("serif")
+  const [atlasHeight, setAtlasHeight] = useKept<"density" | "centroid" | "axis">(
+    "vg.height", "density",
+    (v) => v === "density" || v === "centroid" || v === "axis")
+  const [colourBy, setColourBy] = useKept("vg.colour", "serif",
+    (v) => typeof v === "string")
   const [waypoint, setWaypoint] = useState<Waypoint | null>(null)
   // The sphere is a way of looking at the space, and it needs the height to be
   // a real axis. Both are held here rather than negotiated between components,
@@ -174,9 +177,12 @@ export default function App() {
     { x: number; y: number; h: number } | null>(null)
 
   // Direct manipulation of the specimen.
-  const [depth, setDepth] = useState<Depth>("handles")
-  const [props3, setProps3] = useState<[HandleKind, HandleKind, HandleKind]>(
-    ["weight", "x-height", "width"])
+  const [depth, setDepth] = useKept<Depth>("vg.depth", "handles",
+    (v) => v === "handles" || v === "modifier" || v === "perspective")
+  const [props3, setProps3] = useKept<[HandleKind, HandleKind, HandleKind]>(
+    "vg.props", ["weight", "x-height", "width"],
+    (v) => Array.isArray(v) && v.length === 3
+           && v.every((k) => typeof k === "string"))
   // Every position passed through, not just where the hand stopped: a drag
   // from thin to fat is a weight axis drawn by hand, and the export should be
   // able to use it.
@@ -203,7 +209,12 @@ export default function App() {
   const flagStop = useCallback((id: number) => {
     setWaypoints((w) => w.includes(id) ? w.filter((x) => x !== id) : [...w, id])
   }, [])
-  const [split, setSplit] = useState(0.7)
+  // Written when the drag ends rather than on every frame of it: a divider
+  // moves sixty times a second and the disk does not need to hear about it.
+  const [split, setSplit] = useState(() => {
+    const kept = Number(localStorage.getItem("vg.topsplit"))
+    return kept >= 0.02 && kept <= 1.96 ? kept : 0.7
+  })
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
@@ -913,8 +924,9 @@ export default function App() {
               : atlasHeight === "centroid" ? "distance from centroid"
               : "third axis"}`,
           hint: "cycle",
-          onSelect: () => setAtlasHeight((h) =>
-            h === "density" ? "centroid" : h === "centroid" ? "axis" : "density"),
+          onSelect: () => setAtlasHeight(
+            atlasHeight === "density" ? "centroid"
+              : atlasHeight === "centroid" ? "axis" : "density"),
           title: "What the vertical axis measures. On a corpus axis it becomes "
                  + "a direction you can drag along." },
       ],
@@ -1127,7 +1139,10 @@ export default function App() {
                      group items-center justify-center"
           style={{ touchAction: "none" }}
           title="Drag to give either half more room. Double-click to even it up."
-          onDoubleClick={() => setSplit(0.7)}
+          onDoubleClick={() => {
+            setSplit(0.7)
+            localStorage.setItem("vg.topsplit", "0.7")
+          }}
           onPointerDown={(e) => {
             // Without this the drag sweeps a text selection across the page.
             e.preventDefault()
@@ -1139,6 +1154,7 @@ export default function App() {
             const start = split
             const host = (e.currentTarget.parentElement as HTMLElement)
             const total = host.clientHeight
+            let latest = start
             const move = (ev: PointerEvent) => {
               const d = (ev.clientY - startY) / Math.max(total, 1)
               // All the way in either direction: either half can be taken
@@ -1149,9 +1165,11 @@ export default function App() {
               // below and a map worth studying is often taller than the
               // screen. Past the window a single gesture runs out of pointer,
               // so the range is covered by dragging twice.
-              setSplit(Math.max(0.02, Math.min(1.96, start + d)))
+              latest = Math.max(0.02, Math.min(1.96, start + d))
+              setSplit(latest)
             }
             const up = () => {
+              localStorage.setItem("vg.topsplit", String(latest))
               window.removeEventListener("pointermove", move)
               window.removeEventListener("pointerup", up)
               window.removeEventListener("pointercancel", up)

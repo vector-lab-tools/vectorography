@@ -218,8 +218,12 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   // being read; four hundred names or letterforms describe the same points at
   // the cost of being able to see them at all. Names and letters stay one
   // click away, and hovering names any dot.
-  const mode = useRef<"off" | "names" | "letters">("off")
-  const [modeOn, setModeOn] = useState<"off" | "names" | "letters">("off")
+  const keptMarks = (() => {
+    const raw = localStorage.getItem("vg.marks")
+    return raw === "names" || raw === "letters" || raw === "off" ? raw : "off"
+  })()
+  const mode = useRef<"off" | "names" | "letters">(keptMarks)
+  const [modeOn, setModeOn] = useState<"off" | "names" | "letters">(keptMarks)
   const [zoomLabel, setZoomLabel] = useState(DEFAULT_CAM.zoom)
   // The cardinals are orientation, which is wanted while turning the model and
   // in the way while reading it, so they come and go on their own.
@@ -878,6 +882,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                 : mode.current === "names" ? "letters" : "off"
               mode.current = next
               setModeOn(next)
+              localStorage.setItem("vg.marks", next)
               LABELS.clear()
               schedule()
             }}

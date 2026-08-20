@@ -58,7 +58,7 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
       {/* One line per property: name, track, reading. Stacked over two lines
           each, eight properties did not fit a column and half of them lived
           behind a scrollbar. */}
-      <div className="space-y-0.5 max-lg:space-y-2.5">
+      <div className="space-y-0.5 max-lg:space-y-1">
         {directions.map((d) => {
           const lo = d.lo ?? -2.2
           const hi = d.hi ?? 2.2
@@ -67,11 +67,11 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
           const outside = now < lo || now > hi
           return (
             <div key={d.key} className="flex items-center gap-1.5
-                                        max-lg:gap-2.5">
+                                        max-lg:gap-2">
               {/* The same colour this property wears on the letterform, so the
                   slider and the grab point read as one control. */}
-              <span className="w-[52px] max-lg:w-[68px] shrink-0 truncate
-                               text-[10px] max-lg:text-[12px]
+              <span className="w-[52px] max-lg:w-[58px] shrink-0 truncate
+                               text-[10px] max-lg:text-[11px]
                                font-display leading-none"
                     style={{ color: handleColour(d.key as HandleKind, 0.95) }}
                     title={`${d.minus} \u2190 ${d.label} \u2192 ${d.plus}`}>
@@ -87,11 +87,11 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
                 onChange={(e) => onSlide(d.key, Number(e.target.value))}
                 onPointerUp={onCommit}
                 onKeyUp={onCommit}
-                className="flex-1 min-w-0 h-1 max-lg:h-1.5 mr-1"
+                className="flex-1 min-w-0 h-1 max-lg:h-4 mr-1"
                 style={{ accentColor: handleColour(d.key as HandleKind) }}
                 title={`${d.minus} to ${d.plus}`}
               />
-              <span className={`w-[30px] max-lg:w-[34px] shrink-0 text-right
+              <span className={`w-[30px] max-lg:w-[28px] shrink-0 text-right
                                 font-mono text-[8.5px] max-lg:text-[10px]
                                 leading-none ${outside
                                   ? "text-gold" : "text-muted-foreground"}`}>
