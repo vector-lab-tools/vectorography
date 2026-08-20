@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
 import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
-import { allHandles, handleAt, layout, lineWidth, xHeightOf,
-         type Handle, type HandleKind } from "./handles"
+import { LINE_H, allHandles, handleAt, layout, lineCount, lineWidth,
+         xHeightOf, type Handle, type HandleKind } from "./handles"
 
 /**
  * The specimen as the instrument.
@@ -110,11 +110,51 @@ export function SpecimenStage({
       // where they stack vertically and leave the letters clear.
       ?? "bottom-right")
 
-  const placed = useMemo(() => layout(glyphs, text), [glyphs, text])
+  // A tall panel sets the text over as many lines as it can show at a
+  // readable size; a short one keeps to one, as before. The measure is
+  // whatever width gives every line about the same height as the box allows,
+  // so dragging the divider changes the setting rather than the scale.
+  const [rows, setRows] = useState(1)
+  const [measure, setMeasure] = useState(Infinity)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    // For each number of lines, the em size the box could show it at, and the
+    // measure that fills the width at that size. Wrapping to a measure taken
+    // from the text's own width instead left short lines with the room they
+    // could have used sitting empty on both sides.
+    const read = () => {
+      const w = el.clientWidth, h = el.clientHeight
+      if (!w || !h) return
+      let best = { n: 1, size: 0 }
+      for (let n = 1; n <= 4; n++) {
+        const size = h / (n * LINE_H + 0.24)       // px per em at n lines
+        const measure = w / size                    // ems across the box
+        const wrapped = layout(glyphs, text, measure)
+        // Wrapping may need more lines than asked for, or fewer; a setting is
+        // only what it says it is when the two agree.
+        if (lineCount(wrapped) !== n) continue
+        const fits = Math.min(size, w / (lineWidth(wrapped) + 0.12))
+        if (fits > best.size * 1.02) best = { n, size: fits }
+      }
+      setRows(best.n)
+      setMeasure(best.n === 1 ? Infinity
+        : w / (h / (best.n * LINE_H + 0.24)))
+    }
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [glyphs, text])
+
+  const placed = useMemo(
+    () => layout(glyphs, text, rows <= 1 ? Infinity : measure),
+    [glyphs, text, rows, measure])
   // Laid out from the outlines, which lag the specimen by a beat. The handles
   // follow that copy; the letters are drawn from the fresh one.
   const probed = useMemo(
-    () => layout(geometry ?? [], text), [geometry, text])
+    () => layout(geometry ?? [], text, rows <= 1 ? Infinity : measure),
+    [geometry, text, rows, measure])
   const width = useMemo(() => lineWidth(placed), [placed])
   const xh = useMemo(() => xHeightOf(placed), [placed])
   // Cap height, read off a capital if the specimen has one.
@@ -138,7 +178,9 @@ export function SpecimenStage({
   // The content group is flipped, so inside it coordinates are the font's own:
   // y up from the baseline. The viewBox is in the flipped frame, which is why
   // the ascender sits at a negative y here.
-  const VB = { x0: -0.06, y0: -0.94, w: width + 0.12, h: 1.24 }
+  const lines = lineCount(placed)
+  const VB = { x0: -0.06, y0: -0.94, w: width + 0.12,
+               h: 1.24 + (lines - 1) * LINE_H }
 
   /** A client point in the font's own coordinates: x along the line, y up. */
   const toEm = useCallback((cx: number, cy: number) => {
@@ -555,14 +597,16 @@ export function SpecimenStage({
                  transform="translate(0.055,0.045) scale(0.985)"
                  fill="currentColor" fillRule="evenodd">
                 {placed.map((p, i) => (
-                  <path key={i} transform={`translate(${p.x0.toFixed(4)},0)`}
+                  <path key={i}
+                        transform={`translate(${p.x0.toFixed(4)},${p.y0.toFixed(4)})`}
                         d={p.g.path} />
                 ))}
               </g>
             )}
             <g fill="currentColor" fillRule="evenodd">
               {placed.map((p, i) => (
-                <path key={i} transform={`translate(${p.x0.toFixed(4)},0)`}
+                <path key={i}
+                      transform={`translate(${p.x0.toFixed(4)},${p.y0.toFixed(4)})`}
                       d={p.g.path} />
               ))}
             </g>

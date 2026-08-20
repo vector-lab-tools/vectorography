@@ -33,25 +33,66 @@ export type Handle = {
   dbg?: Record<string, number | string | boolean>
 }
 
-export type Placed = { g: Glyph; x0: number }
+/** A glyph and where its origin sits: along the line, and which line. */
+export type Placed = { g: Glyph; x0: number; y0: number }
+
+/** Baseline to baseline, in ems. */
+export const LINE_H = 1.35
 
 /** Lay the text out once; everything else measures against this. */
-export function layout(glyphs: Glyph[], text: string): Placed[] {
+/**
+ * The specimen, set.
+ *
+ * One line unless a width is given and the text will not fit in it, in which
+ * case it wraps at spaces: a panel dragged tall enough to hold three lines
+ * should set a pangram as three lines rather than one line too small to read.
+ * Breaking happens between words; a single word longer than the measure is
+ * left to overrun, because hyphenating a specimen would be inventing letters
+ * the traveller did not ask for.
+ */
+export function layout(glyphs: Glyph[], text: string,
+                       measure = Infinity): Placed[] {
   const by = new Map(glyphs.map((g) => [g.char, g]))
-  const out: Placed[] = []
-  let x = 0
-  for (const ch of text) {
-    const g = by.get(ch)
-    if (!g) { x += 0.3; continue }
-    out.push({ g, x0: x })
-    x += g.advance
+  const widthOf = (word: string) => {
+    let w = 0
+    for (const ch of word) w += by.get(ch)?.advance ?? 0.3
+    return w
   }
+
+  const words = text.split(" ")
+  const lines: string[] = []
+  let line = ""
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (line && widthOf(candidate) > measure) { lines.push(line); line = word }
+    else line = candidate
+  }
+  lines.push(line)
+
+  const out: Placed[] = []
+  lines.forEach((text2, row) => {
+    let x = 0
+    const y = -row * LINE_H
+    for (const ch of text2) {
+      const g = by.get(ch)
+      if (!g) { x += 0.3; continue }
+      out.push({ g, x0: x, y0: y })
+      x += g.advance
+    }
+  })
   return out
 }
 
+/** How many baselines the setting uses. */
+export function lineCount(placed: Placed[]): number {
+  const rows = new Set(placed.map((p) => p.y0))
+  return Math.max(1, rows.size)
+}
+
 export function lineWidth(placed: Placed[]): number {
-  const last = placed[placed.length - 1]
-  return last ? last.x0 + last.g.advance : 0.5
+  let w = 0
+  for (const p of placed) w = Math.max(w, p.x0 + p.g.advance)
+  return w || 0.5
 }
 
 function inkBounds(g: Glyph) {
@@ -124,7 +165,7 @@ export function handleAt(placed: Placed[], px: number, py: number,
   // slightly the wrong side would adjust the spacing instead of the weight.
   let onInk = false
   for (const p of placed) {
-    const np0 = nearestPoint(p.g, px - p.x0, py)
+    const np0 = nearestPoint(p.g, px - p.x0, py - p.y0)
     if (np0 && np0.d < 0.055) { onInk = true; break }
   }
 
@@ -134,10 +175,12 @@ export function handleAt(placed: Placed[], px: number, py: number,
     const ab = inkBounds(a.g), bb = inkBounds(b.g)
     const gapL = a.x0 + (isFinite(ab.x1) ? ab.x1 : a.g.advance)
     const gapR = b.x0 + (isFinite(bb.x0) ? bb.x0 : 0)
-    if (gapR - gapL > 0.02 && px > gapL + 0.004 && px < gapR - 0.004
-        && py > 0.02 && py < xHeight * 0.95) {
+    const ly = py - a.y0
+    if (a.y0 === b.y0 && gapR - gapL > 0.02
+        && px > gapL + 0.004 && px < gapR - 0.004
+        && ly > 0.02 && ly < xHeight * 0.95) {
       return { kind: "tightness", x: "tightness",
-               at: [(gapL + gapR) / 2, xHeight * 0.5], along: [1, 0],
+               at: [(gapL + gapR) / 2, a.y0 + xHeight * 0.5], along: [1, 0],
                label: NAMES.tightness, glyph: " " }
     }
   }
@@ -149,21 +192,25 @@ export function handleAt(placed: Placed[], px: number, py: number,
     const b = inkBounds(p.g)
     if (!isFinite(b.x0)) continue
     const cx = px - p.x0
-    const d = cx < b.x0 ? b.x0 - cx : cx > b.x1 ? cx - b.x1 : 0
+    const dx = cx < b.x0 ? b.x0 - cx : cx > b.x1 ? cx - b.x1 : 0
+    // A line the press is not on is far away, however near it is across.
+    const dy = Math.abs(py - p.y0 - 0.35)
+    const d = dx + (dy > LINE_H * 0.62 ? dy : 0)
     if (d < near) { near = d; chosen = p }
   }
   if (!chosen || near > 0.25) return null
 
   const lx = px - chosen.x0
-  const np = nearestPoint(chosen.g, lx, py)
+  const ly = py - chosen.y0
+  const np = nearestPoint(chosen.g, lx, ly)
   if (!np || np.d > 0.16) return null
 
   const b = inkBounds(chosen.g)
-  const at: [number, number] = [chosen.x0 + np.x, np.y]
+  const at: [number, number] = [chosen.x0 + np.x, chosen.y0 + np.y]
   const vertical = Math.abs(np.nx) > Math.abs(np.ny)
   const thick = thicknessAt(chosen.g, np.x, np.y, np.nx, np.ny)
 
-  const dbg = { glyph: chosen.g.char, px: +px.toFixed(3), py: +py.toFixed(3),
+  const dbg = { glyph: chosen.g.char, px: +px.toFixed(3), py: +ly.toFixed(3),
                 lx: +lx.toFixed(3), npx: +np.x.toFixed(3), npy: +np.y.toFixed(3),
                 d: +np.d.toFixed(3), nx: +np.nx.toFixed(2), ny: +np.ny.toFixed(2),
                 vertical, thick: +thick.toFixed(3), xh: +xHeight.toFixed(3),
@@ -173,8 +220,8 @@ export function handleAt(placed: Placed[], px: number, py: number,
   // where the nearest outline point happens to be: an outline point near the
   // baseline can be the closest thing to a pointer halfway up a letter, and
   // reading that as "the hand is on the baseline" was wrong.
-  const nearBaseline = py < Math.max(0.06, xHeight * 0.16)
-    && py > -0.12 && Math.abs(np.y - py) < 0.12
+  const nearBaseline = ly < Math.max(0.06, xHeight * 0.16)
+    && ly > -0.12 && Math.abs(np.y - ly) < 0.12
 
   // The top of a lowercase letter is its x-height.
   if (nearBaseline && !vertical) {
@@ -248,7 +295,7 @@ export function allHandles(placed: Placed[], xHeight: number): Handle[] {
       // the same stroke classify the same way.
       for (let i = 0; i < c.length; i += 5) {
         const [cx, cy] = c[i]
-        const h = handleAt(placed, p.x0 + cx, cy, xHeight)
+        const h = handleAt(placed, p.x0 + cx, p.y0 + cy, xHeight)
         if (!h) continue
         const key = `${gi}:${h.kind}`
         if (seen.has(key)) continue
@@ -261,8 +308,9 @@ export function allHandles(placed: Placed[], xHeight: number): Handle[] {
   // The gaps, which belong to no letter.
   for (let i = 0; i < placed.length - 1; i++) {
     const a = placed[i], b = placed[i + 1]
+    if (a.y0 !== b.y0) continue
     const mid = (a.x0 + a.g.advance + b.x0) / 2
-    const h = handleAt(placed, mid, xHeight * 0.5, xHeight)
+    const h = handleAt(placed, mid, a.y0 + xHeight * 0.5, xHeight)
     if (h && h.kind === "tightness" && !seen.has(`gap:${i}`)) {
       seen.add(`gap:${i}`)
       out.push(h)
