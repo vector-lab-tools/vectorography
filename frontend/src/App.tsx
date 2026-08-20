@@ -6,7 +6,7 @@ import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
-import { Settings, THEME_KEY, TEXT_KEY, type Theme }
+import { Settings, GUIDE_KEY, THEME_KEY, TEXT_KEY, type Theme }
   from "./components/Settings"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
@@ -191,6 +191,14 @@ export default function App() {
   // twenty things in a row and wants the good one back, not the twentieth.
   // Stops the traveller has marked, by id. Several, because a session worth
   // recording has more than one place worth returning to.
+  const [guideInk, setGuideInk] = useState(() => {
+    const kept = Number(localStorage.getItem(GUIDE_KEY))
+    return kept > 0 ? kept : 0.35
+  })
+  const changeGuideInk = useCallback((v: number) => {
+    setGuideInk(v)
+    localStorage.setItem(GUIDE_KEY, String(v))
+  }, [])
   const [waypoints, setWaypoints] = useState<number[]>([])
   const flagStop = useCallback((id: number) => {
     setWaypoints((w) => w.includes(id) ? w.filter((x) => x !== id) : [...w, id])
@@ -1004,6 +1012,7 @@ export default function App() {
               onRedo={redo}
               canUndo={trail.find((c) => c.id === cursor)?.parent != null}
               canRedo={redoStack.length > 0}
+              guideInk={guideInk}
               busy={false}
             />
           </div>
@@ -1315,6 +1324,7 @@ export default function App() {
           licence={licence} setLicence={changeLicence}
           xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
           setProps={(x, y, zz) => setProps3([x, y, zz])}
+          guideInk={guideInk} setGuideInk={changeGuideInk}
           onForget={forgetAll}
           onClose={() => setSettingsOpen(false)} />
       )}

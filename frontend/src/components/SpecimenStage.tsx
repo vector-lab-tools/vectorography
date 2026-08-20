@@ -36,7 +36,7 @@ export const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 export function SpecimenStage({
   glyphs, text, hullRadius, radius, depth, setDepth,
   onDragStart, onDrag, onDragEnd, lost, onReset,
-  onUndo, onRedo, canUndo, canRedo,
+  onUndo, onRedo, canUndo, canRedo, guideInk,
   setText, proofs, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
 }: {
@@ -60,6 +60,8 @@ export function SpecimenStage({
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  /** How strongly the guides and the depth rails are drawn. */
+  guideInk: number
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
   /** The word being set, and the proofs worth setting it in. */
@@ -434,7 +436,8 @@ export function SpecimenStage({
               against them the way a designer reads them off a drawing, and
               they sit under the ink rather than over it. */}
           {guides && (
-            <g pointerEvents="none" stroke="hsl(var(--ink) / 0.13)"
+            <g pointerEvents="none"
+               stroke={`hsl(var(--ink) / ${guideInk.toFixed(2)})`}
                strokeWidth={0.004}>
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={0} y2={0}
                     strokeWidth={0.006} />
@@ -442,6 +445,48 @@ export function SpecimenStage({
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
             </g>
           )}
+          {/* The direction that counts as "into the picture", drawn. Without
+              it perspective was modifier with a secret: a drag along one
+              unnamed diagonal moved a third property and nothing on screen
+              said which diagonal, so the two modes behaved identically until
+              they suddenly did not. The rails run along the axis the drag is
+              measured against; they brighten while the plane is being
+              dragged, when the reading matters. */}
+          {depth === "perspective" && (() => {
+            const [dx, dy] = [DEPTH_SCREEN[0], -DEPTH_SCREEN[1]]
+            const lit = dragging === "plane"
+            const rails = []
+            for (let a = VB.x0 - 1.2; a < VB.x0 + VB.w + 0.4; a += 0.52) {
+              rails.push(
+                <line key={a} x1={a} y1={-0.28}
+                      x2={a + dx * 1.35} y2={-0.28 + dy * 1.35} />)
+            }
+            return (
+              <g pointerEvents="none"
+                 stroke="hsl(var(--here))"
+                 strokeWidth={0.0035}
+                 opacity={lit ? Math.min(1, guideInk * 1.8) : guideInk}
+                 style={{ transition: "opacity 120ms" }}>
+                {rails}
+                {/* One rail said with an arrowhead, so the sense of the axis
+                    is there as well as its slope. */}
+                <g strokeWidth={0.007} opacity={lit ? 1 : 0.75}>
+                  <line x1={VB.x0 + 0.08} y1={-0.2}
+                        x2={VB.x0 + 0.08 + dx * 0.34}
+                        y2={-0.2 + dy * 0.34} />
+                  <line x1={VB.x0 + 0.08 + dx * 0.34}
+                        y1={-0.2 + dy * 0.34}
+                        x2={VB.x0 + 0.08 + dx * 0.34 - 0.075}
+                        y2={-0.2 + dy * 0.34 - 0.035} />
+                  <line x1={VB.x0 + 0.08 + dx * 0.34}
+                        y1={-0.2 + dy * 0.34}
+                        x2={VB.x0 + 0.08 + dx * 0.34 - 0.015}
+                        y2={-0.2 + dy * 0.34 - 0.085} />
+                </g>
+              </g>
+            )
+          })()}
+
           {/* A shallow presentation, so "further away" is a direction the hand
               can push in. The letters stay flat and readable: the depth is in
               how the specimen sits, not in extruded type. */}
@@ -490,7 +535,14 @@ export function SpecimenStage({
             })}
           </g>
 
-          {/* What a press will take hold of, in the corner the eye starts from.
+          {depth === "perspective" && (
+        <div className="absolute left-2 bottom-7 rail-label !text-[8px]
+                        text-here pointer-events-none">
+          {"\u2197 "}{zProp}
+        </div>
+      )}
+
+      {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that
           changes every gesture should not be something to remember. */}
       <div className="absolute top-8 right-2 rail-label !text-[8px]
@@ -570,6 +622,13 @@ export function SpecimenStage({
                       sample={[...text].filter((c) => /[A-Za-z]/.test(c))
                         .slice(0, 3).join("") || "Ham"} />
       </div>
+
+      {depth === "perspective" && (
+        <div className="absolute left-2 bottom-7 rail-label !text-[8px]
+                        text-here pointer-events-none">
+          {"\u2197 "}{zProp}
+        </div>
+      )}
 
       {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that

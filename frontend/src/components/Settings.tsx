@@ -7,6 +7,7 @@ import type { HandleKind } from "./handles"
 export type Theme = "system" | "light" | "dark"
 export const THEME_KEY = "vg.theme"
 export const TEXT_KEY = "vg.text"
+export const GUIDE_KEY = "vg.guide.ink"
 
 function Field({ label, note, children }: {
   label: string; note?: string; children: React.ReactNode
@@ -39,7 +40,7 @@ const SELECT = "font-mono text-[11px] bg-card border border-border "
 export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
-  xProp, yProp, zProp, setProps,
+  xProp, yProp, zProp, setProps, guideInk, setGuideInk,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -55,6 +56,8 @@ export function Settings({
   yProp: HandleKind
   zProp: HandleKind
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
+  guideInk: number
+  setGuideInk: (v: number) => void
 }) {
   const [confirming, setConfirming] = useState(false)
 
@@ -112,6 +115,19 @@ export function Settings({
                    placeholder="Hamburgefonstiv"
                    className="font-mono text-[11px] w-full bg-background
                               border border-border rounded-sm px-2 py-1" />
+          </Field>
+          <Field label="Guide strength"
+                 note="Baseline, x-height and cap behind the letters, and the
+                       depth rails in perspective mode">
+            <span className="flex items-center gap-2">
+              <input type="range" min={0.05} max={1} step={0.05}
+                     value={guideInk} className="flex-1 accent-burgundy"
+                     onChange={(e) => setGuideInk(Number(e.target.value))} />
+              <span className="font-mono text-[10px] text-muted-foreground
+                               w-8 text-right">
+                {Math.round(guideInk * 100)}
+              </span>
+            </span>
           </Field>
           <Field label="Corpus shell"
                  note="The dashed sphere the corpus is fitted to">
