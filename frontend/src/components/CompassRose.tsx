@@ -44,7 +44,7 @@ export function CompassRose({
   busy: boolean
 }) {
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 items-start">
       {/* The rose is a control surface, so it is framed as one. The atlas next
           to it is a picture of the space; these are buttons that move you. */}
       <div className="mb-1.5 shrink-0">
@@ -53,7 +53,13 @@ export function CompassRose({
                 + "is drawn in. Stepping is the only way to arrive anywhere: "
                 + "there is nothing here to generate."}>Traverse vector space</span>
       </div>
-      <div className="grid grid-cols-3 grid-rows-3 gap-1.5 flex-1 min-h-0
+      {/* Square cells, and the rose keeps its shape whatever room the column
+          has. Stretched to fill the height, each neighbour was set in a tall
+          box and the eight of them no longer read as eight steps around one
+          place: a specimen judged in a different frame from its neighbours is
+          not being compared with them. */}
+      <div className="grid grid-cols-3 grid-rows-3 gap-1.5 shrink-0
+                      w-full max-w-[min(100%,theme(spacing.80))] aspect-square
                       rounded-md bg-muted/40 border border-border p-1.5">
       {points.map((p) => {
         const d = DIRS[p.bearing]

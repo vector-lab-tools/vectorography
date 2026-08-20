@@ -405,7 +405,14 @@ export function SpecimenStage({
     // stopped and the mess is not hidden, but it is made heavier, so the end of
     // the known universe is something the hand meets rather than something a
     // caption reports afterwards.
-    const drag = beyond ? 0.45 : 1
+    //
+    // Gears, under the other hand: command for fine work, where a stem is
+    // nearly right and the question is a hair either way, shift for covering
+    // ground. The keys are read off the event rather than held in state, so
+    // pressing or letting go mid-drag changes the gear without the gesture
+    // having to end.
+    const gear = (e.metaKey || e.ctrlKey) ? 0.25 : e.shiftKey ? 2 : 1
+    const drag = (beyond ? 0.45 : 1) * gear
 
     const moves: { key: HandleKind; amount: number }[] = []
     const add = (key: HandleKind | undefined, amount: number) => {
