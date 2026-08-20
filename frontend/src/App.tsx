@@ -189,7 +189,12 @@ export default function App() {
   const [redoStack, setRedoStack] = useState<number[]>([])
   // A place kept by hand. Shaping runs ahead of the trail: a designer tries
   // twenty things in a row and wants the good one back, not the twentieth.
-  const [snapshot, setSnapshot] = useState<number[] | null>(null)
+  // Stops the traveller has marked, by id. Several, because a session worth
+  // recording has more than one place worth returning to.
+  const [waypoints, setWaypoints] = useState<number[]>([])
+  const flagStop = useCallback((id: number) => {
+    setWaypoints((w) => w.includes(id) ? w.filter((x) => x !== id) : [...w, id])
+  }, [])
   const [split, setSplit] = useState(0.7)
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
@@ -344,10 +349,10 @@ export default function App() {
   /** Cheap signature of everything a project file holds. Comparing it against
    *  the last save is how the panel knows the work has moved on. */
   const signature = useMemo(() => JSON.stringify([
-    trail.map((c) => c.id), cursor, text, family, snapshot != null,
+    trail.map((c) => c.id), cursor, text, family, waypoints,
     axX, axY, axZ, colourBy, atlasHeight, ballOn, depth,
     radius, temperature, step,
-  ]), [trail, cursor, text, family, snapshot, axX, axY, axZ, colourBy,
+  ]), [trail, cursor, text, family, waypoints, axX, axY, axZ, colourBy,
        atlasHeight, ballOn, depth, radius, temperature, step])
   /** The signature as it was when the journey was last written or opened.
    *  Taken during render rather than in an effect: an effect on mount runs
@@ -378,7 +383,7 @@ export default function App() {
                 label: "origin \u00b7 the centroid", parent: null, depth: 0 }])
     setCursor(0)
     setRedoStack([])
-    setSnapshot(null)
+    setWaypoints([])
     setFile(null)
     armSaved.current = true
     opened.current = false
@@ -391,7 +396,7 @@ export default function App() {
     const full = name.endsWith(".vgy") ? name : name + ".vgy"
     download(full, serialise({
       model: corpus?.model ?? null,
-      family, text, trail, cursor, snapshot,
+      family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
     }))
@@ -400,7 +405,7 @@ export default function App() {
     opened.current = false
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
-      family, file, radius, snapshot, step, temperature, text, trail])
+      family, file, radius, waypoints, step, temperature, text, trail])
 
   /** The browser gives a page no way to write back to a file it was handed,
    *  so Save is Save As with the name already filled in. */
@@ -408,7 +413,7 @@ export default function App() {
     if (!file) return saveAs()
     download(file, serialise({
       model: corpus?.model ?? null,
-      family, text, trail, cursor, snapshot,
+      family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
     }))
@@ -416,7 +421,7 @@ export default function App() {
     opened.current = false
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
-      family, file, radius, saveAs, snapshot, step, temperature, text, trail])
+      family, file, radius, saveAs, waypoints, step, temperature, text, trail])
 
   const openProject = useCallback(async () => {
     if (!corpus) return
@@ -432,7 +437,7 @@ export default function App() {
       setCursor(doc.cursor)
       setFamily(doc.family)
       setText(doc.text)
-      setSnapshot(doc.snapshot ?? null)
+      setWaypoints(doc.waypoints ?? [])
       setAxX(doc.view.axX); setAxY(doc.view.axY); setAxZ(doc.view.axZ)
       setColourBy(doc.view.colourBy)
       setAtlasHeight(doc.view.atlasHeight as typeof atlasHeight)
@@ -843,13 +848,14 @@ export default function App() {
         // These two left the specimen's toolbar when undo and redo took their
         // place there. They still travel in a saved project, so they need a
         // way back in.
-        { kind: "item", label: "Keep this place",
-          disabled: !z, onSelect: () => { if (z) setSnapshot([...z]) },
-          title: "Come back to it later without walking the trail" },
-        { kind: "item", label: "Back to the place you kept",
-          disabled: !snapshot,
-          onSelect: () => { if (snapshot) push(snapshot, "recall", "kept place") },
-          title: "The last place you kept" },
+        { kind: "item",
+          label: waypoints.includes(cursor) ? "Unmark this waypoint"
+                                            : "Mark a waypoint here",
+          disabled: !z, onSelect: () => flagStop(cursor),
+          title: "Flag this stop on the trail so it is easy to find again" },
+        { kind: "item", label: "Clear every waypoint",
+          disabled: !waypoints.length, onSelect: () => setWaypoints([]),
+          title: "Unmark them all. The stops themselves stay on the trail." },
         { kind: "sep" },
         { kind: "item", label: "Settings\u2026", hint: "\u2318,",
           onSelect: () => setSettingsOpen(true),
@@ -1155,7 +1161,9 @@ export default function App() {
             </span>
             <div className="flex-1 min-h-0 flex flex-col rounded-md border
                             border-border/60 bg-muted/25 px-2.5 py-2">
-              <Trail trail={trail} cursor={cursor} onGo={setCursor} />
+              <Trail trail={trail} cursor={cursor} onGo={setCursor}
+                     waypoints={waypoints} onFlag={flagStop}
+                     onClearFlags={() => setWaypoints([])} />
             </div>
           </div>
         </section>
@@ -1236,7 +1244,9 @@ export default function App() {
                              border-border/60 bg-muted/25 px-2.5 py-2
                              overflow-y-auto
                              ${tab === "trail" ? "flex" : "hidden"}`}>
-              <Trail trail={trail} cursor={cursor} onGo={setCursor} />
+              <Trail trail={trail} cursor={cursor} onGo={setCursor}
+                     waypoints={waypoints} onFlag={flagStop}
+                     onClearFlags={() => setWaypoints([])} />
             </div>
             <div className={`h-full pt-1
                              ${tab === "walk" ? "" : "hidden"}`}>

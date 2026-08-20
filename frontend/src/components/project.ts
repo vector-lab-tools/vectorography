@@ -16,7 +16,9 @@ export type Project = {
   text: string
   trail: Crumb[]
   cursor: number
-  snapshot: number[] | null
+  /** Stops on the trail the traveller has marked. Ids, not positions: a
+   *  waypoint is a place on the journey, and the journey already holds it. */
+  waypoints: number[]
   view: {
     axX: string; axY: string; axZ: string
     colourBy: string
