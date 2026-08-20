@@ -83,8 +83,9 @@ export function ExportPanel({
         <div className="mb-3 p-2.5 rounded-sm border border-gold
                         bg-gold/10 flex items-baseline gap-2 flex-wrap">
           <span className="text-[11px]">
-            This typeface has no name yet. It will install and appear as
-            <strong> Unnamed</strong>.
+            Name the typeface before you take it away. A font carries its name
+            wherever it goes, and a folder of files called
+            <strong> Unnamed</strong> is a folder nobody can use.
           </span>
           <input
             ref={field}
@@ -106,16 +107,18 @@ export function ExportPanel({
             <p className="text-[10px] text-muted-foreground mb-1.5">{g.note}</p>
             <div className="space-y-1">
               {g.rows.map((r) => {
-                const off = busy || (r.journey && short)
+                const off = busy || (r.journey && short) || !named
                 return (
                   <button
                     key={r.kind}
                     disabled={off}
                     onClick={() => { onRun(r.kind); onClose() }}
-                    title={r.journey && short
-                      ? "Travel somewhere first: a journey needs at least two "
-                        + "stops"
-                      : r.what}
+                    title={!named
+                      ? "Name the typeface first"
+                      : r.journey && short
+                        ? "Travel somewhere first: a journey needs at least "
+                          + "two stops"
+                        : r.what}
                     className={`w-full text-left p-2.5 rounded-sm border
                                 transition-colors
                                 ${off
