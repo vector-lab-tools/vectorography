@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Glyph } from "../api"
 import { FamilyPicker } from "./FamilyPicker"
+import { ProofBox } from "./ProofBox"
 import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
 import { GUIDE_STROKE, type GuideStyle } from "./Settings"
@@ -736,24 +737,9 @@ export function SpecimenStage({
               : t.startsWith("HHOO") ? "HHOO" : "pangram"}
           </button>
         ))}
-        <input
-          value={text}
-          onPointerDown={(e) => e.stopPropagation()}
-          onChange={(e) => setText(e.target.value)}
-          spellCheck={false}
-          className="font-mono text-[10px] w-24 sm:w-40 ml-2 px-2 py-1 rounded-sm
-                     select-text
-                     bg-background border border-ink/25
-                     shadow-[inset_0_1px_2px_hsl(var(--ink)/0.08)]
-                     focus:outline-none focus:border-burgundy
-                     focus:ring-1 focus:ring-burgundy/30
-                     placeholder:text-muted-foreground/60"
-          placeholder="type anything"
-          title={"What the specimen sets. Reading the letters is how you "
-            + "decide where to go."}
-        />
-
       </div>
+
+        <ProofBox text={text} setText={setText} />
 
         {/* The real families you are standing among, nearest first, each set
             in its own face: the list was a readout, and every line of it is
