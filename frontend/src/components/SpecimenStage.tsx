@@ -88,10 +88,11 @@ export function SpecimenStage({
       "on" | "minimal" | "off" | null) ?? "on")
   // Where the tools sit. Kept, because it is a decision about the desk.
   const [dock, setDock] = useState<Dock>(
-    () => (localStorage.getItem("vg.dock") as Dock | null)
-      // On a phone the bottom of the panel already carries the depth schemes
-      // and the reading, so the tools start out of their way.
-      ?? (window.innerWidth < 700 ? "top-right" : "bottom-right"))
+    () => (localStorage.getItem("vg.dock.v2") as Dock | null)
+      // On a phone the head row carries the proof chips and the foot carries
+      // the depth schemes and the reading, so the tools take the right edge,
+      // where they stack vertically and leave the letters clear.
+      ?? "bottom-right")
 
   const placed = useMemo(() => layout(glyphs, text), [glyphs, text])
   // Laid out from the outlines, which lag the specimen by a beat. The handles
@@ -312,7 +313,8 @@ export function SpecimenStage({
         ref={svg}
         viewBox={`${VB.x0} ${VB.y0} ${VB.w} ${VB.h}`}
         preserveAspectRatio="xMidYMid meet"
-        className={`w-full h-full touch-none select-none ${
+        className={`w-full h-full touch-none select-none lg:pr-0 ${
+          dock === "right" ? "pr-8" : dock === "left" ? "pl-8" : ""} ${
           dragging ? "cursor-grabbing"
           : showing ? "cursor-grab"
           : depth === "handles" ? "cursor-default" : "cursor-grab"}`}
@@ -474,13 +476,13 @@ export function SpecimenStage({
       )}
 
       <StageToolbar tools={tools} dock={dock}
-                    setDock={(d) => { setDock(d); localStorage.setItem("vg.dock", d) }} />
+                    setDock={(d) => { setDock(d); localStorage.setItem("vg.dock.v2", d) }} />
 
       {/* The wheel's job, for hands without a wheel: a fader that springs
           back to rest, so it deals in movement rather than position, exactly
           as the wheel does. Coarse pointers only. */}
       {depth === "modifier" && (
-        <div className="hidden coarse:flex absolute right-0.5 top-16 bottom-16
+        <div className="hidden coarse:flex absolute left-0.5 top-16 bottom-16
                         w-7 flex-col items-center"
              title={`${zProp}: drag up or down, springs back`}
              onPointerDown={(e) => e.stopPropagation()}>
@@ -508,8 +510,9 @@ export function SpecimenStage({
         </div>
       )}
 
-      <div className="absolute bottom-1 left-2 right-2 flex flex-wrap
-                      items-center gap-1">
+      <div className={`absolute bottom-1 left-2 flex flex-wrap items-center
+                       gap-1 ${dock === "bottom-right" ? "right-[124px]"
+                         : dock === "bottom" ? "right-[124px]" : "right-2"}`}>
         {(["handles", "modifier", "perspective"] as Depth[]).map((d) => (
           <button
             key={d}

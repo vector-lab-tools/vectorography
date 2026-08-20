@@ -34,7 +34,7 @@ export function StageToolbar({ tools, dock, setDock }: {
     : dock === "left" ? "left-1.5 top-1/2 -translate-y-1/2"
     : dock === "top" ? "top-1.5 left-1/2 -translate-x-1/2"
     : dock === "bottom" ? "bottom-1.5 left-1/2 -translate-x-1/2"
-    : dock === "bottom-right" ? "bottom-1.5 right-1.5"
+    : dock === "bottom-right" ? "bottom-1 right-1.5"
     : dock === "bottom-left" ? "bottom-1.5 left-1.5"
     // On a narrow panel the head row is already full of proof chips and the
     // family picker, so the top docks sit just under it.
@@ -103,7 +103,7 @@ export function StageToolbar({ tools, dock, setDock }: {
           onClick={t.onClick}
           title={`${t.label} — ${t.title}`}
           aria-label={t.label}
-          className={`w-7 h-7 sm:w-6 sm:h-6 coarse:w-10 coarse:h-10 flex items-center justify-center
+          className={`w-6 h-6 flex items-center justify-center
                       rounded-sm
                       border transition-colors ${t.on
                         ? "border-here text-here bg-here/10"

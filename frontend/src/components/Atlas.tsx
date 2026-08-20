@@ -142,7 +142,7 @@ function labelKey(name: string, text: string, rgb: [number, number, number]) {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
-  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus, liveRadius }: {
+  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -170,7 +170,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   corpus: CorpusInfo | null
   /** Radius of the position being dragged to, computed by the client, so the
    *  reading moves with the mark instead of waiting for the server. */
-  liveRadius: number | null
 }) {
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -789,19 +788,28 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
     <>
       <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
         <span className="font-mono text-[9px] uppercase tracking-[0.12em]
-                         text-muted-foreground pointer-events-none truncate
-                         max-w-[62%]"
-              title={`Ground plane: ${data.axes.ride ? "ride heading"
-                : `axis ${data.axes.x}`} by axis ${data.axes.y}. Height: ${
-                data.axes.height === "density"
-                  ? "crowding" : "distance from the centroid"}.`}>
-          {data.axes.ride ? "ride" : axisName(data.axes.x, directions)}
-          {" × "}{axisName(data.axes.y, directions)}
-          {" · "}{data.axes.height === "density" ? "crowding"
-            : data.axes.height === "centroid" ? "centroid"
-            : axisName(data.axes.z, directions)}
+                         text-muted-foreground pointer-events-none
+                         whitespace-nowrap"
+              title={`Vector space. Ground plane: ${
+                data.axes.ride ? "ride heading"
+                  : axisName(data.axes.x, directions)} by ${
+                axisName(data.axes.y, directions)}. Height: ${
+                data.axes.height === "density" ? "crowding"
+                  : data.axes.height === "centroid"
+                    ? "distance from the centroid"
+                    : axisName(data.axes.z, directions)}.`}>
+          {/* What the map is, rather than which eigendirections happen to be
+              spanning it: the axis pickers name those, and reading them here
+              told a traveller nothing about where they were. */}
+          vector space
         </span>
-        <div className="flex items-center gap-1.5">
+      </div>
+
+      {/* The view controls sit at the foot on the right, out of the corner
+          where the map is read and clear of the caption. */}
+      <div className="absolute right-2 bottom-2 max-lg:bottom-[56px]
+                      flex items-center gap-1.5 max-lg:gap-2
+                      justify-end max-lg:left-2 max-lg:justify-between">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -815,7 +823,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                    + "an isotropic ball, with most families in a shell rather "
                    + "than near the middle. Needs the height to be a real axis, "
                    + "so turning it on makes it one."}
-            className={`w-5 h-5 flex items-center justify-center rounded-sm
+            className={`w-5 h-5 max-lg:w-9 max-lg:h-9 flex items-center
+                        justify-center rounded-sm
                         border text-[11px] leading-none transition-colors
                         ${ballOn ? "border-here text-here bg-here/10"
                                  : "border-border text-muted-foreground"}`}
@@ -835,7 +844,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             disabled={!ballOn}
             title={"North, south, east and west on the shell, for telling "
               + "which way the model has been turned"}
-            className={`w-5 h-5 flex items-center justify-center rounded-sm
+            className={`w-5 h-5 max-lg:w-9 max-lg:h-9 flex items-center
+                        justify-center rounded-sm
                         border font-mono text-[9px] leading-none
                         transition-colors disabled:opacity-30
                         ${cardinalsOn && ballOn
@@ -849,7 +859,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onChange={(e) => setColourBy(e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             className="font-mono text-[9px] bg-card border border-border
-                       rounded-sm px-1 py-0.5"
+                       rounded-sm px-1 py-0.5 max-lg:px-2 max-lg:py-2
+                       max-lg:min-w-0 max-lg:flex-1 max-lg:truncate"
             title="Which measured property the colour shows"
           >
             {directions.map((d) => (
@@ -867,30 +878,15 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
               schedule()
             }}
             title="What each family is drawn as"
-            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
+            className={`font-mono text-[9px] px-1.5 py-0.5 max-lg:px-2.5
+                        max-lg:py-2 rounded-sm border
                         transition-colors ${modeOn !== "off"
                           ? "border-burgundy text-burgundy"
                           : "border-border text-muted-foreground"}`}
           >
             {modeOn === "names" ? "names" : "dots"}
           </button>
-        </div>
       </div>
-
-      {ballOn && data.ball && data.axes.height === "axis" && (
-        <div className="absolute top-[52px] left-2 font-mono text-[9px]
-                        text-muted-foreground pointer-events-none
-                        whitespace-nowrap"
-             title={`You are ${data.ball.self.toFixed(2)} from the average of `
-               + `every font. The furthest real family is `
-               + `${data.ball.max.toFixed(2)} out and half the corpus lies `
-               + `within ${data.ball.q50.toFixed(2)}.`}>
-          r {(liveRadius ?? data.ball.self).toFixed(2)} of
-          {" "}{data.ball.max.toFixed(2)}
-          {liveRadius == null &&
-            ` · ${data.ball.inside_q50.toFixed(0)}% nearer in`}
-        </div>
-      )}
 
       {data.colour && (
         <div className="absolute top-2 right-2 flex items-center gap-1.5
@@ -1076,7 +1072,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         <AltitudeStrip altitude={altitude} corpus={corpus} />
       </div>
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-1">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1
+                      max-lg:gap-2">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
            ["⌖", reset, "Back to the default view, centred on you"],
@@ -1086,7 +1083,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             title={tip}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); fn() }}
-            className="w-6 h-6 coarse:w-10 coarse:h-10 flex items-center
+            className="w-6 h-6 max-lg:w-9 max-lg:h-9 flex items-center
                        justify-center rounded-sm
                        border border-border bg-card font-mono text-[11px]
                        leading-none hover:border-burgundy hover:text-burgundy
@@ -1099,7 +1096,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           type="range" min={4} max={120} step={1} value={zoomLabel}
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => setZoom(Number(e.target.value))}
-          className="w-24 coarse:w-32 accent-burgundy ml-1"
+          className="w-24 max-lg:hidden accent-burgundy ml-1"
           title="Zoom"
         />
         <span className="font-mono text-[9px] text-muted-foreground w-8">
@@ -1142,17 +1139,6 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         </div>
       )}
 
-      {(!WAYPOINTS || !waypoint) && (
-        <div className="absolute bottom-2 right-2 max-w-[46%] truncate
-                        font-mono text-[9px] text-muted-foreground/70
-                        pointer-events-none text-right"
-             title={"Drag to orbit. Alt-drag, or the move toggle, drags the "
-               + "specimen through the space. Shift while moving goes up "
-               + "and down the third axis. Click a family to travel to "
-               + "it."}>
-          drag to turn · hover a family to name it · click to travel there
-        </div>
-      )}
     </div>
   )
 }

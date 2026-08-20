@@ -194,8 +194,11 @@ export default function App() {
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
-  const [tab, setTab] = useState(() =>
-    localStorage.getItem("vg.tab") ?? "atlas")
+  const TABS = ["atlas", "steer", "trail", "walk"]
+  const [tab, setTab] = useState(() => {
+    const kept = localStorage.getItem("vg.tab")
+    return kept && TABS.includes(kept) ? kept : "atlas"
+  })
   const pickTab = (t: string) => {
     setTab(t); localStorage.setItem("vg.tab", t)
   }
@@ -313,7 +316,6 @@ export default function App() {
       // took and the map jumped back before jumping forward.
       if (dragZ.current === null) {
         setLiveSelf(null)
-        setLiveRadius(null)
       }
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
@@ -502,7 +504,6 @@ export default function App() {
 
   /** Where a position sits in the atlas's own coordinates, so the mark can be
    *  moved before the server has been asked anything. */
-  const [liveRadius, setLiveRadius] = useState<number | null>(null)
   // Outlines for hit-testing, fetched apart from the specimen. Asked for in the
   // same breath, the letters waited on a payload twenty times their size and
   // the panel sat empty saying so.
@@ -517,8 +518,7 @@ export default function App() {
       : (liveSelf?.h ?? atlas?.self.h ?? 0)
     // Radius in the three directions on screen, the same quantity the server
     // reports, so the reading and the mark cannot disagree.
-    const x = dot(p, b.u), y = dot(p, b.v), zz = dot(p, b.w)
-    setLiveRadius(Math.hypot(x, y, zz))
+    const x = dot(p, b.u), y = dot(p, b.v)
     return { x, y, h }
   }, [atlas, liveSelf])
 
@@ -1009,7 +1009,7 @@ export default function App() {
                      liveSelf={liveSelf}
                      ballOn={ballOn} setBallOn={setBallOn}
                      altitude={location?.altitude ?? null} corpus={corpus}
-                     liveRadius={liveRadius} />
+                     />
             </div>
 
             {!isMobile && (
@@ -1066,8 +1066,12 @@ export default function App() {
               // All the way in either direction: either half can be taken
               // down to a sliver, so the space or the instruments can have the
               // whole window when that is what the work needs. A hair is left
-              // at each end so the divider itself stays grabbable.
-              setSplit(Math.max(0.02, Math.min(0.98, start + d)))
+              // at the top so the divider itself stays grabbable, and the
+              // bottom end runs to twice the window, since the page scrolls
+              // below and a map worth studying is often taller than the
+              // screen. Past the window a single gesture runs out of pointer,
+              // so the range is covered by dragging twice.
+              setSplit(Math.max(0.02, Math.min(1.96, start + d)))
             }
             const up = () => {
               window.removeEventListener("pointermove", move)
@@ -1165,7 +1169,7 @@ export default function App() {
                      liveSelf={liveSelf}
                      ballOn={ballOn} setBallOn={setBallOn}
                      altitude={location?.altitude ?? null} corpus={corpus}
-                     liveRadius={liveRadius} />
+                     />
             </div>
             <div className={`h-full overflow-y-auto pt-1
                              ${tab === "steer" ? "" : "hidden"}`}>
@@ -1178,42 +1182,49 @@ export default function App() {
                   No measured directions in this model.
                 </p>
               )}
-            </div>
-            <div className={`h-full overflow-y-auto pt-1
-                             ${tab === "travel" ? "" : "hidden"}`}>
-              <TravelBar
-                corpus={corpus}
-                radius={radius} setRadius={setRadius}
-                temperature={temperature} setTemperature={setTemperature}
-                step={step} setStep={setStep}
-                axX={axX} axY={axY} axZ={axZ}
-                setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
-                overlap={atlas?.axes.overlap ?? null}
-                ride={ride} orbit={orbit}
-                onDrift={() => travel({ mode: "drift" }, "drift",
-                                      `drift t${temperature.toFixed(2)}`)}
-                onRepel={() => travel({ mode: "repel" }, "repel",
-                                      `repel s${step.toFixed(2)}`)}
-                onOrbit={() => orbit && travel(
-                  { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
-                  `orbit ${orbit.name} +20°`)}
-                onSetRide={async (a, b) => {
-                  try {
-                    const [za, zb] = await Promise.all(
-                      [api.fontPosition(a), api.fontPosition(b)])
-                    setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
-                  } catch (e) { setError(String(e)) }
-                }}
-                onClearRide={() => setRide(null)}
-                onSetOrbit={async (name) => {
-                  try {
-                    const r = await api.fontPosition(name)
-                    setOrbit({ name, z: r.z })
-                  } catch (e) { setError(String(e)) }
-                }}
-                onClearOrbit={() => setOrbit(null)}
-                busy={busy}
-              />
+
+              {/* Ways of moving that are not a property on a slider, on the
+                  same sheet as the sliders: a phone has one pane, and making
+                  the traveller change tabs to drift was a tab too many. */}
+              <div className="mt-4 pt-3 border-t border-border">
+                <span className="rail-label">Controls</span>
+                <div className="mt-2">
+                  <TravelBar
+                    corpus={corpus}
+                    radius={radius} setRadius={setRadius}
+                    temperature={temperature} setTemperature={setTemperature}
+                    step={step} setStep={setStep}
+                    axX={axX} axY={axY} axZ={axZ}
+                    setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
+                    overlap={atlas?.axes.overlap ?? null}
+                    ride={ride} orbit={orbit}
+                    onDrift={() => travel({ mode: "drift" }, "drift",
+                                          `drift t${temperature.toFixed(2)}`)}
+                    onRepel={() => travel({ mode: "repel" }, "repel",
+                                          `repel s${step.toFixed(2)}`)}
+                    onOrbit={() => orbit && travel(
+                      { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
+                      `orbit ${orbit.name} +20°`)}
+                    onSetRide={async (a, b) => {
+                      try {
+                        const [za, zb] = await Promise.all(
+                          [api.fontPosition(a), api.fontPosition(b)])
+                        setRide({ a, b,
+                                  vec: zb.z.map((v, i) => v - za.z[i]) })
+                      } catch (e) { setError(String(e)) }
+                    }}
+                    onClearRide={() => setRide(null)}
+                    onSetOrbit={async (name) => {
+                      try {
+                        const r = await api.fontPosition(name)
+                        setOrbit({ name, z: r.z })
+                      } catch (e) { setError(String(e)) }
+                    }}
+                    onClearOrbit={() => setOrbit(null)}
+                    busy={busy}
+                  />
+                </div>
+              </div>
             </div>
             <div className={`h-full min-h-0 flex-col rounded-md border
                              border-border/60 bg-muted/25 px-2.5 py-2
@@ -1235,8 +1246,8 @@ export default function App() {
 
           <nav className="shrink-0 h-12 flex items-stretch border-t
                           border-border bg-card/60 pb-safe px-safe">
-            {([["atlas", "Map"], ["steer", "Steer"], ["travel", "Travel"],
-               ["trail", "Trail"], ["walk", "Walk"]] as const)
+            {([["atlas", "Map"], ["steer", "Steer"],
+               ["trail", "Trail"], ["walk", "Traverse"]] as const)
               .map(([key, label]) => (
               <button key={key}
                       aria-selected={tab === key}
