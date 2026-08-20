@@ -14,22 +14,19 @@ import type { HandleKind } from "./handles"
  * but there are no real families left to interpolate toward and the outlines
  * start to guess.
  */
-export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
+export function DirectionPad({ directions, at, onSlide, onCommit, busy,
+                               onRigidify, nearest }: {
   directions: NamedDirection[]
   /** Current projection along each direction, keyed by property. */
   at: Record<string, number>
   onSlide: (key: string, value: number) => void
   onCommit: () => void
   busy: boolean
+  /** Move halfway to the nearest real family. */
+  onRigidify: () => void
+  /** Its name, for saying where the move goes. */
+  nearest: string | null
 }) {
-  const shape = directions.find((d) => d.key === "straightness")
-  const rigidify = () => {
-    if (!shape) return
-    const lo = shape.lo ?? -2.2
-    const hi = shape.hi ?? 2.2
-    onSlide("straightness", hi + (hi - lo) * 0.3)
-    onCommit()
-  }
 
   return (
     <div>
@@ -38,13 +35,14 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
               title={"Push a single measured property, without moving off in "
                 + "any other. The letterform changes in that one respect and "
                 + "holds everything else where it is."}>Steer</span>
-        {shape && (
+        {nearest && (
           <button
-            onClick={rigidify}
+            onClick={onRigidify}
             disabled={busy}
-            title={"Push shape to its straight end in one move. The same "
-              + "axis as the Shape slider: past the corpus there are no "
-              + "straight-sided families left to interpolate toward."}
+            title={`Move half the way to ${nearest}, the nearest real family. `
+              + "Between the corpus's own faces the outlines are readings; "
+              + "out on their own they are guesses, and this is the way "
+              + "back toward something that was drawn."}
             className="font-mono text-[8.5px] uppercase tracking-[0.1em]
                        px-1.5 py-[1px] rounded-sm border border-border bg-card
                        text-muted-foreground hover:border-burgundy

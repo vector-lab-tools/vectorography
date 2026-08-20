@@ -506,6 +506,18 @@ export default function App() {
     setCursor(trail[0]?.id ?? 0)
   }, [trail, cursor, isSane])
 
+  /** Half the way to the nearest real family, and again on the next press. */
+  const rigidify = useCallback(async () => {
+    const near = location?.neighbours?.[0]
+    if (!z || !near) return
+    setBusy(true)
+    try {
+      const r = await api.fontPosition(near.family)
+      push(z.map((v, i) => v + (r.z[i] - v) * 0.5), "rigidify",
+           `half toward ${near.family}`)
+    } catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [location, push, z])
+
   const undo = useCallback(() => {
     const cur = trail.find((c) => c.id === cursor)
     if (!cur || cur.parent == null) return
@@ -1123,7 +1135,9 @@ export default function App() {
                                 border-border pt-2">
                   <DirectionPad directions={directions} at={standing}
                                 onSlide={slideTo} onCommit={slideCommit}
-                                busy={busy} />
+                                busy={busy} onRigidify={rigidify}
+                                nearest={location?.neighbours?.[0]?.family
+                                         ?? null} />
                 </div>
               )}
             </div>
@@ -1314,7 +1328,9 @@ export default function App() {
               {directions.length > 0 ? (
                 <DirectionPad directions={directions} at={standing}
                               onSlide={slideTo} onCommit={slideCommit}
-                              busy={busy} />
+                              busy={busy} onRigidify={rigidify}
+                              nearest={location?.neighbours?.[0]?.family
+                                       ?? null} />
               ) : (
                 <p className="font-mono text-[10px] text-muted-foreground p-2">
                   No measured directions in this model.
