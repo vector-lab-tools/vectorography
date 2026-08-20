@@ -286,7 +286,7 @@ def build_variable(vectors: list[np.ndarray], family: str,
     masters, stops = [], []
     for i, vec in enumerate(vectors):
         loc = round(i * 1000 / (n - 1))
-        style = f"Stop {i}"
+        style = f"{i:02d}"
         stops.append((loc, style))
         data = build_ttf(vec, family, style, meta, version, licence, author)
         name = f"master-{i:02d}.ttf"
@@ -304,7 +304,7 @@ def build_variable(vectors: list[np.ndarray], family: str,
 
         inst = InstanceDescriptor()
         inst.familyName, inst.styleName = family, style
-        inst.postScriptFontName = f"{family.replace(' ', '')}-Stop{i}"
+        inst.postScriptFontName = f"{family.replace(' ', '')}-{i:02d}"
         inst.location = {AXIS_NAME: loc}
         doc.addInstance(inst)
 

@@ -79,26 +79,32 @@ export function ExportPanel({
            subtitle="What you leave with, and what it is for">
       {/* A font carries its name wherever it goes, and one called Unnamed is
           a nuisance to find again once it is installed. */}
-      {!named && (
-        <div className="mb-3 p-2.5 rounded-sm border border-gold
-                        bg-gold/10 flex items-baseline gap-2 flex-wrap">
-          <span className="text-[11px]">
-            Name the typeface before you take it away. A font carries its name
-            wherever it goes, and a folder of files called
-            <strong> Unnamed</strong> is a folder nobody can use.
+      {/* The name is a field, not a warning that vanishes. It was shown only
+          while the typeface had no name, so the first letter typed made it
+          named, unmounted the box mid-word, and threw away the rest of the
+          keystrokes along with the focus. */}
+      <div className={`mb-3 p-2.5 rounded-sm border flex items-baseline gap-2
+                       flex-wrap ${named ? "border-border"
+                                         : "border-gold bg-gold/10"}`}>
+        <span className="rail-label !text-[8px]">Typeface</span>
+        <input
+          ref={field}
+          autoFocus={!named}
+          value={family === "Unnamed" ? "" : family}
+          placeholder="name it"
+          onChange={(e) => setFamily(e.target.value)}
+          className="font-display text-[13px] flex-1 min-w-[8rem]
+                     bg-background border border-border rounded-sm px-2 py-1
+                     focus:outline-none focus:border-burgundy"
+        />
+        {!named && (
+          <span className="text-[10px] w-full text-muted-foreground">
+            Name it before you take it away. A font carries its name wherever
+            it goes, and a folder of files called Unnamed is a folder nobody
+            can use.
           </span>
-          <input
-            ref={field}
-            autoFocus
-            defaultValue=""
-            placeholder="name it"
-            onChange={(e) => setFamily(e.target.value)}
-            className="font-display text-[13px] flex-1 min-w-[8rem]
-                       bg-background border border-border rounded-sm px-2 py-1
-                       focus:outline-none focus:border-burgundy"
-          />
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="max-h-[58vh] overflow-y-auto pr-2 space-y-4">
         {GROUPS.map((g) => (

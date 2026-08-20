@@ -493,8 +493,10 @@ def export_font(req: FontReq):
     data = build(vec, req.family, req.style, s.metas[0], VERSION,
                  req.licence, req.author)
     safe = req.family.replace(" ", "") or "Vectorography"
+    style = (req.style or "").strip()
+    stem = safe if style.lower() in ("", "regular") else f"{safe}-{style}"
     return Response(data, media_type="font/" + fmt, headers={
-        "Content-Disposition": f"attachment; filename={safe}-{req.style}.{fmt}"})
+        "Content-Disposition": f"attachment; filename={stem}.{fmt}"})
 
 
 @app.post("/api/preview/journey")
@@ -654,8 +656,8 @@ def export_journey(req: JourneyReq):
         vf, ds_xml, masters = build_variable(vectors, req.family, meta,
                                              VERSION, req.licence, req.author)
         instances = [
-            (f"{req.family.replace(' ', '')}-Stop{i}.otf",
-             build_otf(v, req.family, f"Stop {i}", meta, VERSION,
+            (f"{req.family.replace(' ', '')}-{i:02d}.otf",
+             build_otf(v, req.family, f"{i:02d}", meta, VERSION,
                        req.licence, req.author))
             for i, v in enumerate(vectors)]
     except Exception as exc:  # noqa: BLE001
