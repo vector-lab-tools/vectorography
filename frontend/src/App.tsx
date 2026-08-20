@@ -1051,6 +1051,10 @@ export default function App() {
           onPointerDown={(e) => {
             // Without this the drag sweeps a text selection across the page.
             e.preventDefault()
+            // Capture, so the release reaches us even when the button comes
+            // up outside the window; a missed release left the move listener
+            // alive, silently eating every gesture until the next click.
+            try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
             const startY = e.clientY
             const start = split
             const host = (e.currentTarget.parentElement as HTMLElement)
@@ -1066,9 +1070,13 @@ export default function App() {
             const up = () => {
               window.removeEventListener("pointermove", move)
               window.removeEventListener("pointerup", up)
+              window.removeEventListener("pointercancel", up)
+              window.removeEventListener("blur", up)
             }
             window.addEventListener("pointermove", move)
             window.addEventListener("pointerup", up)
+            window.addEventListener("pointercancel", up)
+            window.addEventListener("blur", up)
           }}
         >
           <div className="h-px flex-1 bg-border group-hover:bg-burgundy

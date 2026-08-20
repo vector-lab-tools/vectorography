@@ -775,7 +775,13 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       ro.disconnect()
       document.removeEventListener("visibilitychange", revive)
       window.removeEventListener("focus", revive)
-      if (frame.current) cancelAnimationFrame(frame.current)
+      // Clearing the id matters as much as cancelling the frame. This effect
+      // re-runs whenever new data gives `draw` a new identity, which during a
+      // long move lands while a frame is very often still queued. Leaving the
+      // id set left the scheduler believing a frame was always pending, so it
+      // returned early for ever after and the map stopped turning, while zoom
+      // and reset carried on because they call draw directly.
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0 }
     }
   }, [draw])
 
