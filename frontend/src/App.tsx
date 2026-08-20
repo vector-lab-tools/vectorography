@@ -208,6 +208,13 @@ export default function App() {
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
   const TABS = ["atlas", "steer", "trail", "walk"]
+  // How the phone's window is shared between the specimen and whatever tab
+  // is showing. Kept, because it is a decision about the desk, and a
+  // designer who wants a big map wants it on every visit.
+  const [phoneSplit, setPhoneSplit] = useState(() => {
+    const kept = Number(localStorage.getItem("vg.split"))
+    return kept >= 0.18 && kept <= 0.82 ? kept : 0.4
+  })
   const [tab, setTab] = useState(() => {
     const kept = localStorage.getItem("vg.tab")
     return kept && TABS.includes(kept) ? kept : "atlas"
@@ -985,7 +992,7 @@ export default function App() {
         <section className="shrink-0 overflow-hidden flex flex-col gap-2
                             lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
                             max-lg:flex-1 max-lg:min-h-0"
-                 style={isMobile ? { flex: "0 0 40%" }
+                 style={isMobile ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
                    : { flex: `0 0 calc((100dvh - 96px) * ${split})` }}>
           <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
                           lg:h-[168px] px-2 sm:px-3 py-2 text-ink">
@@ -1178,6 +1185,46 @@ export default function App() {
         )}
 
         {isMobile && (<>
+          {/* The same handle the desk has, for the same reason: how much room
+              the letters get against the instrument below them is the
+              traveller's call. */}
+          <div
+            className="h-4 shrink-0 mx-2 flex items-center justify-center
+                       touch-none group"
+            style={{ touchAction: "none" }}
+            title="Drag to give the specimen or the panel below more room"
+            onDoubleClick={() => {
+              setPhoneSplit(0.4)
+              localStorage.setItem("vg.split", "0.4")
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+              const host = e.currentTarget.parentElement as HTMLElement
+              const total = host.clientHeight
+              const startY = e.clientY
+              const start = phoneSplit
+              let latest = start
+              const move = (ev: PointerEvent) => {
+                latest = Math.max(0.18, Math.min(0.82,
+                  start + (ev.clientY - startY) / Math.max(total, 1)))
+                setPhoneSplit(latest)
+              }
+              const up = () => {
+                localStorage.setItem("vg.split", String(latest))
+                window.removeEventListener("pointermove", move)
+                window.removeEventListener("pointerup", up)
+                window.removeEventListener("pointercancel", up)
+              }
+              window.addEventListener("pointermove", move)
+              window.addEventListener("pointerup", up)
+              window.addEventListener("pointercancel", up)
+            }}
+          >
+            <div className="h-1 w-12 rounded-full bg-border
+                            group-active:bg-burgundy transition-colors" />
+          </div>
+
           {/* The lower half of a phone: one instrument at a time, all of
               them mounted so a slider keeps its place across a swap. */}
           <div className="flex-1 min-h-0 px-2 pb-1 overflow-hidden">
