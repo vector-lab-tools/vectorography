@@ -206,7 +206,7 @@ export function SpecimenStage({
                                   ${priority === k
                                     ? "bg-here/10 text-here"
                                     : "hover:bg-muted"}`}>
-                {k === "all" ? "all \u00b7 wherever the hand lands" : k}
+                {k === "all" ? "all \u00b7 choose via dot" : k}
               </button>
             )
           })}
