@@ -451,34 +451,52 @@ export function SpecimenStage({
               <line x1={VB.x0} x2={VB.x0 + VB.w} y1={capH} y2={capH} />
             </g>
           )}
-          {/* The floor the word stands on. Lines converge on a vanishing
-              point above it, so up the screen reads as away from the eye
-              before anything is dragged at all. This is the whole of what
-              makes perspective a different instrument from modifier: the
-              hand moves the type in a place rather than on a pad. */}
+          {/* The same ball the atlas draws, behind the letters. Perspective
+              needed a space to be a place in, and inventing a floor for it
+              made a second spatial metaphor for one instrument. This is the
+              corpus shell seen from inside: dashed, because it is a reading
+              of where the corpus ends rather than a wall, and tilted to the
+              angle the map is drawn at, so the two pictures are of the same
+              space. Up the screen is away from the eye, into the ball. */}
           {depth === "perspective" && (() => {
             const lit = dragging === "plane"
-            const vpX = VB.x0 + VB.w / 2
-            const vpY = 0.78
-            const floor = -0.22
-            const rays = []
-            for (let a = VB.x0 - 0.8; a < VB.x0 + VB.w + 0.8; a += 0.42) {
-              rays.push(<line key={`r${a}`} x1={a} y1={floor}
-                              x2={vpX} y2={vpY} />)
-            }
-            // Distance bands, closer together as they recede.
-            const bands = [0, 0.18, 0.33, 0.45, 0.55, 0.63, 0.69].map((t) => {
-              const y = floor + (vpY - floor) * t
-              return <line key={`b${t}`} x1={VB.x0} y1={y}
-                           x2={VB.x0 + VB.w} y2={y} />
-            })
+            const cx = VB.x0 + VB.w / 2
+            const cy = 0.3
+            // Wider than the box is tall, so the letters sit inside the
+            // shell rather than in front of a badge of one.
+            const R = Math.min(1.15, Math.max(0.62, VB.w * 0.28))
+            // The atlas's own tilt: the equator flattens to this much.
+            const flat = 0.42
+            const ink = "hsl(var(--muted-foreground))"
             return (
-              <g pointerEvents="none" stroke="hsl(var(--here))"
-                 strokeWidth={0.0035}
-                 opacity={lit ? Math.min(1, guideInk * 1.8) : guideInk}
+              <g pointerEvents="none" fill="none" stroke={ink}
+                 strokeWidth={0.004} strokeDasharray="0.022 0.03"
+                 opacity={lit ? Math.min(1, guideInk * 1.7) : guideInk * 0.85}
                  style={{ transition: "opacity 120ms" }}>
-                {rays}
-                {bands}
+                {/* The edge of the known space. */}
+                <circle cx={cx} cy={cy} r={R} />
+                {/* Equator and two meridians: enough of a wireframe to read
+                    as a sphere, few enough not to compete with the type. */}
+                <ellipse cx={cx} cy={cy} rx={R} ry={R * flat} />
+                <ellipse cx={cx} cy={cy} rx={R * flat} ry={R} />
+                <ellipse cx={cx} cy={cy} rx={R * 0.82} ry={R}
+                         transform={`rotate(-24 ${cx} ${cy})`} />
+                {/* Rings above and below the equator, closer together as they
+                    approach the pole, which is what gives the tilt away. */}
+                {[0.55, -0.55].map((k) => (
+                  <ellipse key={k} cx={cx} cy={cy + k * R * flat * 1.9}
+                           rx={R * Math.sqrt(1 - k * k)}
+                           ry={R * flat * Math.sqrt(1 - k * k)} />
+                ))}
+                {/* Where the eye is, so up reads as away rather than up. */}
+                <g strokeDasharray="none" strokeWidth={0.006}
+                   opacity={lit ? 1 : 0.7}>
+                  <line x1={cx} y1={cy - R * 1.12} x2={cx} y2={cy - R * 0.72} />
+                  <line x1={cx} y1={cy - R * 1.12}
+                        x2={cx - 0.035} y2={cy - R * 1.04} />
+                  <line x1={cx} y1={cy - R * 1.12}
+                        x2={cx + 0.035} y2={cy - R * 1.04} />
+                </g>
               </g>
             )
           })()}
