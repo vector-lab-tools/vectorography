@@ -8,6 +8,18 @@ export type Theme = "system" | "light" | "dark"
 export const THEME_KEY = "vg.theme"
 export const TEXT_KEY = "vg.text"
 export const GUIDE_KEY = "vg.guide.ink"
+export const INK_KEY = "vg.specimen.ink"
+
+/** A few inks that hold up on both grounds, and the theme's own. */
+export const INKS: [string, string][] = [
+  ["auto", "Follows the theme"],
+  ["#1a1a1a", "Black"],
+  ["#7c2d36", "Burgundy"],
+  ["#2f4858", "Slate"],
+  ["#3a5a40", "Green"],
+  ["#8a6d1f", "Gold"],
+  ["#5b3a8a", "Violet"],
+]
 
 function Field({ label, note, children }: {
   label: string; note?: string; children: React.ReactNode
@@ -40,7 +52,8 @@ const SELECT = "font-mono text-[11px] bg-card border border-border "
 export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
-  xProp, yProp, zProp, setProps, guideInk, setGuideInk, inline = false,
+  xProp, yProp, zProp, setProps, guideInk, setGuideInk, ink, setInk,
+  inline = false,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -58,6 +71,9 @@ export function Settings({
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
   guideInk: number
   setGuideInk: (v: number) => void
+  /** The specimen's colour: a hex, or "auto" for the theme's own ink. */
+  ink: string
+  setInk: (v: string) => void
   /** Shown in place, as one of the phone's tabs, rather than over the work. */
   inline?: boolean
 }) {
@@ -117,6 +133,34 @@ export function Settings({
                    placeholder="Hamburgefonstiv"
                    className="font-mono text-[11px] w-full bg-background
                               border border-border rounded-sm px-2 py-1" />
+          </Field>
+          <Field label="Specimen colour"
+                 note="What the letters are drawn in. Auto follows the theme,
+                       so the type stays readable when the ground changes">
+            <span className="flex items-center gap-1.5 flex-wrap">
+              {INKS.map(([value, name]) => (
+                <button key={value} onClick={() => setInk(value)}
+                        title={name}
+                        aria-label={name}
+                        className={`w-6 h-6 rounded-sm border-2 transition-colors
+                                    flex items-center justify-center
+                                    ${ink === value ? "border-burgundy"
+                                                    : "border-border"}`}
+                        style={value === "auto" ? undefined
+                                                : { background: value }}>
+                  {value === "auto" && (
+                    <span className="font-mono text-[8px]
+                                     text-muted-foreground">A</span>
+                  )}
+                </button>
+              ))}
+              <input type="color"
+                     value={ink === "auto" ? "#1a1a1a" : ink}
+                     onChange={(e) => setInk(e.target.value)}
+                     title="Any colour"
+                     className="w-6 h-6 p-0 bg-transparent border border-border
+                                rounded-sm cursor-pointer" />
+            </span>
           </Field>
           <Field label="Guide strength"
                  note="Baseline, x-height and cap behind the letters, and the
