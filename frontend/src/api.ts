@@ -108,7 +108,15 @@ export const api = {
   exportFont: (z: number[], family: string, style: string, format: string,
                licence = "none", author = "") =>
     api.download("/api/export/font", { z, family, style, format, licence, author },
-                 `${family.replace(/ /g, "")}-${style}.${format}`),
+                 // Regular is not part of a name: the file is called what the
+                 // typeface is called.
+                 (style && style.toLowerCase() !== "regular"
+                   ? `${family.replace(/ /g, "")}-${style.replace(/ /g, "")}`
+                   : family.replace(/ /g, "")) + `.${format}`),
+
+  exportFamily: (z: number[], family: string, licence = "none", author = "") =>
+    api.download("/api/export/family", { z, family, licence, author },
+                 `${family.replace(/ /g, "")}-family.zip`),
 
   exportUfo: (z: number[], family: string, licence = "none", author = "") =>
     api.download("/api/export/ufo", { z, family, licence, author },

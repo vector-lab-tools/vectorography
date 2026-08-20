@@ -604,6 +604,74 @@ def export_ufo_journey(req: JourneyReq):
         "Content-Disposition": f"attachment; filename={safe}-source.zip"})
 
 
+class FamilyReq(Z):
+    family: str = "Vectorography"
+    licence: str = "none"
+    author: str = ""
+    # How far toward the corpus's own extremes the bold and the oblique go,
+    # as a fraction of the distance from here to the 98th percentile of that
+    # property. Less than the whole way: the far end of a measured direction
+    # is where the outlines are guesses, and a bold is meant to be usable.
+    bold: float = 0.72
+    slant: float = 0.85
+
+
+@app.post("/api/export/family")
+def export_family(req: FamilyReq):
+    """Regular, Bold, Oblique and Bold Oblique, computed from where you stand.
+
+    Bold and oblique are journeys of one step each, along the weight and slant
+    directions the corpus was measured for. This is honest about what it is:
+    an oblique is not an italic. A real italic redraws the letters, and the
+    corpus holds no direction for single-storey a or a cursive e, so what
+    comes out here is the same face leaning, which is what a slant direction
+    can give and all it can give.
+    """
+    from export.fontfile import build_otf
+
+    s = space()
+    if not req.family.strip() or req.family.strip() == "Unnamed":
+        raise HTTPException(400, "name the typeface first")
+
+    z = np.asarray(req.z, dtype=np.float32)
+
+    def toward(key: str, amount: float) -> np.ndarray:
+        """One step along a measured direction, toward the corpus's own far end."""
+        d = s.directions.get(key)
+        if not d or not d.get("vector"):
+            return z
+        v = np.asarray(d["vector"], dtype=np.float32)
+        here = float(z @ v)
+        target = here + (float(d["hi"]) - here) * amount
+        return z + v * (target - here)
+
+    z_bold = toward("weight", req.bold)
+    z_obl = toward("slant", req.slant)
+    # The two moves are independent directions, so the corner of the family is
+    # reached by taking both rather than by sliding along one from the other.
+    z_bold_obl = z_bold + (z_obl - z)
+
+    faces = [("Regular", z), ("Bold", z_bold),
+             ("Oblique", z_obl), ("Bold Oblique", z_bold_obl)]
+    safe = req.family.replace(" ", "") or "Vectorography"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for style, zz in faces:
+            data = build_otf(s.decode(np.asarray(zz, dtype=np.float32)),
+                             req.family, style, s.metas[0], VERSION,
+                             req.licence, req.author)
+            stem = safe if style == "Regular" else f"{safe}-{style.replace(' ', '')}"
+            zf.writestr(f"{stem}.otf", data)
+        zf.writestr("README.txt",
+                    f"{req.family}: four faces computed from one location.\n\n"
+                    "Bold and Oblique are single steps along the weight and\n"
+                    "slant directions measured off the corpus. An oblique is\n"
+                    "not an italic: the letters lean, they are not redrawn.\n")
+    return Response(buf.getvalue(), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename={safe}-family.zip"})
+
+
 class GlyphSvgReq(Z):
     family: str = "Vectorography"
     text: str = ""

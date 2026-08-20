@@ -778,12 +778,21 @@ export default function App() {
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
   }, [z, text, family])
 
+  const exportFamily = useCallback(async () => {
+    if (!z) return
+    setBusy(true)
+    try { await api.exportFamily(z, family, licence.id, licence.author) }
+    catch (e) { setError(String(e)) } finally { setBusy(false) }
+  }, [z, family, licence])
+
   const exportFont = useCallback(async (format: "otf" | "ttf") => {
     if (!z) return
     setBusy(true)
     try {
       const near = location?.neighbours?.[0]?.family
-      const style = here ? `Stop ${here.id}` : "Regular"
+      // Always Regular. The stop number belongs to the journey, not to the
+      // name of a face, and it was ending up in font menus as Henrik Stop 7.
+      const style = "Regular"
       await api.exportFont(z, family, style, format,
                            licence.id, licence.author)
       void near
@@ -820,6 +829,7 @@ export default function App() {
     switch (kind) {
       case "otf": return void exportFont("otf")
       case "ttf": return void exportFont("ttf")
+      case "family": return void exportFamily()
       case "variable": return void exportJourney()
       case "ufo": return void exportUfo()
       case "ufo-journey": return void exportUfoJourney()

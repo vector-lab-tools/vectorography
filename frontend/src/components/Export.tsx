@@ -2,8 +2,8 @@ import { useRef } from "react"
 import { Modal } from "./Modal"
 
 export type ExportKind =
-  | "otf" | "ttf" | "variable" | "ufo" | "ufo-journey" | "glyph-svg"
-  | "specimen" | "test"
+  | "otf" | "ttf" | "family" | "variable" | "ufo" | "ufo-journey"
+  | "glyph-svg" | "specimen" | "test"
 
 type Row = {
   kind: ExportKind
@@ -25,6 +25,11 @@ const GROUPS: { title: string; note: string; rows: Row[] }[] = [
             + "same curves the specimen is drawn from." },
       { kind: "ttf", name: "TTF font",
         what: "The same, with quadratic outlines." },
+      { kind: "family", name: "Regular, bold, oblique",
+        what: "This location, and three more computed from it: one step "
+              + "along the weight the corpus was measured for, one along the "
+              + "slant, and the corner where both are taken. An oblique is "
+              + "not an italic \u2014 the letters lean, they are not redrawn." },
       { kind: "variable", name: "Variable font", journey: true,
         what: "The whole journey as one font with a Journey axis running from "
             + "the first stop to the last, every stop a named instance." },
