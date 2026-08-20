@@ -17,14 +17,20 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
 
   useEffect(() => {
     if (!open) return
-    const away = (e: MouseEvent) => {
+    const away = (e: Event) => {
       if (!root.current?.contains(e.target as Node)) setOpen(null)
     }
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null) }
-    document.addEventListener("mousedown", away)
+    // Pointer events, in the capture phase. Listening for mousedown missed
+    // every press that landed on the specimen or the map, because both call
+    // preventDefault on the way down and no mouse event follows; the menu
+    // stayed open over the very thing that had just been pressed. Capture,
+    // so a handler that stops the press going further does not also stop the
+    // menu closing.
+    document.addEventListener("pointerdown", away, true)
     document.addEventListener("keydown", esc)
     return () => {
-      document.removeEventListener("mousedown", away)
+      document.removeEventListener("pointerdown", away, true)
       document.removeEventListener("keydown", esc)
     }
   }, [open])
