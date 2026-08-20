@@ -550,7 +550,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
       // drawn once into its own canvas and copied thereafter.
       const fade = alphas.get(it.p.i) ?? 0
       if (fade > 0.02) {
-        const img = labelImage(it.p.name, it.p.name, inkRgb, schedule)
+        const img = labelImage(it.p.name,
+          marks === "letters" ? sample : it.p.name, inkRgb, schedule)
         if (img) {
           const scale = (9 + 3 * near) / LABEL_PX
           const iw = (img.width / LABEL_DPR) * scale
@@ -807,9 +808,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
 
       {/* The view controls sit at the foot on the right, out of the corner
           where the map is read and clear of the caption. */}
-      <div className="absolute right-2 bottom-2 max-lg:bottom-[56px]
-                      flex items-center gap-1.5 max-lg:gap-2
-                      justify-end max-lg:left-2 max-lg:justify-between">
+      <div className="absolute right-2 bottom-2 flex items-center gap-1.5
+                      justify-end">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -823,7 +823,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                    + "an isotropic ball, with most families in a shell rather "
                    + "than near the middle. Needs the height to be a real axis, "
                    + "so turning it on makes it one."}
-            className={`w-5 h-5 max-lg:w-9 max-lg:h-9 flex items-center
+            className={`w-5 h-5 max-lg:w-7 max-lg:h-7 flex items-center
                         justify-center rounded-sm
                         border text-[11px] leading-none transition-colors
                         ${ballOn ? "border-here text-here bg-here/10"
@@ -844,7 +844,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             disabled={!ballOn}
             title={"North, south, east and west on the shell, for telling "
               + "which way the model has been turned"}
-            className={`w-5 h-5 max-lg:w-9 max-lg:h-9 flex items-center
+            className={`w-5 h-5 max-lg:w-7 max-lg:h-7 flex items-center
                         justify-center rounded-sm
                         border font-mono text-[9px] leading-none
                         transition-colors disabled:opacity-30
@@ -859,8 +859,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onChange={(e) => setColourBy(e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             className="font-mono text-[9px] bg-card border border-border
-                       rounded-sm px-1 py-0.5 max-lg:px-2 max-lg:py-2
-                       max-lg:min-w-0 max-lg:flex-1 max-lg:truncate"
+                       rounded-sm px-1 py-0.5 max-lg:max-w-[74px]
+                       max-lg:min-w-0 max-lg:truncate"
             title="Which measured property the colour shows"
           >
             {directions.map((d) => (
@@ -871,20 +871,23 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              const next = mode.current === "off" ? "names" : "off"
+              // Three states, in the order a designer wants them: a plain
+              // scatter, then the names, then every family setting the same
+              // sample in its own face.
+              const next = mode.current === "off" ? "names"
+                : mode.current === "names" ? "letters" : "off"
               mode.current = next
               setModeOn(next)
               LABELS.clear()
               schedule()
             }}
             title="What each family is drawn as"
-            className={`font-mono text-[9px] px-1.5 py-0.5 max-lg:px-2.5
-                        max-lg:py-2 rounded-sm border
+            className={`font-mono text-[9px] px-1.5 py-0.5 rounded-sm border
                         transition-colors ${modeOn !== "off"
                           ? "border-burgundy text-burgundy"
                           : "border-border text-muted-foreground"}`}
           >
-            {modeOn === "names" ? "names" : "dots"}
+            {modeOn === "off" ? "dots" : modeOn}
           </button>
       </div>
 
@@ -1072,8 +1075,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
         <AltitudeStrip altitude={altitude} corpus={corpus} />
       </div>
 
-      <div className="absolute bottom-2 left-2 flex items-center gap-1
-                      max-lg:gap-2">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1">
         {([["−", () => setZoom(cam.current.zoom / 1.35), "Zoom out"],
            ["+", () => setZoom(cam.current.zoom * 1.35), "Zoom in"],
            ["⌖", reset, "Back to the default view, centred on you"],
@@ -1083,7 +1085,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
             title={tip}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); fn() }}
-            className="w-6 h-6 max-lg:w-9 max-lg:h-9 flex items-center
+            className="w-6 h-6 max-lg:w-7 max-lg:h-7 flex items-center
                        justify-center rounded-sm
                        border border-border bg-card font-mono text-[11px]
                        leading-none hover:border-burgundy hover:text-burgundy
@@ -1099,7 +1101,8 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           className="w-24 max-lg:hidden accent-burgundy ml-1"
           title="Zoom"
         />
-        <span className="font-mono text-[9px] text-muted-foreground w-8">
+        <span className="font-mono text-[9px] text-muted-foreground w-8
+                         max-lg:hidden">
           {Math.round(zoomLabel)}
         </span>
       </div>

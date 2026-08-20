@@ -87,11 +87,11 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
                 onChange={(e) => onSlide(d.key, Number(e.target.value))}
                 onPointerUp={onCommit}
                 onKeyUp={onCommit}
-                className="flex-1 min-w-0 h-1 max-lg:h-1.5"
+                className="flex-1 min-w-0 h-1 max-lg:h-1.5 mr-1"
                 style={{ accentColor: handleColour(d.key as HandleKind) }}
                 title={`${d.minus} to ${d.plus}`}
               />
-              <span className={`w-[22px] max-lg:w-[28px] shrink-0 text-right
+              <span className={`w-[30px] max-lg:w-[34px] shrink-0 text-right
                                 font-mono text-[8.5px] max-lg:text-[10px]
                                 leading-none ${outside
                                   ? "text-gold" : "text-muted-foreground"}`}>
