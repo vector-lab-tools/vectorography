@@ -168,7 +168,7 @@ export function SpecimenStage({
       menu: d === "handles" ? undefined : (
         <span className="flex flex-col gap-1.5">
           <span className="rail-label !text-[8px]">
-            what the hand moves
+            modifiers for dragging
           </span>
           {([["\u2194 sideways", xProp, 0],
              ["\u2195 up and down", yProp, 1],
