@@ -648,8 +648,7 @@ export function SpecimenStage({
                   key={`${h.glyph}:${h.kind}:${i}`}
                   cx={h.at[0]} cy={h.at[1]}
                   r={held ? 0.052 : near ? 0.044 : 0.03}
-                  fill={held ? "hsl(var(--burgundy))"
-                             : handleColour(h.kind, alpha)}
+                  fill={handleColour(h.kind, alpha)}
                 />
               )
             })}
@@ -671,17 +670,24 @@ export function SpecimenStage({
 
       {showing && marker && (
             <g pointerEvents="none">
+              {/* A ring, not a repaint: held is said by weight and by a
+                  halo that separates the mark from whatever the letters are
+                  drawn in, while the hue keeps saying which property. */}
+              {dragging && (
+                <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
+                        fill="none" stroke="hsl(var(--card))"
+                        strokeWidth={0.022} opacity={0.85} />
+              )}
               <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
                       fill="none"
-                      stroke={dragging ? "hsl(var(--burgundy))"
-                                       : "hsl(var(--here))"}
+                      stroke={handleColour(marker.kind, 1)}
                       strokeWidth={dragging ? 0.012 : 0.008} />
               <line
                 x1={marker.at[0] - marker.along[0] * 0.085}
                 y1={marker.at[1] - marker.along[1] * 0.085}
                 x2={marker.at[0] + marker.along[0] * 0.085}
                 y2={marker.at[1] + marker.along[1] * 0.085}
-                stroke={dragging ? "hsl(var(--burgundy))" : "hsl(var(--here))"}
+                stroke={handleColour(marker.kind, 1)}
                 strokeWidth={0.01}
                 strokeLinecap="round" opacity={0.8} />
             </g>
@@ -764,8 +770,7 @@ export function SpecimenStage({
       {showing && marker && (
         <div className="absolute top-8 left-2 font-mono text-[10px]
                         pointer-events-none">
-          <span style={{ color: dragging ? "hsl(var(--burgundy))"
-                                         : handleColour(marker.kind) }}>
+          <span style={{ color: handleColour(marker.kind, 1) }}>
             {marker.label}
           </span>
           {marker.y && marker.x && marker.y !== marker.x && (
