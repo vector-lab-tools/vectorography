@@ -490,7 +490,18 @@ export function SpecimenStage({
             })}
           </g>
 
-          {showing && marker && (
+          {/* What a press will take hold of, in the corner the eye starts from.
+          The choice lives two presses deep in the toolbar, and a setting that
+          changes every gesture should not be something to remember. */}
+      <div className="absolute top-8 right-2 rail-label !text-[8px]
+                      pointer-events-none">
+        {depth === "handles"
+          ? priority === "all" ? "handles \u00b7 all"
+                               : `handles \u00b7 ${priority}`
+          : `${depth} \u00b7 ${xProp}/${yProp}/${zProp}`}
+      </div>
+
+      {showing && marker && (
             <g pointerEvents="none">
               <circle cx={marker.at[0]} cy={marker.at[1]} r={0.068}
                       fill="none"
@@ -558,6 +569,17 @@ export function SpecimenStage({
         <FamilyPicker neighbours={neighbours} onPick={onGoToFamily}
                       sample={[...text].filter((c) => /[A-Za-z]/.test(c))
                         .slice(0, 3).join("") || "Ham"} />
+      </div>
+
+      {/* What a press will take hold of, in the corner the eye starts from.
+          The choice lives two presses deep in the toolbar, and a setting that
+          changes every gesture should not be something to remember. */}
+      <div className="absolute top-8 right-2 rail-label !text-[8px]
+                      pointer-events-none">
+        {depth === "handles"
+          ? priority === "all" ? "handles \u00b7 all"
+                               : `handles \u00b7 ${priority}`
+          : `${depth} \u00b7 ${xProp}/${yProp}/${zProp}`}
       </div>
 
       {showing && marker && (

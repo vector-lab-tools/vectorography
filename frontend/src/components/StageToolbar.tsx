@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 
 /**
  * The switches that belong to the specimen, as icons, docked to one of its
@@ -35,6 +35,33 @@ export function StageToolbar({ tools, dock, setDock }: {
   const [open, setOpen] = useState<string | null>(null)
   const hold = useRef<number | null>(null)
   const held = useRef(false)
+  const menuEl = useRef<HTMLSpanElement | null>(null)
+  // Which way the menu opens and how tall it may be, decided against the room
+  // the button actually has. The panel is short, the toolbar often sits at its
+  // foot, and a list opened upward from there ran off the top of the window.
+  const [placement, setPlacement] = useState<{ up: boolean; max: number }>(
+    { up: true, max: 240 })
+
+  const openFrom = (key: string, el: Element) => {
+    const r = el.getBoundingClientRect()
+    const above = r.top - 12
+    const below = window.innerHeight - r.bottom - 12
+    const up = above >= Math.min(below, 260) || above > below
+    setPlacement({ up, max: Math.max(120, Math.min(320, up ? above : below)) })
+    setOpen(key)
+  }
+
+  // Dismissed by a press anywhere else, and that press still reaches what it
+  // landed on. A sheet of glass over the page would have eaten it, so closing
+  // the menu cost a click and doing the next thing cost another.
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => {
+      if (!menuEl.current?.contains(e.target as Node)) setOpen(null)
+    }
+    document.addEventListener("pointerdown", away)
+    return () => document.removeEventListener("pointerdown", away)
+  }, [open])
   const root = useRef<HTMLDivElement>(null)
 
   // Vertical only when docked to a side; a corner reads as a horizontal
@@ -115,26 +142,27 @@ export function StageToolbar({ tools, dock, setDock }: {
         )}
         <span className="relative flex">
         {open === t.key && t.menu && (
-          <>
-            <span className="fixed inset-0 z-30"
-                  onPointerDown={(e) => { e.stopPropagation(); setOpen(null) }} />
-            <span className={`absolute z-40 panel p-2 w-max max-w-[240px]
-                              max-h-[34dvh] overflow-y-auto
-                              ${vertical ? "left-full ml-1 top-0"
-                                         : "bottom-full mb-1 left-0"}`}
-                  onPointerDown={(e) => e.stopPropagation()}>
-              {t.menu}
-            </span>
-          </>
+          <span ref={menuEl}
+                style={{ maxHeight: placement.max }}
+                className={`absolute z-40 panel p-2 w-max max-w-[240px]
+                            overflow-y-auto
+                            ${vertical ? "left-full ml-1 top-0"
+                              : placement.up ? "bottom-full mb-1 left-0"
+                                             : "top-full mt-1 left-0"}`}
+                onPointerDown={(e) => e.stopPropagation()}>
+            {t.menu}
+          </span>
         )}
         <button
           onPointerDown={(e) => {
             e.stopPropagation()
+            if (open && open !== t.key) setOpen(null)
             if (!t.menu) return
             held.current = false
+            const el = e.currentTarget
             hold.current = window.setTimeout(() => {
               held.current = true
-              setOpen(t.key)
+              openFrom(t.key, el)
             }, 420)
           }}
           onPointerUp={() => {
@@ -146,9 +174,9 @@ export function StageToolbar({ tools, dock, setDock }: {
           onContextMenu={(e) => {
             if (!t.menu) return
             e.preventDefault()
-            setOpen(t.key)
+            openFrom(t.key, e.currentTarget)
           }}
-          onClick={() => {
+          onClick={(e) => {
             // The press that opened the choices is not also a press of the
             // tool itself.
             if (held.current) { held.current = false; return }
@@ -156,7 +184,11 @@ export function StageToolbar({ tools, dock, setDock }: {
             // second press asks it what it is set to instead. First press
             // chooses the tool, second opens its choices, and holding does
             // the same from anywhere.
-            if (t.menu && t.on) { setOpen(t.key); return }
+            if (t.menu && t.on) {
+              if (open === t.key) setOpen(null)
+              else openFrom(t.key, e.currentTarget)
+              return
+            }
             t.onClick()
           }}
           disabled={t.disabled}
