@@ -195,7 +195,7 @@ export default function App() {
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
   const [tab, setTab] = useState(() =>
-    localStorage.getItem("vg.tab") ?? "steer")
+    localStorage.getItem("vg.tab") ?? "atlas")
   const pickTab = (t: string) => {
     setTab(t); localStorage.setItem("vg.tab", t)
   }
@@ -960,10 +960,10 @@ export default function App() {
         <section className="shrink-0 overflow-hidden flex flex-col gap-2
                             lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
                             max-lg:flex-1 max-lg:min-h-0"
-                 style={isMobile ? undefined
+                 style={isMobile ? { flex: "0 0 40%" }
                    : { flex: `0 0 calc((100dvh - 96px) * ${split})` }}>
-          <div className="panel shrink-0 h-[30dvh] min-h-[200px] lg:h-[168px]
-                          lg:min-h-0 px-2 sm:px-3 py-2 text-ink">
+          <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
+                          lg:h-[168px] px-2 sm:px-3 py-2 text-ink">
             <SpecimenStage
               glyphs={location?.glyphs ?? []}
               geometry={geometry}
@@ -997,6 +997,7 @@ export default function App() {
             />
           </div>
 
+          {!isMobile && (
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
             <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]">
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
@@ -1038,6 +1039,7 @@ export default function App() {
             </div>
             )}
           </div>
+          )}
         </section>
 
         {/* The divider is draggable: how much room the space gets against how
@@ -1152,8 +1154,19 @@ export default function App() {
         {isMobile && (<>
           {/* The lower half of a phone: one instrument at a time, all of
               them mounted so a slider keeps its place across a swap. */}
-          <div className="shrink-0 h-[34dvh] min-h-[230px] px-2 pb-1
-                          overflow-hidden">
+          <div className="flex-1 min-h-0 px-2 pb-1 overflow-hidden">
+            <div className={`h-full ${tab === "atlas" ? "" : "hidden"}`}>
+              <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                     directions={directions}
+                     colourBy={colourBy} setColourBy={setColourBy}
+                     waypoint={waypoint} setWaypoint={setWaypoint}
+                     onToward={goToward} radius={radius} sample={atlasChar}
+                     liveGlyphs={location?.glyphs ?? null}
+                     liveSelf={liveSelf}
+                     ballOn={ballOn} setBallOn={setBallOn}
+                     altitude={location?.altitude ?? null} corpus={corpus}
+                     liveRadius={liveRadius} />
+            </div>
             <div className={`h-full overflow-y-auto pt-1
                              ${tab === "steer" ? "" : "hidden"}`}>
               {directions.length > 0 ? (
@@ -1222,13 +1235,13 @@ export default function App() {
 
           <nav className="shrink-0 h-12 flex items-stretch border-t
                           border-border bg-card/60 pb-safe px-safe">
-            {([["steer", "Steer"], ["travel", "Travel"],
+            {([["atlas", "Map"], ["steer", "Steer"], ["travel", "Travel"],
                ["trail", "Trail"], ["walk", "Walk"]] as const)
               .map(([key, label]) => (
               <button key={key}
                       aria-selected={tab === key}
                       onClick={() => pickTab(key)}
-                      className={`flex-1 rail-label !text-[10px] border-t-2
+                      className={`flex-1 rail-label !text-[9px] border-t-2
                                   -mt-px transition-colors
                                   ${tab === key
                                     ? "border-burgundy text-burgundy"
