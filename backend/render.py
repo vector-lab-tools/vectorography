@@ -138,10 +138,26 @@ def specimen_sheet_svg(glyphs: list[dict], location: dict,
                        model: str = "VectorModel") -> str:
     """A specimen sheet for the current location: a waterfall, plus the map
     reading that produced it. The reading travels with the artefact."""
-    lines = [("Hamburgefonstiv", 0.20),
-             ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0.072),
-             ("abcdefghijklmnopqrstuvwxyz", 0.072),
-             ("0123456789", 0.072)]
+    # Every glyph the model carries, not a sample of them. A specimen sheet
+    # that shows the alphabet and the digits says nothing about what the
+    # accented forms or the punctuation became, and those are exactly the
+    # places where a location this far from any real family goes wrong.
+    from corpus.outlines import GLYPHS
+
+    def _rows(chars: str, per: int) -> list[tuple[str, float]]:
+        out = []
+        for i in range(0, len(chars), per):
+            out.append((chars[i:i + per], 0.072))
+        return out
+
+    upper = "".join(c for c in GLYPHS if c.isalpha() and c.isupper())
+    lower = "".join(c for c in GLYPHS if c.isalpha() and c.islower())
+    digits = "".join(c for c in GLYPHS if c.isdigit())
+    rest = "".join(c for c in GLYPHS
+                   if not c.isalpha() and not c.isdigit())
+    lines = ([("Hamburgefonstiv", 0.20)]
+             + _rows(upper, 26) + _rows(lower, 26)
+             + _rows(digits + " " + rest, 26))
     by = {g["char"]: g for g in glyphs}
 
     parts, y, width = [], 0.10, 0.0
