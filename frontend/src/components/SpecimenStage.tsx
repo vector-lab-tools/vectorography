@@ -34,8 +34,9 @@ const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
 
 export function SpecimenStage({
   glyphs, text, altitude, hullRadius, radius, depth, setDepth,
-  onDragStart, onDrag, onDragEnd, lost, onReset, onSnapshot, onRecall,
-  hasSnapshot, setText, proofs, neighbours, onGoToFamily, geometry, busy,
+  onDragStart, onDrag, onDragEnd, lost, onReset,
+  onUndo, onRedo, canUndo, canRedo,
+  setText, proofs, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
 }: {
   glyphs: Glyph[]
@@ -55,9 +56,10 @@ export function SpecimenStage({
   /** Keep this exact place, and go back to the one kept last. Shaping runs
    *  ahead of the trail: a hand tries twenty things and wants the good one
    *  back, not the twentieth. */
-  onSnapshot: () => void
-  onRecall: () => void
-  hasSnapshot: boolean
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
   /** The word being set, and the proofs worth setting it in. */
@@ -174,18 +176,21 @@ export function SpecimenStage({
         localStorage.setItem("vg.guides", next ? "1" : "0")
       },
     },
+    // Undo and redo, where the hand already is. Keeping and recalling a place
+    // sat here before, and both did their work invisibly: on a phone, with no
+    // tooltip to read, a press that changes nothing on screen is a press that
+    // did not work. Both still live in the Edit menu.
     {
-      key: "keep", on: false, icon: ICONS.keep, label: "Keep this place",
-      title: "come back to it later without walking the trail",
-      onClick: onSnapshot,
+      key: "undo", on: false, icon: ICONS.recall, label: "Undo",
+      title: "back to the last stop on the trail",
+      disabled: !canUndo,
+      onClick: onUndo,
     },
     {
-      key: "recall", on: false, icon: ICONS.recall,
-      label: hasSnapshot ? "Back to the place you kept"
-                         : "Back to the centroid",
-      title: hasSnapshot ? "the last place you kept"
-                         : "nothing kept yet, so the average of every font",
-      onClick: onRecall,
+      key: "redo", on: false, icon: ICONS.redo, label: "Redo",
+      title: "forward again, to the stop you came back from",
+      disabled: !canRedo,
+      onClick: onRedo,
     },
     ...(beyond ? [{
       key: "rescue", on: true, icon: ICONS.rescue,

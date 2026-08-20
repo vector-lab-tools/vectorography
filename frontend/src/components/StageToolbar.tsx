@@ -16,6 +16,8 @@ export type Tool = {
   label: string
   onClick: () => void
   icon: React.ReactNode
+  /** Nothing to act on: shown, but plainly not available. */
+  disabled?: boolean
 }
 
 export function StageToolbar({ tools, dock, setDock }: {
@@ -101,11 +103,13 @@ export function StageToolbar({ tools, dock, setDock }: {
           key={t.key}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={t.onClick}
+          disabled={t.disabled}
           title={`${t.label} — ${t.title}`}
           aria-label={t.label}
           className={`w-6 h-6 flex items-center justify-center
                       rounded-sm
-                      border transition-colors ${t.on
+                      border transition-colors
+                      disabled:opacity-30 disabled:cursor-not-allowed ${t.on
                         ? "border-here text-here bg-here/10"
                         : "border-transparent text-muted-foreground "
                           + "hover:border-border hover:text-foreground"}`}
@@ -168,6 +172,13 @@ export const ICONS = {
     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
       <path d="M3 8a5 5 0 1 1 1.6 3.7" />
       <path d="M2.4 4.6v3.2h3.2" />
+    </svg>
+  ),
+  /** The same arrow, turned the other way. */
+  redo: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <path d="M13 8a5 5 0 1 0-1.6 3.7" />
+      <path d="M13.6 4.6v3.2h-3.2" />
     </svg>
   ),
   /** Back inside the corpus. */

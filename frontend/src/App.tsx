@@ -840,6 +840,17 @@ export default function App() {
           onSelect: () => setCursor(trail[0]?.id ?? 0),
           title: "The average of every font in the corpus" },
         { kind: "sep" },
+        // These two left the specimen's toolbar when undo and redo took their
+        // place there. They still travel in a saved project, so they need a
+        // way back in.
+        { kind: "item", label: "Keep this place",
+          disabled: !z, onSelect: () => { if (z) setSnapshot([...z]) },
+          title: "Come back to it later without walking the trail" },
+        { kind: "item", label: "Back to the place you kept",
+          disabled: !snapshot,
+          onSelect: () => { if (snapshot) push(snapshot, "recall", "kept place") },
+          title: "The last place you kept" },
+        { kind: "sep" },
         { kind: "item", label: "Settings\u2026", hint: "\u2318,",
           onSelect: () => setSettingsOpen(true),
           title: "Theme, opening text, and the licence exports carry" },
@@ -984,15 +995,10 @@ export default function App() {
               proofs={PROOFS}
               neighbours={location?.neighbours ?? []}
               onGoToFamily={goToFamily}
-              onSnapshot={() => { if (z) setSnapshot([...z]) }}
-              onRecall={() => {
-                // With nothing kept, back means the centroid: the average of
-                // every font is the one place always worth returning to, and a
-                // dead control teaches nothing.
-                if (snapshot) push(snapshot, "recall", "kept place")
-                else setCursor(trail[0]?.id ?? 0)
-              }}
-              hasSnapshot={!!snapshot}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={trail.find((c) => c.id === cursor)?.parent != null}
+              canRedo={redoStack.length > 0}
               busy={false}
             />
           </div>
