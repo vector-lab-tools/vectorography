@@ -44,6 +44,8 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
 
       <ol className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-px">
         {trail.map((c) => {
+          const wp = trail.filter((x) => waypoints.includes(x.id))
+            .findIndex((x) => x.id === c.id) + 1
           const here = c.id === cursor
           const flagged = waypoints.includes(c.id)
           return (
@@ -56,15 +58,16 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") onFlag(c.id)
                     }}
-                    title={flagged ? "Unmark this waypoint"
+                    title={flagged ? `Waypoint ${wp} \u00b7 click to unmark`
                                    : "Mark this stop as a waypoint"}
-                    className={`w-5 h-5 max-lg:w-7 max-lg:h-7 shrink-0 flex
+                    className={`w-8 max-lg:w-10 h-5 max-lg:h-7 shrink-0 flex
                                 items-center justify-center rounded-sm
-                                font-mono text-[11px] leading-none
-                                cursor-pointer transition-colors ${flagged
-                                  ? "text-burgundy"
-                                  : "text-muted-foreground/25 hover:text-burgundy"}`}>
-                {flagged ? "\u2691" : "\u2690"}
+                                font-mono leading-none cursor-pointer
+                                transition-colors ${flagged
+                                  ? "text-burgundy text-[9px] tracking-tight"
+                                  : "text-muted-foreground/25 text-[11px] "
+                                    + "hover:text-burgundy"}`}>
+                {flagged ? `WP${wp}` : "\u2690"}
               </span>
               <button
                 onClick={() => onGo(c.id)}
