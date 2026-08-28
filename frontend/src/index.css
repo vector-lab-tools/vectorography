@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: 0 0% 10%;
+    --ivory: 40 33% 97%;
+    --cream: 40 24% 94%;
+    --parchment: 40 24% 89%;
+    --burgundy: 352 47% 33%;
+    --gold: 43 85% 38%;
+    /* Where you are, wherever it is shown. */
+    --here: 208 72% 42%;
+    --background: 40 33% 97%;
+    --foreground: 0 0% 10%;
+    --muted: 40 24% 94%;
+    --muted-foreground: 0 0% 42%;
+    --card: 0 0% 100%;
+    --border: 40 24% 87%;
+  }
+  .dark {
+    --ink: 40 20% 92%;
+    --ivory: 220 15% 12%;
+    --cream: 220 12% 16%;
+    --parchment: 220 10% 20%;
+    --burgundy: 352 55% 55%;
+    --gold: 43 75% 55%;
+    --here: 205 80% 62%;
+    --background: 220 15% 10%;
+    --foreground: 40 20% 92%;
+    --muted: 220 12% 18%;
+    --muted-foreground: 40 8% 60%;
+    --card: 220 12% 14%;
+    --border: 220 10% 25%;
+  }
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow: hidden;
+    /* A drag at the top of the page must move the specimen, not refresh it. */
+    overscroll-behavior: none;
+  }
+}
+
+@layer components {
+  .rail-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground;
+  }
+  .panel {
+    @apply bg-card border border-border rounded-md shadow-editorial;
+  }
+  .btn {
+    @apply font-mono text-[11px] uppercase tracking-[0.1em] px-3 py-2
+           border border-border rounded-sm bg-card text-foreground
+           hover:bg-muted transition-colors disabled:opacity-40
+           disabled:cursor-not-allowed select-none;
+  }
+  .btn-active {
+    @apply bg-burgundy text-ivory border-burgundy hover:bg-burgundy;
+  }
+  /* A finger needs more to land on than a pointer does. */
+  @media (pointer: coarse) {
+    .btn { @apply min-h-[44px] py-2.5; }
+    input[type="range"]:not(.vg-fader) { @apply h-6; }
+  }
+  /* The parts of the screen an iPhone reserves for itself. */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .px-safe {
+    padding-left: max(env(safe-area-inset-left), 0.5rem);
+    padding-right: max(env(safe-area-inset-right), 0.5rem);
+  }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+
+/* A row of chips that scrolls sideways on a phone should not also carry a
+   scrollbar across the specimen. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

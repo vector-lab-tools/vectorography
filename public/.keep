@@ -1,0 +1,2 @@
+Hosting serves nothing of its own: every path is rewritten to the container,
+which already serves both the app and the space it reads from.

@@ -1,0 +1,3 @@
+# Hugging Face refuses ordinary files over 10 MB, and the fitted space is about
+# thirty. GitHub is content either way, so tracking it here suits both.
+*.npz filter=lfs diff=lfs merge=lfs -text

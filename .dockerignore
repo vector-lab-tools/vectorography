@@ -1,0 +1,11 @@
+.git
+.venv
+node_modules
+frontend/node_modules
+frontend/dist
+backend/data/fonts
+backend/data/corpus.npz
+backend/data/ofl-tree.json
+**/__pycache__
+*.pyc
+.DS_Store

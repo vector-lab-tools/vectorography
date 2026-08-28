@@ -1,0 +1,5 @@
+# Root requirements for the Vercel Python runtime. Mirrors
+# backend/requirements.txt, which is what run.sh installs locally.
+fastapi>=0.115
+fonttools>=4.60
+numpy>=2.0

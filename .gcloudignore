@@ -1,0 +1,16 @@
+# What Cloud Build does not need. The model is the one large file that must
+# travel: without it there is no space to move through.
+.git
+.gitattributes
+.venv
+node_modules
+frontend/node_modules
+frontend/dist
+backend/data/fonts
+backend/data/corpus.npz
+backend/data/ofl-tree.json
+**/__pycache__
+*.pyc
+.DS_Store
+tools/pending
+docs
