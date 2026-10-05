@@ -1,0 +1,24 @@
+# Render reads this on the first deploy and whenever it changes: the service,
+# its plan and its region, so the dashboard does not have to be filled in by
+# hand and the arrangement is in the repository rather than in an account.
+#
+# One container. The Dockerfile builds the frontend and serves it from the same
+# process that holds the fitted space in memory, so there is nothing else here.
+services:
+  - type: web
+    name: vectorography
+    runtime: docker
+    # Free: 512 MB and a shared tenth of a CPU. A loaded backend measures
+    # 104 MB resident, so the memory is not the constraint; the service sleeps
+    # after fifteen idle minutes and takes about a minute to wake.
+    plan: free
+    # Frankfurt is the nearest region to the UK that Render offers.
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    # Render asks this on deploy and will not cut over until it answers. It
+    # reports the model id and the number of families, so a container that is
+    # running but has not loaded the space fails the check rather than
+    # serving an empty space.
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit

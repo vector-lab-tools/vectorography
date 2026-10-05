@@ -3,6 +3,26 @@
 One container: the app is built, then served by the same process that holds the
 space in memory. There is no separate API host and nothing to configure.
 
+## Where it runs now
+
+Nowhere. The Cloud Run service was taken down because its billing is metered
+and the bill is not knowable in advance.
+
+What this app needs from a host is small and specific: one process that stays
+alive, about 150 MB of memory, and no GPU. Measured on a loaded backend, the
+Python process holds **104 MB resident** with VectorModel 0.2 in memory, so a
+512 MB tier is enough and a gigabyte is comfortable.
+
+Hosts with a fixed price or a hard stop, which is the property that matters
+here:
+
+| Host | Cost | Notes |
+|---|---|---|
+| Render, free web service | nothing, no card | 512 MB, sleeps after 15 minutes idle, cold start around a minute |
+| A small VPS (Hetzner, Scaleway, Mythic Beasts) | €4 to £5 a month, flat | `docker run` and a reverse proxy; the bill cannot move |
+| Hugging Face Spaces | $9 a month, flat | PRO subscription; Docker Spaces are no longer free. The repository is already shaped for it |
+| Fly.io, Railway, Cloud Run | metered | the same open-ended bill the move was made to avoid |
+
 ## Hugging Face Spaces
 
 A Space keeps a process alive, so the model is loaded once rather than on every
@@ -73,8 +93,11 @@ docker run -p 7860:7860 vectorography
 ```
 
 512 MB of memory is enough for the current model; a gigabyte is comfortable.
+A loaded backend measures 104 MB resident.
 
 ## Google Cloud Run
+
+Kept for the record. The hosted instance ran here and no longer does.
 
 Cloud Build compiles the `Dockerfile` in the cloud, so Docker is not needed on
 the machine you deploy from. The container scales to zero between visits and a
