@@ -164,6 +164,10 @@ class FontReq(Z):
     # The terms the compiled typeface goes out under, and who it belongs to.
     licence: str = "none"
     author: str = ""
+    # How hard the outlines are pulled onto the straights they nearly are.
+    # The compiler takes it so an installed font matches the specimen that
+    # was looked at; without it here every export of this endpoint raised.
+    straight: float = 0.0
 
 
 @app.get("/api/health")
