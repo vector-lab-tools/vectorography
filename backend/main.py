@@ -328,6 +328,104 @@ def project_font(req: ProjectReq):
     return out
 
 
+# How far one step of the sheet moves the outline, root mean square per
+# coordinate, in ems. Chosen by looking: at this figure the ends of a row
+# differ plainly without either end stopping being the same typeface.
+INK_STEP = 0.02
+
+_ink_cache: dict[tuple[str, str], float] = {}
+
+
+def _ink_per_unit(s, key: str) -> float:
+    """Outline movement per whitened unit along a named direction.
+
+    A constant per direction rather than per location, because the decode is
+    linear: moving by v changes the outline by (v * scale) @ components
+    wherever the move starts from.
+    """
+    hit = _ink_cache.get((s.model_id, key))
+    if hit is not None:
+        return hit
+    v = np.asarray(s.directions[key]["vector"], dtype=np.float64)
+    dx = (v * s.scale) @ s.components
+    out = float(np.sqrt(float((dx ** 2).mean()))) or 1e-9
+    _ink_cache[(s.model_id, key)] = out
+    return out
+
+
+class SheetReq(Z):
+    """A wall of candidates around here, one row per measured property."""
+    text: str = ("Handgloves and quartz jigs. The quick brown fox "
+                 "jumps over the lazy dog.")
+    radius: float = 1.0
+    # Which properties to show a row for. Empty takes the first four, which is
+    # what a sheet fits before the cells get too small to judge.
+    properties: list[str] = []
+    # Multiples of the row's own spread, left to right. A designer asks "a bit
+    # heavier" far more often than "twice as heavy", so the inner pair is
+    # closer in than the outer.
+    steps: list[float] = [-1.0, -0.4, 0.4, 1.0]
+    straight: float = 0.0
+
+
+@app.post("/api/sheet")
+def sheet(req: SheetReq):
+    """Candidates set as text, which is where a type designer judges.
+
+    The atlas answers "where am I" and answers it well. It does not answer
+    "what does this look like a bit heavier", asked forty times in a row, and
+    that question wants a wall of settings side by side rather than a map.
+    """
+    s = space()
+    z = np.asarray(req.z, dtype=np.float64)
+
+    keys = [k for k in req.properties if k in s.directions][:8]
+    if not keys:
+        keys = list(s.directions)[:4]
+
+    rows = []
+    for key in keys:
+        d = s.directions[key]
+        cells = []
+        ink = _ink_per_unit(s, key)
+        for step in req.steps[:6]:
+            # Scaled by how much the letters actually move rather than by the
+            # corpus spread of the property. Whitening makes a unit mean the
+            # same thing to the distribution, which is what a compass radius
+            # wants; a sheet is a comparison between rows, and wants a unit to
+            # mean the same thing to the eye. Measured, weight moved the
+            # outline a third as far as width for the same nominal step, so
+            # the rows were not comparable and the sheet's whole purpose is
+            # comparison.
+            amount = step * req.radius * INK_STEP / ink
+            cz = np.asarray(s.steer(z, key, 1.0, amount))
+            # A candidate is a place, so a settled letter is held there too.
+            cz = settle.hold(s, z, cz, req.settled, req.settle_tol)
+            cells.append({
+                "step": step,
+                "z": cz.tolist(),
+                "glyphs": _glyph_subset(s.decode(cz), req.text,
+                                        straight=req.straight),
+            })
+        rows.append({
+            "key": key,
+            "label": d.get("label", key),
+            "minus": d.get("minus", ""),
+            "plus": d.get("plus", ""),
+            "cells": cells,
+        })
+
+    return {
+        "here": {"z": z.tolist(),
+                 "glyphs": _glyph_subset(s.decode(z), req.text,
+                                         straight=req.straight)},
+        "rows": rows,
+        "steps": req.steps[:6],
+        "available": [{"key": k, "label": v.get("label", k)}
+                      for k, v in s.directions.items()],
+    }
+
+
 class FreedomReq(BaseModel):
     settled: list[str] = []
 

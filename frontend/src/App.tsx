@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
          type Freedom, type Glyph, type Location,
-         type NamedDirection, type Projection } from "./api"
+         type NamedDirection, type Projection,
+         type Sheet } from "./api"
 import { About } from "./components/About"
 import { ProjectionReport } from "./components/Projection"
+import { ProofSheet } from "./components/ProofSheet"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ExportPanel, type ExportKind } from "./components/Export"
@@ -209,6 +211,16 @@ export default function App() {
   // A drawing somebody already made, and where the space puts it.
   const [projected, setProjected] =
     useState<{ result: Projection; file: string } | null>(null)
+  // The big panel shows the corpus as a place, or the same location as a wall
+  // of settings. Two questions, two views, one piece of the window.
+  const [lower, setLower] = useKept<"atlas" | "sheet">("vg.lower", "atlas",
+    (v) => v === "atlas" || v === "sheet")
+  const [sheet, setSheet] = useState<Sheet | null>(null)
+  const [sheetRadius, setSheetRadius] = useKept("vg.sheetr", 1,
+    (v) => typeof v === "number" && v >= 0.2 && v <= 3)
+  const [sheetProps, setSheetProps] = useKept<string[]>("vg.sheetprops", [],
+    (v) => Array.isArray(v))
+  const [sheetBusy, setSheetBusy] = useState(false)
   const [guideStyle, setGuideStyle] = useState<GuideStyle>(() => {
     const kept = localStorage.getItem(GUIDE_STYLE_KEY)
     return kept === "dashed" || kept === "dotted" || kept === "hair"
@@ -383,6 +395,12 @@ export default function App() {
     return t || "ag"
   }, [text])
 
+  // What the sheet sets. The specimen's own text is usually one word, and a
+  // word at three hundred pixels says nothing about how a face reads.
+  const proofText = useKept<string>("vg.prooftext",
+    "Handgloves and quartz jigs. The quick brown fox jumps over the lazy dog.",
+    (v) => typeof v === "string")[0]
+
   // Location and neighbourhood follow the position. Nothing is fetched that
   // was not asked for by a move.
   useEffect(() => {
@@ -414,6 +432,22 @@ export default function App() {
       .finally(() => { if (n === seq.current) setBusy(false) })
   }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
       atlasHeight, colourBy, ballOn, ancestryZ, straight])
+
+  // The sheet is fetched only while it is being looked at. It is the largest
+  // response the server gives, a paragraph decoded for every candidate, and
+  // keeping it current behind the atlas would cost that on every move for
+  // nothing.
+  useEffect(() => {
+    if (!z || lower !== "sheet") return
+    let live = true
+    setSheetBusy(true)
+    api.sheet({ z, text: proofText, radius: sheetRadius,
+                properties: sheetProps, straight })
+      .then((r) => { if (live) setSheet(r) })
+      .catch((e) => { if (live) setError(String(e)) })
+      .finally(() => { if (live) setSheetBusy(false) })
+    return () => { live = false }
+  }, [z, lower, proofText, sheetRadius, sheetProps, straight])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -1247,19 +1281,53 @@ export default function App() {
 
           {!isMobile && (
           <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
-            <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]">
-              <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                     directions={directions}
-                     colourBy={colourBy} setColourBy={setColourBy}
-                     waypoint={waypoint} setWaypoint={setWaypoint}
-                     onToward={goToward} radius={radius} sample={atlasChar}
-                     liveGlyphs={location?.glyphs ?? null}
-                     liveSelf={liveSelf}
-                     ballOn={ballOn} setBallOn={setBallOn}
-                     altitude={location?.altitude ?? null} corpus={corpus}
-                     />
+            <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]
+                            flex flex-col">
+              {/* Two questions about the same location: where it sits, and
+                  what it looks like a little either way. The toggle is here
+                  rather than in a menu because it is a thing to flip while
+                  working. */}
+              <div className="flex items-center gap-1 pb-1 shrink-0">
+                {([["atlas", "Vector space"],
+                   ["sheet", "Proof sheet"]] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setLower(k)}
+                    className={`rail-label !text-[8px] px-1.5 py-0.5 rounded-sm
+                                border transition-colors ${lower === k
+                                  ? "border-burgundy text-burgundy"
+                                  : "border-transparent text-muted-foreground"
+                                    + " hover:text-foreground"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 min-h-0">
+                {lower === "sheet" ? (
+                  <ProofSheet
+                    sheet={sheet} text={proofText} busy={sheetBusy}
+                    radius={sheetRadius} setRadius={setSheetRadius}
+                    properties={sheetProps} setProperties={setSheetProps}
+                    onTravel={(cz, closeIn) => {
+                      // A shift closes in rather than going somewhere else:
+                      // the answer to "a bit heavier" is usually another,
+                      // smaller "a bit heavier".
+                      if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
+                      push(cz, "jump", "proof")
+                    }}
+                  />
+                ) : (
+                  <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                         directions={directions}
+                         colourBy={colourBy} setColourBy={setColourBy}
+                         waypoint={waypoint} setWaypoint={setWaypoint}
+                         onToward={goToward} radius={radius} sample={atlasChar}
+                         liveGlyphs={location?.glyphs ?? null}
+                         liveSelf={liveSelf}
+                         ballOn={ballOn} setBallOn={setBallOn}
+                         altitude={location?.altitude ?? null} corpus={corpus}
+                         />
+                )}
+              </div>
             </div>
-
             {/* The rose and the sliders are one column with one scroll. Each
                 had its own share of the height and its own scrollbar, so the
                 rose was stretched or the last two sliders lived behind a bar

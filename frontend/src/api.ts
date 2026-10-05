@@ -39,6 +39,16 @@ export type AtlasData = {
           inside_q50: number }
 }
 
+export type SheetCell = { step: number; z: number[]; glyphs: Glyph[] }
+
+export type Sheet = {
+  here: { z: number[]; glyphs: Glyph[] }
+  rows: { key: string; label: string; minus: string; plus: string
+          cells: SheetCell[] }[]
+  steps: number[]
+  available: { key: string; label: string }[]
+}
+
 export type Projection = {
   z: number[]
   glyphs: string[]
@@ -149,6 +159,9 @@ export const api = {
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude
            drift: Record<string, number> }>("/api/travel", body),
+
+  /** A wall of candidates around here, one row per measured property. */
+  sheet: (body: Record<string, unknown>) => post<Sheet>("/api/sheet", body),
 
   /** How many directions are still open once some letters have been settled. */
   freedom: (settled: string[]) =>

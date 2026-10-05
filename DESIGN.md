@@ -467,3 +467,40 @@ residual, which is where the representation's assumptions are furthest from
 the drawing.
 
 That number is the component critique turned into a measurement.
+
+## 11. Proof sheets, and why a unit had to be redefined
+
+The atlas answers "where am I" and answers it well. It does not answer "what
+does this look like a bit heavier", which a type designer asks forty times in a
+row, and which wants candidates beside one another rather than a map. So the
+lower panel now switches between the two. Each row of a sheet is one measured
+property running from less to more, with the current setting standing in the
+middle of every row, and the text set as a paragraph at reading size rather
+than as a word at three hundred pixels.
+
+**The first version was useless for the one thing a sheet is for.** Steps were
+scaled by the corpus spread of each property, which is what the steer list
+does and what the compass radius means. Measured end to end, a weight row moved
+the outline 0.0127 em per point while a width row moved it 0.0410. The rows
+were not on a common scale, so comparing them said nothing, and a comparison is
+the whole object.
+
+Whitening makes a unit mean the same thing to the distribution, which is what a
+compass radius wants. A sheet wants a unit to mean the same thing to the eye.
+Those are different normalisations and the instrument needed both.
+
+Since the decode is linear, the second one is exact and free: moving by `v`
+changes the outline by `(v * scale) @ components` wherever the move starts
+from, so the ink moved per whitened unit is a constant per direction. A step is
+now `INK_STEP / ink_per_unit`, and every row of a sheet moves the letters by
+0.0400 em root mean square from one end to the other, whatever property it is
+drawn along. The figures that fall out say how unequal the old unit was: weight
+needs 1.73 whitened units for a step that width gets from 0.58.
+
+Clicking a cell travels to it. Shift-clicking travels and halves the step,
+because the answer to "a bit heavier" is usually another, smaller "a bit
+heavier".
+
+The sheet is fetched only while it is being looked at. It is the largest
+response the server gives, a paragraph decoded for every candidate, 861 kB
+before compression and 327 kB after.
