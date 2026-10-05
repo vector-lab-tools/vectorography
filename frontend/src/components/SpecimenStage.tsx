@@ -39,6 +39,7 @@ export function SpecimenStage({
   onUndo, onRedo, canUndo, canRedo, guideInk, guideStyle,
   setText, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
+  settled, settling, onToggleSettled, settledNote,
 }: {
   glyphs: Glyph[]
   text: string
@@ -66,6 +67,14 @@ export function SpecimenStage({
   guideStyle: GuideStyle
   /** Outlines for hit-testing, which arrive after the specimen does. */
   geometry: Glyph[] | null
+  /** Letters the designer has decided, marked under the baseline. */
+  settled: string[]
+  /** Whether a press on a letter settles it rather than taking hold of it. */
+  settling: boolean
+  onToggleSettled: (ch: string) => void
+  /** What has been decided and how much room is left, beside the handle
+   *  reading, because both say what the next gesture will do. */
+  settledNote: string | null
   /** The word being set. */
   setText: (t: string) => void
   /** Real families, nearest first, and travel to the one chosen. */
@@ -167,6 +176,7 @@ export function SpecimenStage({
 
   const placed = useMemo(
     () => layout(glyphs, text, measure), [glyphs, text, measure])
+  const decided = useMemo(() => new Set(settled), [settled])
 
   const probed = useMemo(
     () => layout(geometry ?? [], text, measure), [geometry, text, measure])
@@ -642,7 +652,28 @@ export function SpecimenStage({
               {placed.map((p, i) => (
                 <path key={i}
                       transform={`translate(${p.x0.toFixed(4)},${p.y0.toFixed(4)})`}
+                      // While letters are being settled the whole word is a
+                      // row of targets, so the unsettled ones step back and
+                      // the press lands on a letter rather than on a handle.
+                      opacity={settling && !decided.has(p.g.char) ? 0.45 : 1}
+                      style={settling ? { cursor: "pointer" } : undefined}
+                      pointerEvents={settling ? "auto" : "none"}
+                      onPointerDown={settling ? (e) => {
+                        e.stopPropagation()
+                        onToggleSettled(p.g.char)
+                      } : undefined}
                       d={p.g.path} />
+              ))}
+            </g>
+
+            {/* A rule under every settled letter, drawn whether or not
+                anything is being settled: what has been decided is part of
+                the specimen rather than a mode the designer is in. */}
+            <g pointerEvents="none">
+              {placed.filter((p) => decided.has(p.g.char)).map((p, i) => (
+                <rect key={i} x={p.x0 + p.g.advance * 0.08} y={-0.075}
+                      width={p.g.advance * 0.84} height={0.022}
+                      fill="currentColor" opacity={0.55} />
               ))}
             </g>
           </g>
@@ -694,6 +725,11 @@ export function SpecimenStage({
           : depth === "perspective"
             ? `perspective \u00b7 ${xProp}/${zProp}`
             : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
+        {settledNote && (
+          <div className={settling ? "text-burgundy" : undefined}>
+            {settledNote}
+          </div>
+        )}
       </div>
 
       {showing && marker && (
@@ -762,6 +798,11 @@ export function SpecimenStage({
           : depth === "perspective"
             ? `perspective \u00b7 ${xProp}/${zProp}`
             : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
+        {settledNote && (
+          <div className={settling ? "text-burgundy" : undefined}>
+            {settledNote}
+          </div>
+        )}
       </div>
 
       {showing && marker && (

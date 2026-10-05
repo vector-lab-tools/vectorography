@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from corpus.outlines import (CACHE, GLYPHS, build_corpus,
                              decode_vector)
 from render import decode_to_glyphs, specimen_sheet_svg
+from space import settle
 from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
                                StyleSpace)
 
@@ -82,6 +83,12 @@ def _glyph_subset(vec: np.ndarray, text: str, geometry: bool = False,
 
 class Z(BaseModel):
     z: list[float]
+    # Letters the designer has decided. Movement is projected onto the
+    # directions these barely feel, so the rest of the alphabet goes on moving
+    # while they stay where they were put. See space/settle.py for why holding
+    # them exactly is not on offer.
+    settled: list[str] = []
+    settle_tol: float = Field(0.01, gt=0.0, le=0.5)
 
 
 class LocationReq(Z):
@@ -245,10 +252,36 @@ def compass(req: CompassReq):
     u, v, _, _ = _basis(s, req)
     pts = s.compass(req.z, req.radius, ride=None, basis=(u, v))
     for p in pts:
+        # Each bearing is a step, so each one is held the same way a step from
+        # any other control is. A rose drawn without this offers eight places
+        # the settled letters would not survive.
+        p["z"] = settle.hold(s, req.z, p["z"], req.settled,
+                             req.settle_tol).tolist()
         p["glyphs"] = _glyph_subset(s.decode(p["z"]), req.text)
         p["altitude"] = {"density_percentile":
                          s.altitude(p["z"])["density_percentile"]}
     return {"points": pts}
+
+
+class FreedomReq(BaseModel):
+    settled: list[str] = []
+
+
+@app.post("/api/freedom")
+def freedom(req: FreedomReq):
+    """How much room is left after what has been decided.
+
+    The counterpart to altitude: altitude says how far the traveller has gone
+    from the average of the corpus, and this says how many directions are still
+    open once some letters have been settled. Reported at three tolerances
+    because how firmly a letter is held is the designer's trade, not a
+    constant.
+    """
+    s = space()
+    bad = [g for g in req.settled if g not in GLYPHS]
+    if bad:
+        raise HTTPException(400, f"not in the character set: {''.join(bad)}")
+    return settle.freedom(s, req.settled)
 
 
 class AtlasReq(Z):
@@ -444,7 +477,9 @@ def travel(req: TravelReq):
         nz = np.asarray(s.orbit(z, req.centre, req.angle, req.axis_b))
     else:
         raise HTTPException(400, f"unknown mode {req.mode!r}")
-    return {"z": nz.tolist(), "altitude": s.altitude(nz)}
+    nz = settle.hold(s, z, nz, req.settled, req.settle_tol)
+    return {"z": nz.tolist(), "altitude": s.altitude(nz),
+            "drift": settle.drift_of(s, z, nz, req.settled)}
 
 
 @app.get("/api/font/{name}")

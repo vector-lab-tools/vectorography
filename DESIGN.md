@@ -348,3 +348,56 @@ answer rather than a checkbox:
 All three are stubbed in the Mode menu and open a note saying what they are for
 and what they need first. A stub that says "coming soon" and nothing else tells
 the reader less than an empty menu would.
+
+## 9. Settling, and what it does to the instrument
+
+Until this existed, Vectorography's atomic operation was *move the whole
+typeface*. A type designer's atomic operation is *change this letter, and work
+out what that implies for the rest*. Both are the same linear algebra run in
+opposite directions, and the instrument only ran it one way. The consequence
+was that nothing could be settled: twenty minutes in, the traveller had seen a
+great deal and decided nothing.
+
+**Holding a glyph exactly still is not available.** One glyph occupies 401
+coordinates, five contours of forty points in two axes plus its advance, and
+the space has 128 dimensions to move in. A move that leaves 401 numbers exactly
+where they are generically leaves no move at all. The approximation is not a
+shortcut around a hard problem; it is what the shape of the problem allows.
+
+So a settled glyph is held by projection. `space/settle.py` assembles the rows
+of the decode belonging to the settled coordinates, takes the SVD, and keeps
+the directions with the smallest singular values: the moves those letters least
+feel. Every control passes through one choke point, `settle.hold`, so walk,
+drift, repel, steer, orbit, the compass bearings and a dragged specimen are all
+constrained by construction rather than each remembering to be.
+
+Measured on VectorModel 0.2, counting directions that disturb the settled
+glyphs by under one per cent of the worst direction's:
+
+| Settled | Dimensions still free |
+|---|---|
+| `n` | 83 of 128 |
+| `n` `o` | 68 |
+| nine glyphs | 20 |
+| the whole lowercase | 1 |
+
+That count is on screen beside the handle reading and stays there. It is the
+altitude meter's counterpart: altitude says how far the traveller has gone from
+the average, and this says how much freedom is left after what has been
+decided. In the running app, settling `n` and `o` and then taking one compass
+step moves those two letters 7.4 times less than their neighbours.
+
+Three things follow for the rest of the instrument.
+
+**Tolerance is a control rather than a constant.** At three per cent the whole
+lowercase still leaves 48 dimensions free, so the designer trades how firmly a
+letter is held against how much room is left to work in. It is kept at one per
+cent and is not yet exposed.
+
+**Settling is a decision and belongs on the trail.** It is not there yet. A
+journey currently replays as a walk, and once settling is recorded it replays
+as a piece of work.
+
+**The drift is reported rather than asserted.** `/api/travel` returns how far
+each settled glyph actually moved, in ems, because the instrument should be
+willing to say what the approximation cost.

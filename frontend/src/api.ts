@@ -39,6 +39,13 @@ export type AtlasData = {
           inside_q50: number }
 }
 
+export type Freedom = {
+  settled: string[]
+  dims: number
+  /** Directions free at each tolerance, keyed by the tolerance as written. */
+  free: Record<string, number>
+}
+
 export type Neighbour = { family: string; distance: number; index: number }
 
 export type CorpusInfo = {
@@ -68,11 +75,24 @@ export type CompassPoint = {
   altitude: { density_percentile: number }
 }
 
+/**
+ * The letters the designer has decided, and how firmly they are held.
+ *
+ * Every endpoint that takes a location takes these too, because a move is a
+ * move whichever control asked for it, and threading the pair through twenty
+ * call sites would mean a control that forgot them would quietly stop
+ * honouring what had been settled. The server ignores the fields on the
+ * endpoints that have no use for them.
+ */
+export const held: { settled: string[]; tol: number } =
+  { settled: [], tol: 0.01 }
+
 async function post<T>(url: string, body: unknown): Promise<T> {
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ settled: held.settled, settle_tol: held.tol,
+                           ...(body as object) }),
   })
   if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`)
   return r.json() as Promise<T>
@@ -104,7 +124,12 @@ export const api = {
     { z, text, radius, ax, ay, ride }),
 
   travel: (body: Record<string, unknown>) =>
-    post<{ z: number[]; altitude: Altitude }>("/api/travel", body),
+    post<{ z: number[]; altitude: Altitude
+           drift: Record<string, number> }>("/api/travel", body),
+
+  /** How many directions are still open once some letters have been settled. */
+  freedom: (settled: string[]) =>
+    post<Freedom>("/api/freedom", { settled }),
 
   exportFont: (z: number[], family: string, style: string, format: string,
                licence = "none", author = "", straight = 0) =>

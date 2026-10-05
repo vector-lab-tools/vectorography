@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, type AtlasData, type CompassPoint, type CorpusInfo, type Glyph,
-         type Location, type NamedDirection } from "./api"
+import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
+         type Freedom, type Glyph, type Location,
+         type NamedDirection } from "./api"
 import { About } from "./components/About"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
@@ -193,6 +194,17 @@ export default function App() {
   // A drawing decision rather than a place, so it is kept with the desk.
   const [straight, setStraight] = useKept("vg.straight", 0,
     (v) => typeof v === "number" && v >= 0 && v <= 0.05)
+  // Letters the designer has decided. Every move is projected onto the
+  // directions these barely feel, so the rest of the alphabet goes on moving
+  // while they stay put. Kept, because a decision outlasts a session.
+  const [settled, setSettled] = useKept<string[]>("vg.settled", [],
+    (v) => Array.isArray(v) && v.every((c) => typeof c === "string"))
+  const [settleTol] = useKept("vg.settletol", 0.01,
+    (v) => typeof v === "number" && v > 0 && v <= 0.5)
+  // Whether a press on a letter settles it rather than taking hold of it.
+  // A mode rather than a setting, so it is not kept.
+  const [settling, setSettling] = useState(false)
+  const [freedom, setFreedom] = useState<Freedom | null>(null)
   const [guideStyle, setGuideStyle] = useState<GuideStyle>(() => {
     const kept = localStorage.getItem(GUIDE_STYLE_KEY)
     return kept === "dashed" || kept === "dotted" || kept === "hair"
@@ -250,6 +262,35 @@ export default function App() {
   const pickTab = (t: string) => {
     setTab(t); localStorage.setItem("vg.tab", t)
   }
+
+  // The api module carries these on every request, so a control added later
+  // honours what has been settled without having to remember to.
+  useEffect(() => {
+    held.settled = settled
+    held.tol = settleTol
+    if (!settled.length) { setFreedom(null); return }
+    let live = true
+    api.freedom(settled)
+      .then((f) => { if (live) setFreedom(f) })
+      .catch(() => { if (live) setFreedom(null) })
+    return () => { live = false }
+  }, [settled, settleTol])
+
+  const toggleSettled = useCallback((ch: string) => {
+    setSettled(settled.includes(ch)
+      ? settled.filter((c) => c !== ch) : [...settled, ch])
+  }, [settled, setSettled])
+
+  // What has been decided, and how much room is left after it.
+  const settledNote = useMemo(() => {
+    if (!settled.length) return null
+    const free = freedom?.free?.[String(settleTol)]
+    const letters = settled.slice(0, 8).join("")
+      + (settled.length > 8 ? `+${settled.length - 8}` : "")
+    return free == null
+      ? `settled \u00b7 ${letters}`
+      : `settled \u00b7 ${letters} \u00b7 ${free}/${freedom?.dims ?? 128} free`
+  }, [settled, freedom, settleTol])
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
@@ -954,6 +995,22 @@ export default function App() {
           title: "Pull the runs between corners onto the straights they "
                  + "nearly are. Changes the drawing, not the location." },
         { kind: "sep" },
+        // Settling is where a session stops being a walk and becomes a piece
+        // of work, so it sits with the other edits to the work rather than
+        // with the journeys.
+        { kind: "item",
+          label: settling ? "Stop settling letters" : "Settle letters\u2026",
+          hint: settled.length ? `${settled.length} settled` : "none yet",
+          disabled: !z,
+          onSelect: () => setSettling((v) => !v),
+          title: "Press a letter in the specimen to decide it. Moves are then "
+                 + "projected onto the directions the decided letters barely "
+                 + "feel, so the rest of the alphabet goes on moving." },
+        { kind: "item", label: "Unsettle every letter",
+          disabled: !settled.length,
+          onSelect: () => { setSettled([]); setSettling(false) },
+          title: "Give the whole alphabet back its freedom" },
+        { kind: "sep" },
         { kind: "item", label: "Settings\u2026", hint: "\u2318,",
           onSelect: () => setSettingsOpen(true),
           title: "Theme, opening text, and the licence exports carry" },
@@ -1022,7 +1079,9 @@ export default function App() {
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
-      newProject, openProject, save, saveAs, file, licence, theme])
+      newProject, openProject, save, saveAs, file, licence, theme,
+      settling, settled, setSettled, waypoints, cursor, flagStop,
+      straight, setStraight, location, rigidify])
 
   if (error && !corpus) return <Fatal message={error} />
   if (!corpus || !here) return <Booting />
@@ -1108,6 +1167,10 @@ export default function App() {
               canUndo={trail.find((c) => c.id === cursor)?.parent != null}
               canRedo={redoStack.length > 0}
               guideInk={guideInk} guideStyle={guideStyle}
+              settled={settled}
+              settling={settling}
+              onToggleSettled={toggleSettled}
+              settledNote={settledNote}
               busy={false}
             />
           </div>
