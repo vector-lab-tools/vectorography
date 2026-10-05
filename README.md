@@ -43,6 +43,15 @@ omission. Every control in the instrument is a movement: a direction, a
 distance, a heading, a return. The letterforms are already everywhere in the
 space; the work is getting to them, and knowing where you have been.
 
+![The navigator: specimen at the top, the vector space below it, the compass
+rose and the eight measured properties on the right, the trail along the
+bottom](docs/images/navigator.png)
+
+The whole instrument is one screen. The specimen is the type as it stands at
+the current location, the map below it is the corpus, the nine panels on the
+right are the eight places one step away, and the list along the bottom is
+every place visited so far.
+
 ![Specimen sheet exported from a location two repel steps out from Abel](docs/specimen.svg)
 
 ## The two principles
@@ -63,7 +72,8 @@ buried.
 
 ## Try it
 
-**<https://vectorography.web.app>**
+Run it locally with `./run.sh` below. The hosted instance is offline while the
+hosting moves off Google Cloud; [DEPLOY.md](DEPLOY.md) has the alternatives.
 
 ## Quick start
 
@@ -100,6 +110,29 @@ glyph set:
 The raw corpus and the intermediate `corpus.npz` are not committed: they are
 large and fully regenerable from `fetch.py` and the manifest.
 
+## The specimen
+
+Drag the divider and the letters take the window. The coloured dots are the
+handles: each one is the part of the letter that carries a property, so a stem
+is dragged thicker and a bowl is dragged rounder rather than a slider being
+found for it.
+
+![The specimen filling the window, handles showing on each letter](docs/images/specimen.png)
+
+A pointer gives two numbers and the design needs three, so the third dimension
+is offered three ways and the one that suits the hand is chosen in settings.
+**Perspective** puts the word on a shallow ground plane, which makes pushing it
+away from the viewer a real direction on screen.
+
+![The specimen drawn in perspective](docs/images/perspective.png)
+
+Two items on the **Edit** menu change how a location is drawn rather than where
+it is. **Rigidify** moves half the way to the nearest real family, and half
+again on the next press. **Straighten outlines** pulls the runs between corners
+onto the straights they nearly are.
+
+![The Edit menu, showing rigidify and straighten](docs/images/edit-menu.png)
+
 ## Travelling
 
 | Control | Movement |
@@ -124,7 +157,16 @@ variation you treat as the important ones. REPEL is not confined to the plane:
 it uses the density gradient in the dominant style subspace and will take you out
 of whatever plane you are turning in.
 
+Every move lands on the trail, numbered and labelled with how it was made, and
+any stop can be clicked to return to it. Moving from an earlier stop opens a
+branch rather than discarding what came after.
+
+![A trail of seven stops, the current location highlighted](docs/images/trail.png)
+
 ## The atlas
+
+![The vector space with the corpus drawn as a cloud of families, the traveller's
+own mark at the centre and the trail behind it](docs/images/atlas.png)
 
 The corpus drawn as a place. Both ground axes are the plane the compass turns
 in, so it is the surface actually being steered on rather than another
@@ -232,6 +274,8 @@ journey recorded in a different number of dimensions is refused rather than
 half-loaded, since a trail is only meaningful in the space it was walked in.
 
 ## Export
+
+![The export panel, grouped by what the file is for](docs/images/export.png)
 
 **File → Export** (⇧⌘E) opens one panel, grouped by what you do with the
 file rather than by what the file is: fonts to install, source to carry on
@@ -353,7 +397,18 @@ evaluation. It pins `torch==1.4.0`, `numpy==1.16.1`, Python 3.7 and the withdraw
 `sklearn` shim package, none of which install on a current interpreter, and its
 font model depends on a paid dataset. The space here was built instead.
 
+## Help
+
+**Help** carries what the readings mean, the keyboard and pointer, and what the
+instrument will not do. **About** names the model and the version a journey was
+walked in.
+
+![The about panel](docs/images/about.png)
+
 ## Settings
+
+![The settings panel: theme, opening text, specimen colour, guides and the
+drag modifiers](docs/images/settings.png)
 
 **Edit → Settings** (⌘,) keeps what should outlast a session: the theme,
 with a System option that follows the machine; the text the specimen opens
@@ -364,6 +419,16 @@ working and is not kept.
 It is all in this browser's local storage. There is no account, no server-side
 profile and no telemetry; **Clear settings** puts it back to the defaults
 without touching the journey.
+
+## On a phone
+
+Below the desk widths the specimen and the map stay on screen throughout, and
+the instruments share the region beneath them by tab. The divider between the
+two is draggable, so a big map and a big specimen are the same handle.
+
+| Map | Steer | Trail |
+|---|---|---|
+| ![The map tab on a phone](docs/images/mobile.png) | ![The steer tab on a phone](docs/images/mobile-steer.png) | ![The trail tab on a phone](docs/images/mobile-trail.png) |
 
 ## Provenance and licensing
 
@@ -386,11 +451,12 @@ CC0, all rights reserved, or none. The choice is written into name IDs 13 and
 
 One container, built and served by one process: see [DEPLOY.md](DEPLOY.md).
 
-The hosted instance runs on **Google Cloud Run**, with Firebase Hosting in
-front of it for the name. A container holds the fitted space in memory rather
-than reloading it, which is why a warm request answers in well under a tenth of
-a second and a cold one in about three quarters. Serverless hosts that would
-re-read the model per invocation are a poor fit for this shape of work.
+A container holds the fitted space in memory rather than reloading it, which is
+why a warm request answers in well under a tenth of a second and a cold one in
+about three quarters. Serverless hosts that would re-read the model per
+invocation are a poor fit for this shape of work.
+
+The instance previously hosted on Google Cloud Run has been taken down.
 
 ## Limitations
 
