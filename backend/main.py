@@ -16,7 +16,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from corpus.outlines import (CACHE, GLYPHS, build_corpus,
-                             decode_vector)
+                             decode_vector, encode_font)
 from render import decode_to_glyphs, specimen_sheet_svg
 from space import settle
 from space.style_space import (MODEL, MODEL_NAME, MODEL_VERSION,
@@ -261,6 +261,71 @@ def compass(req: CompassReq):
         p["altitude"] = {"density_percentile":
                          s.altitude(p["z"])["density_percentile"]}
     return {"points": pts}
+
+
+class ProjectReq(BaseModel):
+    """A drawing to locate, as a font file.
+
+    Base64 rather than multipart because a font is a few hundred kilobytes,
+    every other endpoint here takes JSON, and accepting one upload is not worth
+    a dependency.
+    """
+    font: str
+    # Which letters to fit on. Empty means whichever the file actually draws,
+    # since a work in progress has most of the character set missing and
+    # fitting on a blank letter drags the answer toward whatever the space
+    # makes of nothing.
+    glyphs: list[str] = []
+    prior: float = Field(0.01, gt=0.0, le=100.0)
+
+
+@app.post("/api/project")
+def project_font(req: ProjectReq):
+    """Where in the space this drawing sits, and what is left over."""
+    import base64
+    import tempfile
+
+    from space import project as proj
+
+    s = space()
+    try:
+        raw = base64.b64decode(req.font, validate=True)
+    except Exception:
+        raise HTTPException(400, "font is not base64") from None
+    if len(raw) > 12_000_000:
+        raise HTTPException(413, "font larger than 12 MB")
+
+    with tempfile.NamedTemporaryFile(suffix=".ttf", delete=True) as fh:
+        fh.write(raw)
+        fh.flush()
+        got = encode_font(Path(fh.name))
+    if got is None:
+        raise HTTPException(
+            422, "could not read that font, or it is missing letters the "
+                 "space is fitted over")
+
+    vec, _meta = got
+    vec = proj.align_to(np.asarray(vec, dtype=np.float64),
+                        np.asarray(s.mean, dtype=np.float64))
+
+    want = [g for g in req.glyphs if g in set(GLYPHS)] or proj.drawn_glyphs(vec)
+    if not want:
+        raise HTTPException(422, "that font draws none of the letters fitted")
+
+    out = proj.fit(s, vec, want, align=False, prior=req.prior)
+    z = np.asarray(out["z"])
+    out["neighbours"] = s.neighbours(z, 5)
+    out["altitude"] = s.altitude(z)
+    # Predicting the letters that were drawn is no achievement, so the claim
+    # is tested on letters the fit was not shown. Every fifth is held back
+    # rather than whatever the file happened to leave out, so the number means
+    # the same thing for a finished face and for two letters on a Tuesday.
+    held = want[::5] if len(want) >= 10 else want[-1:]
+    shown = [g for g in want if g not in set(held)]
+    out["held_out"] = held
+    out["skill"] = (proj.skill(s, vec, shown, held, prior=req.prior)
+                    if shown and held else None)
+    return out
 
 
 class FreedomReq(BaseModel):

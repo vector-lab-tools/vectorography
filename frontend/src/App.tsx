@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
          type Freedom, type Glyph, type Location,
-         type NamedDirection } from "./api"
+         type NamedDirection, type Projection } from "./api"
 import { About } from "./components/About"
+import { ProjectionReport } from "./components/Projection"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { ExportPanel, type ExportKind } from "./components/Export"
@@ -11,7 +12,7 @@ import { Settings, GUIDE_KEY, GUIDE_STYLE_KEY, INK_KEY, THEME_KEY, TEXT_KEY,
          type GuideStyle, type Theme } from "./components/Settings"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
-import { download, parse, pickFile, projectFilename, serialise }
+import { download, parse, pickFile, pickFont, projectFilename, serialise }
   from "./components/project"
 import { ShareCard } from "./components/ShareCard"
 import { cardPng, cardSvg, sendCard } from "./components/cardImage"
@@ -205,6 +206,9 @@ export default function App() {
   // A mode rather than a setting, so it is not kept.
   const [settling, setSettling] = useState(false)
   const [freedom, setFreedom] = useState<Freedom | null>(null)
+  // A drawing somebody already made, and where the space puts it.
+  const [projected, setProjected] =
+    useState<{ result: Projection; file: string } | null>(null)
   const [guideStyle, setGuideStyle] = useState<GuideStyle>(() => {
     const kept = localStorage.getItem(GUIDE_STYLE_KEY)
     return kept === "dashed" || kept === "dotted" || kept === "hair"
@@ -506,6 +510,25 @@ export default function App() {
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, saveAs, waypoints, step, temperature, text, trail])
+
+  /**
+   * Run the space backwards: take a drawing somebody already made and ask
+   * where it sits. Everything else here begins at a location and produces
+   * letters, which is the direction a designer does not work in.
+   */
+  const projectFont = useCallback(async () => {
+    const f = await pickFont()
+    if (!f) return
+    setBusy(true)
+    try {
+      const result = await api.project(f)
+      setProjected({ result, file: f.name })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not project that font")
+    } finally {
+      setBusy(false)
+    }
+  }, [])
 
   const openProject = useCallback(async () => {
     if (!corpus) return
@@ -930,6 +953,10 @@ export default function App() {
         { kind: "item", label: "Save As\u2026", hint: "\u21e7\u2318S",
           disabled: !z, onSelect: saveAs,
           title: "Save the journey under a new name" },
+        { kind: "item", label: "Project a font\u2026",
+          disabled: busy, onSelect: projectFont,
+          title: "Where in the space a typeface you already have sits, and "
+                 + "what the space cannot say about it" },
         { kind: "sep" },
         { kind: "item", label: "Export\u2026", hint: "\u21e7\u2318E",
           disabled: !z, onSelect: () => setExporting(true),
@@ -1079,7 +1106,7 @@ export default function App() {
   ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
-      newProject, openProject, save, saveAs, file, licence, theme,
+      newProject, openProject, projectFont, save, saveAs, file, licence, theme,
       settling, settled, setSettled, waypoints, cursor, flagStop,
       straight, setStraight, location, rigidify])
 
@@ -1627,6 +1654,19 @@ export default function App() {
             localStorage.setItem(AUTHOR_KEY, v.author)
           }}
           onClose={() => setLicensing(false)} />
+      )}
+
+      {projected && (
+        <ProjectionReport
+          result={projected.result}
+          file={projected.file}
+          onTravel={() => {
+            push(projected.result.z, "jump",
+                 `projected from ${projected.file}`)
+            setProjected(null)
+          }}
+          onClose={() => setProjected(null)}
+        />
       )}
 
       {about && (

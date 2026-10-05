@@ -39,6 +39,29 @@ export type AtlasData = {
           inside_q50: number }
 }
 
+export type Projection = {
+  z: number[]
+  glyphs: string[]
+  prior: number
+  /** Share of the drawing's departure from the corpus mean the space reaches. */
+  explained: number
+  /** Per letter, root mean square, in ems. */
+  residual: Record<string, number>
+  residual_overall: number
+  /** Directions the drawing had anything to say about; the rest came from the
+   *  corpus. */
+  constrained: number
+  dims: number
+  distance: number
+  neighbours: Neighbour[]
+  altitude: Altitude
+  /** Letters withheld from the fit, so the claim is tested on something. */
+  held_out: string[]
+  /** Whether the fit beats assuming the corpus average, on those letters.
+   *  The only measurement here that is a claim. */
+  skill: { error: number; baseline: number; skill: number } | null
+}
+
 export type Freedom = {
   settled: string[]
   dims: number
@@ -130,6 +153,25 @@ export const api = {
   /** How many directions are still open once some letters have been settled. */
   freedom: (settled: string[]) =>
     post<Freedom>("/api/freedom", { settled }),
+
+  /**
+   * Where a drawing already made sits in the space, and what is left over.
+   *
+   * The file goes up as base64 in the ordinary JSON body: a font is a few
+   * hundred kilobytes, and one upload is not worth a different content type
+   * on the server.
+   */
+  async project(file: File, glyphs: string[] = [], prior = 0.01) {
+    const buf = new Uint8Array(await file.arrayBuffer())
+    let bin = ""
+    // In chunks, because spreading a few hundred thousand bytes into
+    // String.fromCharCode at once overflows the argument list.
+    for (let i = 0; i < buf.length; i += 0x8000) {
+      bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+    }
+    return post<Projection>("/api/project",
+                            { font: btoa(bin), glyphs, prior })
+  },
 
   exportFont: (z: number[], family: string, style: string, format: string,
                licence = "none", author = "", straight = 0) =>

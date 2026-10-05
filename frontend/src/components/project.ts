@@ -120,3 +120,22 @@ export function pickFile(): Promise<{ name: string; text: string } | null> {
     input.click()
   })
 }
+
+/** A font file to project, handed over whole rather than read as text. */
+export function pickFont(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".ttf,.otf,font/ttf,font/otf,application/font-sfnt"
+    input.onchange = () => { resolve(input.files?.[0] ?? null); input.remove() }
+    window.addEventListener("focus", () => {
+      setTimeout(() => { if (!input.files?.length) resolve(null) }, 400)
+    }, { once: true })
+    // In the document rather than floating, so the choice can be made by
+    // something other than a hand: this is the one path with a real file in
+    // it, and a path that cannot be driven cannot be tested.
+    input.style.display = "none"
+    document.body.appendChild(input)
+    input.click()
+  })
+}

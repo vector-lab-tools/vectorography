@@ -401,3 +401,69 @@ as a piece of work.
 **The drift is reported rather than asserted.** `/api/travel` returns how far
 each settled glyph actually moved, in ems, because the instrument should be
 willing to say what the approximation cost.
+
+## 10. Projection: running the space backwards
+
+Everything else in the instrument starts from a location and produces letters.
+This starts from letters somebody drew and produces a location, which is the
+direction a designer actually works in. **File → Project a font** takes an OTF
+or TTF and answers two questions: where the drawing sits, and what the space
+cannot say about it.
+
+### Plain least squares does not work, and the reason is instructive
+
+Two glyphs pin 802 coordinates against 128 unknowns. That looks
+over-determined and is not, for exactly the reason settling rests on: most of
+those 128 directions barely touch `n` and `o`, so the fit is free to send them
+anywhere, and it does. Measured against held-out letters, an unregularised fit
+on `n` and `o` predicts the rest of the alphabet **worse than assuming the
+corpus average**, by 41% for Georgia and by 228% for Courier New.
+
+So the corpus is used as a prior. Whitening already made it the unit Gaussian,
+which is what makes a ridge term exactly a prior here rather than a fudge:
+minimising the drawing's error plus `prior` times the squared distance from the
+centroid is the maximum a posteriori location given the corpus and the drawing.
+The weight was chosen by held-out measurement across four faces and eight
+values spanning four orders of magnitude, not by taste.
+
+The dial is worth exposing rather than hiding. A small prior is faithful to what
+was drawn and wild about everything else; a large one pulls the answer to the
+average of Google Fonts. **The pull toward the mean that the rest of the
+instrument exists to resist is here as a number the designer sets.**
+
+### What it reports
+
+Skill on withheld letters is the only one of these that is a claim. Every fifth
+drawn letter is held back from the fit and predicted, so the number means the
+same thing for a finished face and for two letters on a Tuesday.
+
+| Face | Fitted on | Skill against the corpus average |
+|---|---|---|
+| Georgia | `n` `o` | +26% |
+| Georgia | 8 letters | +40% |
+| Georgia | 16 letters | +51% |
+| Verdana | `n` `o` | +38% |
+| Courier New | `n` `o` | −1% |
+| Courier New | 16 letters | +35% |
+| Apple Chancery | 16 letters | +23% |
+
+Across the whole 164-glyph set, including punctuation, digits and accented
+capitals, skill settles at +15 to +18%. The letters the space reaches worst are
+currency symbols and the wider capitals.
+
+`constrained` is the mirror of the settling count: how many of the 128
+directions the drawing had anything to say about, the rest having been answered
+by the corpus. Settling asks how much freedom is left after a decision;
+projection asks how much a drawing used.
+
+### What it says about the corpus
+
+Projected whole, the space reaches 48 to 69% of a real face's departure from the
+corpus average, leaving 0.017 to 0.040 em. The nearest-neighbour results say
+the remainder is not noise: Courier New lands beside `courierprime` and Comic
+Sans beside `comicrelief`, so the space finds the right neighbourhood and then
+cannot draw what it found. Apple Chancery, a script face, has the largest
+residual, which is where the representation's assumptions are furthest from
+the drawing.
+
+That number is the component critique turned into a measurement.
