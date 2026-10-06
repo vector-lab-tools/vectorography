@@ -792,9 +792,11 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
   const controls = data && (
     <>
       <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-        <span className="font-mono text-[9px] uppercase tracking-[0.12em]
-                         text-muted-foreground pointer-events-none
-                         whitespace-nowrap"
+        {/* Lowercase and unspaced. The tab above already says what this is,
+            so the words left here only have to carry the tooltip that says
+            what the ground plane and the height are measuring. */}
+        <span className="text-[11px] text-muted-foreground
+                         pointer-events-none whitespace-nowrap"
               title={`Vector space. Ground plane: ${
                 data.axes.ride ? "ride heading"
                   : axisName(data.axes.x, directions)} by ${
@@ -803,10 +805,7 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                   : data.axes.height === "centroid"
                     ? "distance from the centroid"
                     : axisName(data.axes.z, directions)}.`}>
-          {/* What the map is, rather than which eigendirections happen to be
-              spanning it: the axis pickers name those, and reading them here
-              told a traveller nothing about where they were. */}
-          vector space
+          ground plane
         </span>
       </div>
 

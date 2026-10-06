@@ -152,8 +152,18 @@
 }
 
 @layer components {
+  /*
+   * The labels used to be 8 to 10px, uppercase, letterspaced and monospaced,
+   * on every panel at once. That is the voice of a monitoring system, and a
+   * screen full of it reads as something to watch rather than something to
+   * work in. Glyphs and RoboFont label a field `Width` and put `63` beside it.
+   *
+   * So: sentence case at a size a person reads, in the text face. The
+   * monospace is kept for the numbers, where a column that lines up is worth
+   * something.
+   */
   .rail-label {
-    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground;
+    @apply text-[11px] text-muted-foreground;
   }
   .panel {
     @apply bg-card border border-border rounded-md shadow-editorial;

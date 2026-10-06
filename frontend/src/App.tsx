@@ -9,6 +9,7 @@ import { LearnAxis } from "./components/LearnAxis"
 import { ProofSheet } from "./components/ProofSheet"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { Inspector, Section } from "./components/Inspector"
 import { Doors } from "./components/Doors"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
@@ -110,12 +111,13 @@ const dot = (a: number[], c: number[]) =>
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // Dark by default. The instrument is a dark room with letters lit in it,
-  // and a specimen is judged against its ground: the light theme is the one
-  // to choose, not the one to be given. Settings still offers System, which
-  // follows the machine.
+  // Light by default, which is where this started and where it should have
+  // stayed. Type is judged against paper, and every font editor worth the
+  // name opens on a white canvas with black letters on it and keeps its own
+  // chrome quiet. Dark remains in View and in Settings, and System follows
+  // the machine.
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "dark")
+    () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "light")
   // Seeded from what the inline script in index.html already decided, so the
   // first paint and the first render agree.
   const [dark, setDark] = useState(
@@ -290,12 +292,9 @@ export default function App() {
   const flagStop = useCallback((id: number) => {
     setWaypoints((w) => w.includes(id) ? w.filter((x) => x !== id) : [...w, id])
   }, [])
-  // Written when the drag ends rather than on every frame of it: a divider
-  // moves sixty times a second and the disk does not need to hear about it.
-  const [split, setSplit] = useState(() => {
-    const kept = Number(localStorage.getItem("vg.topsplit"))
-    return kept >= 0.02 && kept <= 1.96 ? kept : 0.7
-  })
+  // The divider that shared the window between the map and a row of panels
+  // along the bottom went when the panels did: there is nothing under the
+  // canvas any more to take height from. The specimen's own handle stays.
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
@@ -307,7 +306,10 @@ export default function App() {
   // so this handle is the same bargain as the one below it.
   const [specimenH, setSpecimenH] = useState(() => {
     const kept = Number(localStorage.getItem("vg.specimen"))
-    return kept >= 90 && kept <= 900 ? kept : 168
+    // Was 168, which made the letters a band above the instruments. With the
+    // instruments gone into the sidebar the specimen is the canvas, and a
+    // canvas opens at a size the work can be judged at.
+    return kept >= 90 && kept <= 900 ? kept : 330
   })
   const [phoneSplit, setPhoneSplit] = useState(() => {
     const kept = Number(localStorage.getItem("vg.split"))
@@ -1240,7 +1242,6 @@ export default function App() {
     setText("no")                 // the letters that set the system
     setProofText("nnoonn")        // and the string they are spaced against
     setSpecimenH(380)
-    setSplit(1.3)
     setLower("sheet")
     setSettling(true)
     setEntered(true)
@@ -1314,152 +1315,172 @@ export default function App() {
                        max-lg:overflow-hidden">
         {/* Top: the type itself, at a size the hand can work on, with the
             space it sits in below and beside it. */}
-        <section className="shrink-0 overflow-hidden flex flex-col gap-2
-                            lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
-                            max-lg:flex-1 max-lg:min-h-0"
-                 style={isMobile ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
-                   : { flex: `0 0 calc((100dvh - 96px) * ${split})` }}>
-          {/* The letters take their colour from here, so everything drawn
-              with currentColor inside follows: the specimen, its ghost in
-              perspective, and nothing else. */}
-          <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
-                          px-2 sm:px-3 py-2 text-ink"
-               style={{ ...(isMobile ? {} : { height: specimenH }),
-                        ...(ink === "auto" ? {} : { color: ink }) }}>
-            <SpecimenStage
-              glyphs={location?.glyphs ?? []}
-              geometry={geometry}
-              text={text}
-              hullRadius={atlas?.ball?.max ?? null}
-              radius={atlas?.ball?.self ?? null}
-              depth={depth}
-              setDepth={setDepth}
-              xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
-              setProps={(x, y, zz) => setProps3([x, y, zz])}
-              onDragStart={dragStart}
-              onDrag={dragMove}
-              onDragEnd={dragEnd}
-              lost={!!z && !isSane(z)}
-              onReset={resetToSane}
-              setText={setText}
-              neighbours={location?.neighbours ?? []}
-              onGoToFamily={goToFamily}
-              onUndo={undo}
-              onRedo={redo}
-              canUndo={trail.find((c) => c.id === cursor)?.parent != null}
-              canRedo={redoStack.length > 0}
-              guideInk={guideInk} guideStyle={guideStyle}
-              settled={settled}
-              settling={settling}
-              onToggleSettled={toggleSettled}
-              onSettling={() => setSettling((v) => !v)}
-              settledNote={settledNote}
-              readings={readings}
-              busy={false}
-            />
+        {/*
+            One canvas and one inspector, after Glyphs, FontLab and RoboFont.
+
+            This had the same material down three edges at once: compass and
+            sliders in a column on the right, travel controls and the trail in
+            a row along the bottom, the map filling what was left. Six panels
+            of equal weight and none of them the work. Every one of those
+            editors gives the window to the thing being made and collects the
+            rest into a single sidebar, so that is what this does now.
+         */}
+        <div className="flex-1 min-h-0 flex max-lg:block">
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+            <section className="flex-1 min-h-0 overflow-hidden flex flex-col
+                                gap-2 lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
+                                pb-2 lg:pb-3"
+                     style={isMobile
+                       ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
+                       : undefined}>
+              {/* The letters take their colour from here, so everything drawn
+                  with currentColor inside follows: the specimen, its ghost in
+                  perspective, and nothing else. */}
+              <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
+                              px-2 sm:px-3 py-2 text-ink"
+                   style={{ ...(isMobile ? {} : { height: specimenH }),
+                            ...(ink === "auto" ? {} : { color: ink }) }}>
+                <SpecimenStage
+                  glyphs={location?.glyphs ?? []}
+                  geometry={geometry}
+                  text={text}
+                  hullRadius={atlas?.ball?.max ?? null}
+                  radius={atlas?.ball?.self ?? null}
+                  depth={depth}
+                  setDepth={setDepth}
+                  xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
+                  setProps={(x, y, zz) => setProps3([x, y, zz])}
+                  onDragStart={dragStart}
+                  onDrag={dragMove}
+                  onDragEnd={dragEnd}
+                  lost={!!z && !isSane(z)}
+                  onReset={resetToSane}
+                  setText={setText}
+                  neighbours={location?.neighbours ?? []}
+                  onGoToFamily={goToFamily}
+                  onUndo={undo}
+                  onRedo={redo}
+                  canUndo={trail.find((c) => c.id === cursor)?.parent != null}
+                  canRedo={redoStack.length > 0}
+                  guideInk={guideInk} guideStyle={guideStyle}
+                  settled={settled}
+                  settling={settling}
+                  onToggleSettled={toggleSettled}
+                  onSettling={() => setSettling((v) => !v)}
+                  settledNote={settledNote}
+                  readings={readings}
+                  busy={false}
+                />
+              </div>
+
+              {!isMobile && (
+                <div
+                  className="hidden lg:flex h-3 shrink-0 -my-1 cursor-row-resize
+                             group items-center justify-center"
+                  style={{ touchAction: "none" }}
+                  title="Drag to give the specimen or the space more room. Double-click to reset."
+                  onDoubleClick={() => {
+                    setSpecimenH(168)
+                    localStorage.setItem("vg.specimen", "168")
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                    const host = e.currentTarget.parentElement as HTMLElement
+                    const startY = e.clientY
+                    const start = specimenH
+                    let latest = start
+                    const move = (ev: PointerEvent) => {
+                      const room = host.clientHeight - 140
+                      latest = Math.max(90, Math.min(Math.max(140, room),
+                        start + (ev.clientY - startY)))
+                      setSpecimenH(latest)
+                    }
+                    const up = () => {
+                      localStorage.setItem("vg.specimen", String(latest))
+                      window.removeEventListener("pointermove", move)
+                      window.removeEventListener("pointerup", up)
+                      window.removeEventListener("pointercancel", up)
+                    }
+                    window.addEventListener("pointermove", move)
+                    window.addEventListener("pointerup", up)
+                    window.addEventListener("pointercancel", up)
+                  }}
+                >
+                  <div className="h-px flex-1 bg-transparent
+                                  group-hover:bg-burgundy/40 transition-colors" />
+                  <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
+                                  group-hover:bg-burgundy transition-colors" />
+                  <div className="h-px flex-1 bg-transparent
+                                  group-hover:bg-burgundy/40 transition-colors" />
+                </div>
+              )}
+
+
+              {!isMobile && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]
+                                flex flex-col">
+                  {/* Two questions about the same location: where it sits, and
+                      what it looks like a little either way. The toggle is here
+                      rather than in a menu because it is a thing to flip while
+                      working. */}
+                  <div className="flex items-center gap-1 pb-1 shrink-0">
+                    {([["atlas", "Vector space"],
+                       ["sheet", "Proof sheet"]] as const).map(([k, label]) => (
+                      <button key={k} onClick={() => setLower(k)}
+                        className={`rail-label !text-[8px] px-1.5 py-0.5 rounded-sm
+                                    border transition-colors ${lower === k
+                                      ? "border-burgundy text-burgundy"
+                                      : "border-transparent text-muted-foreground"
+                                        + " hover:text-foreground"}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {lower === "sheet" ? (
+                      <ProofSheet
+                        sheet={sheet} text={proofText} busy={sheetBusy}
+                        radius={sheetRadius} setRadius={setSheetRadius}
+                        properties={sheetProps} setProperties={setSheetProps}
+                        onTravel={(cz, closeIn) => {
+                          // A shift closes in rather than going somewhere else:
+                          // the answer to "a bit heavier" is usually another,
+                          // smaller "a bit heavier".
+                          if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
+                          push(cz, "jump", "proof")
+                        }}
+                      />
+                    ) : (
+                      <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                             directions={allDirections}
+                             colourBy={colourBy} setColourBy={setColourBy}
+                             waypoint={waypoint} setWaypoint={setWaypoint}
+                             onToward={goToward} radius={radius} sample={atlasChar}
+                             liveGlyphs={location?.glyphs ?? null}
+                             liveSelf={liveSelf}
+                             ballOn={ballOn} setBallOn={setBallOn}
+                             altitude={location?.altitude ?? null} corpus={corpus}
+                             />
+                    )}
+                  </div>
+                </div>
+              </div>
+              )}
+            </section>
           </div>
 
           {!isMobile && (
-            <div
-              className="hidden lg:flex h-3 shrink-0 -my-1 cursor-row-resize
-                         group items-center justify-center"
-              style={{ touchAction: "none" }}
-              title="Drag to give the specimen or the space more room. Double-click to reset."
-              onDoubleClick={() => {
-                setSpecimenH(168)
-                localStorage.setItem("vg.specimen", "168")
-              }}
-              onPointerDown={(e) => {
-                e.preventDefault()
-                try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
-                const host = e.currentTarget.parentElement as HTMLElement
-                const startY = e.clientY
-                const start = specimenH
-                let latest = start
-                const move = (ev: PointerEvent) => {
-                  const room = host.clientHeight - 140
-                  latest = Math.max(90, Math.min(Math.max(140, room),
-                    start + (ev.clientY - startY)))
-                  setSpecimenH(latest)
-                }
-                const up = () => {
-                  localStorage.setItem("vg.specimen", String(latest))
-                  window.removeEventListener("pointermove", move)
-                  window.removeEventListener("pointerup", up)
-                  window.removeEventListener("pointercancel", up)
-                }
-                window.addEventListener("pointermove", move)
-                window.addEventListener("pointerup", up)
-                window.addEventListener("pointercancel", up)
-              }}
-            >
-              <div className="h-px flex-1 bg-transparent
-                              group-hover:bg-burgundy/40 transition-colors" />
-              <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
-                              group-hover:bg-burgundy transition-colors" />
-              <div className="h-px flex-1 bg-transparent
-                              group-hover:bg-burgundy/40 transition-colors" />
-            </div>
-          )}
+            <Inspector>
+              <Section id="steer" title="Steer" defaultOpen
+                       note={`${allDirections.length}`}>
+                <DirectionPad directions={allDirections} at={standing}
+                              onSlide={slideTo} onCommit={slideCommit}
+                              busy={busy} />
+              </Section>
 
-          {!isMobile && (
-          <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
-            <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]
-                            flex flex-col">
-              {/* Two questions about the same location: where it sits, and
-                  what it looks like a little either way. The toggle is here
-                  rather than in a menu because it is a thing to flip while
-                  working. */}
-              <div className="flex items-center gap-1 pb-1 shrink-0">
-                {([["atlas", "Vector space"],
-                   ["sheet", "Proof sheet"]] as const).map(([k, label]) => (
-                  <button key={k} onClick={() => setLower(k)}
-                    className={`rail-label !text-[8px] px-1.5 py-0.5 rounded-sm
-                                border transition-colors ${lower === k
-                                  ? "border-burgundy text-burgundy"
-                                  : "border-transparent text-muted-foreground"
-                                    + " hover:text-foreground"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 min-h-0">
-                {lower === "sheet" ? (
-                  <ProofSheet
-                    sheet={sheet} text={proofText} busy={sheetBusy}
-                    radius={sheetRadius} setRadius={setSheetRadius}
-                    properties={sheetProps} setProperties={setSheetProps}
-                    onTravel={(cz, closeIn) => {
-                      // A shift closes in rather than going somewhere else:
-                      // the answer to "a bit heavier" is usually another,
-                      // smaller "a bit heavier".
-                      if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
-                      push(cz, "jump", "proof")
-                    }}
-                  />
-                ) : (
-                  <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                         directions={allDirections}
-                         colourBy={colourBy} setColourBy={setColourBy}
-                         waypoint={waypoint} setWaypoint={setWaypoint}
-                         onToward={goToward} radius={radius} sample={atlasChar}
-                         liveGlyphs={location?.glyphs ?? null}
-                         liveSelf={liveSelf}
-                         ballOn={ballOn} setBallOn={setBallOn}
-                         altitude={location?.altitude ?? null} corpus={corpus}
-                         />
-                )}
-              </div>
-            </div>
-            {/* The rose and the sliders are one column with one scroll. Each
-                had its own share of the height and its own scrollbar, so the
-                rose was stretched or the last two sliders lived behind a bar
-                of their own; both now sit at the size they ask for and the
-                column scrolls once if there is not room for both. */}
-            {!isMobile && (
-            <div className="w-full lg:w-[240px] shrink-0 min-h-0
-                            flex flex-col gap-2 overflow-y-auto pr-1">
-              <div className="shrink-0">
+              <Section id="rose" title="One step away" defaultOpen>
                 <CompassRose
                   points={compass}
                   compassText={compassText}
@@ -1467,147 +1488,57 @@ export default function App() {
                   onTravel={(p) => walk(p.bearing)}
                   busy={busy}
                 />
-              </div>
-              {directions.length > 0 && (
-                <div className="shrink-0 border-t border-border pt-2">
-                  <DirectionPad directions={allDirections} at={standing}
-                                onSlide={slideTo} onCommit={slideCommit}
-                                busy={busy} />
-                </div>
-              )}
-            </div>
-            )}
-          </div>
-          )}
-        </section>
+              </Section>
 
-        {/* The divider is draggable: how much room the space gets against how
-            much the instruments get is the user's call, not ours. */}
-        <div
-          className="hidden lg:flex h-3 shrink-0 mx-3 my-1 cursor-row-resize
-                     group items-center justify-center"
-          style={{ touchAction: "none" }}
-          title="Drag to give either half more room. Double-click to even it up."
-          onDoubleClick={() => {
-            setSplit(0.7)
-            localStorage.setItem("vg.topsplit", "0.7")
-          }}
-          onPointerDown={(e) => {
-            // Without this the drag sweeps a text selection across the page.
-            e.preventDefault()
-            // Capture, so the release reaches us even when the button comes
-            // up outside the window; a missed release left the move listener
-            // alive, silently eating every gesture until the next click.
-            try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
-            const startY = e.clientY
-            const start = split
-            const host = (e.currentTarget.parentElement as HTMLElement)
-            const total = host.clientHeight
-            let latest = start
-            const move = (ev: PointerEvent) => {
-              const d = (ev.clientY - startY) / Math.max(total, 1)
-              // All the way in either direction: either half can be taken
-              // down to a sliver, so the space or the instruments can have the
-              // whole window when that is what the work needs. A hair is left
-              // at the top so the divider itself stays grabbable, and the
-              // bottom end runs to twice the window, since the page scrolls
-              // below and a map worth studying is often taller than the
-              // screen. Past the window a single gesture runs out of pointer,
-              // so the range is covered by dragging twice.
-              // Never past the handle above it. The top section holds the
-              // specimen at its own dragged height plus the space; taking it
-              // below that pulled this divider over the other one and the two
-              // swapped places on screen.
-              const floor = (specimenH + 150)
-                / Math.max(1, window.innerHeight - 96)
-              latest = Math.max(Math.min(floor, 0.95),
-                                Math.min(1.96, start + d))
-              setSplit(latest)
-            }
-            const up = () => {
-              localStorage.setItem("vg.topsplit", String(latest))
-              window.removeEventListener("pointermove", move)
-              window.removeEventListener("pointerup", up)
-              window.removeEventListener("pointercancel", up)
-              window.removeEventListener("blur", up)
-            }
-            window.addEventListener("pointermove", move)
-            window.addEventListener("pointerup", up)
-            window.addEventListener("pointercancel", up)
-            window.addEventListener("blur", up)
-          }}
-        >
-          <div className="h-px flex-1 bg-border group-hover:bg-burgundy
-                          transition-colors" />
-          {/* The bar alone read as a border; a grip says it can be held. */}
-          <div className="mx-2 h-1.5 w-10 shrink-0 rounded-full bg-border
-                          group-hover:bg-burgundy transition-colors" />
-          <div className="h-px flex-1 bg-border group-hover:bg-burgundy
-                          transition-colors" />
+              <Section id="travel" title="Travel">
+                <TravelBar
+                  corpus={corpus}
+                  radius={radius} setRadius={setRadius}
+                  temperature={temperature} setTemperature={setTemperature}
+                  step={step} setStep={setStep}
+                  axX={axX} axY={axY} axZ={axZ}
+                  setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
+                  overlap={atlas?.axes.overlap ?? null}
+                  ride={ride} orbit={orbit}
+                  onDrift={() => travel({ mode: "drift" }, "drift",
+                                        `drift t${temperature.toFixed(2)}`)}
+                  onRepel={() => travel({ mode: "repel" }, "repel",
+                                        `repel s${step.toFixed(2)}`)}
+                  onOrbit={() => orbit && travel(
+                    { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
+                    `orbit ${orbit.name} +20°`)}
+                  onSetRide={async (a, b) => {
+                    try {
+                      const [za, zb] = await Promise.all(
+                        [api.fontPosition(a), api.fontPosition(b)])
+                      setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
+                    } catch (e) { setError(String(e)) }
+                  }}
+                  onClearRide={() => setRide(null)}
+                  onSetOrbit={async (name) => {
+                    try {
+                      const r = await api.fontPosition(name)
+                      setOrbit({ name, z: r.z })
+                    } catch (e) { setError(String(e)) }
+                  }}
+                  onClearOrbit={() => setOrbit(null)}
+                  busy={busy}
+                />
+              </Section>
+
+              <Section id="trail" title="Trail"
+                       note={`${trail.length} stop${trail.length === 1 ? "" : "s"}`}
+                       defaultOpen>
+                <div className="max-h-[36vh] overflow-y-auto">
+                    <Trail trail={trail} cursor={cursor} onGo={setCursor}
+                           waypoints={waypoints} onFlag={flagStop}
+                           onClearFlags={() => setWaypoints([])} />
+                </div>
+              </Section>
+            </Inspector>
+          )}
         </div>
 
-        {/* Bottom: readings and controls. */}
-        {!isMobile && (
-        <section className="px-3 pb-3 grid gap-3 grid-cols-1 md:grid-cols-2"
-                 style={{ flex: "1 0 auto" }}>
-          {/* Two panels, side by side: what moves you, and where you have
-              been. */}
-          <div className="min-w-0 flex flex-col gap-1.5">
-            <span className="rail-label"
-                  title={"Ways of moving that are not a step on the compass "
-                    + "or a property on a slider"}>
-              Controls
-            </span>
-            <TravelBar
-              corpus={corpus}
-              radius={radius} setRadius={setRadius}
-              temperature={temperature} setTemperature={setTemperature}
-              step={step} setStep={setStep}
-              axX={axX} axY={axY} axZ={axZ}
-              setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
-              overlap={atlas?.axes.overlap ?? null}
-              ride={ride} orbit={orbit}
-              onDrift={() => travel({ mode: "drift" }, "drift",
-                                    `drift t${temperature.toFixed(2)}`)}
-              onRepel={() => travel({ mode: "repel" }, "repel",
-                                    `repel s${step.toFixed(2)}`)}
-              onOrbit={() => orbit && travel(
-                { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
-                `orbit ${orbit.name} +20°`)}
-              onSetRide={async (a, b) => {
-                try {
-                  const [za, zb] = await Promise.all(
-                    [api.fontPosition(a), api.fontPosition(b)])
-                  setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
-                } catch (e) { setError(String(e)) }
-              }}
-              onClearRide={() => setRide(null)}
-              onSetOrbit={async (name) => {
-                try {
-                  const r = await api.fontPosition(name)
-                  setOrbit({ name, z: r.z })
-                } catch (e) { setError(String(e)) }
-              }}
-              onClearOrbit={() => setOrbit(null)}
-              busy={busy}
-            />
-          </div>
-
-          <div className="min-w-0 min-h-[260px] flex flex-col gap-1.5">
-            <span className="rail-label"
-                  title={"Every stop on this journey, and the name it "
-                    + "exports under"}>
-              Traversal
-            </span>
-            <div className="flex-1 min-h-0 flex flex-col rounded-md border
-                            border-border/60 bg-muted/25 px-2.5 py-2">
-              <Trail trail={trail} cursor={cursor} onGo={setCursor}
-                     waypoints={waypoints} onFlag={flagStop}
-                     onClearFlags={() => setWaypoints([])} />
-            </div>
-          </div>
-        </section>
-        )}
 
         {isMobile && (<>
           {/* The same handle the desk has, for the same reason: how much room

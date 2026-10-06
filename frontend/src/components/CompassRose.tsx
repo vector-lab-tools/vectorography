@@ -47,12 +47,6 @@ export function CompassRose({
     <div className="flex flex-col h-full min-h-0 items-start">
       {/* The rose is a control surface, so it is framed as one. The atlas next
           to it is a picture of the space; these are buttons that move you. */}
-      <div className="mb-1.5 shrink-0">
-        <span className="rail-label"
-              title={"Eight neighbours, one step out on the two axes the map "
-                + "is drawn in. Stepping is the only way to arrive anywhere: "
-                + "there is nothing here to generate."}>Traverse vector space</span>
-      </div>
       {/* Square cells, and the rose keeps its shape whatever room the column
           has. Stretched to fill the height, each neighbour was set in a tall
           box and the eight of them no longer read as eight steps around one

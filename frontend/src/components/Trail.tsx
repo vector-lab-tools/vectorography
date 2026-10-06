@@ -35,11 +35,6 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
             {waypoints.length === 1 ? "waypoint" : "waypoints"}
           </button>
         )}
-        <span className="font-mono text-[9px] text-muted-foreground"
-              title={"Click a stop to return to it; carrying on from an "
-                + "earlier stop opens a branch and keeps both."}>
-          {trail.length} {trail.length === 1 ? "stop" : "stops"}
-        </span>
       </div>
 
       <ol className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-px">

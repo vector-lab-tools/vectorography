@@ -26,13 +26,6 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-1 mb-1
-                      flex-wrap">
-        <span className="rail-label"
-              title={"Push a single measured property, without moving off in "
-                + "any other. The letterform changes in that one respect and "
-                + "holds everything else where it is."}>Steer</span>
-      </div>
       {/* One line per property: name, track, reading. Stacked over two lines
           each, eight properties did not fit a column and half of them lived
           behind a scrollbar. */}

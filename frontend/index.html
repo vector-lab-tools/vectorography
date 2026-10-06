@@ -36,7 +36,7 @@
       (function () {
         var t;
         try { t = localStorage.getItem("vg.theme"); } catch (e) { /* blocked */ }
-        var dark = !t || t === "dark" ||
+        var dark = t === "dark" ||
           (t === "system" &&
            window.matchMedia("(prefers-color-scheme: dark)").matches);
         if (dark) document.documentElement.classList.add("dark");
