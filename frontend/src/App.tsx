@@ -1173,7 +1173,9 @@ export default function App() {
       straight, setStraight, location, rigidify])
 
   if (error && !corpus) return <Fatal message={error} />
-  if (!corpus || !here) return <Booting />
+  if (!corpus || !here) return (
+    <Booting onRetry={() => window.location.reload()} />
+  )
 
   return (
     <div className="h-full flex flex-col">
@@ -1825,14 +1827,74 @@ const LICENCE_LABEL: Record<string, string> = {
   arr: "reserved", none: "unset",
 }
 
-function Booting() {
+/**
+ * What the instrument says while it has nothing to show yet.
+ *
+ * It used to say "fitting the space to the corpus", which was untrue and
+ * silent. Nothing is fitted at startup; the space ships fitted. The real wait
+ * is the host: the free tier sleeps after fifteen idle minutes, and the first
+ * visit after that waits for a container to start and read thirty megabytes,
+ * which is about a minute of a line of text that never changes.
+ *
+ * So this counts, says what it is waiting for, and after a few seconds says
+ * why. A wait someone understands is a different thing from the same wait
+ * unexplained.
+ */
+function Booting({ onRetry }: { onRetry: () => void }) {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setSecs((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const stuck = secs >= 90
   return (
-    <div className="h-full grid place-items-center">
-      <div className="text-center">
+    <div className="h-full grid place-items-center p-8">
+      <div className="text-center max-w-sm">
         <div className="font-display text-2xl mb-2">Vectorography</div>
+
         <div className="font-mono text-[11px] text-muted-foreground">
-          fitting the space to the corpus…
+          {stuck ? "the space has not answered"
+            : secs < 4 ? "reading the space…"
+              : "waking the server…"}
+          {!stuck && secs >= 2 && (
+            <span className="tabular-nums"> {secs}s</span>
+          )}
         </div>
+
+        {/* A bar that moves, because a line of text that does not is what
+            makes a wait feel like a hang. */}
+        {!stuck && (
+          <div className="mt-3 h-[2px] w-48 mx-auto overflow-hidden bg-border">
+            <div className="h-full w-1/3 bg-burgundy
+                            animate-[boot_1.4s_ease-in-out_infinite]" />
+          </div>
+        )}
+
+        {secs >= 6 && !stuck && (
+          <p className="mt-4 font-mono text-[9px] leading-relaxed
+                        text-muted-foreground">
+            The host sleeps after fifteen idle minutes. The first visit wakes
+            it, which takes about a minute; every visit after that answers
+            straight away.
+          </p>
+        )}
+
+        {stuck && (
+          <>
+            <p className="mt-3 font-mono text-[9px] leading-relaxed
+                          text-muted-foreground">
+              Ninety seconds is longer than a cold start should take.
+            </p>
+            <button
+              onClick={onRetry}
+              className="mt-4 px-3 py-1.5 rounded-sm bg-burgundy text-ivory
+                         font-mono text-[11px] hover:opacity-90
+                         transition-opacity">
+              Try again
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

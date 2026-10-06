@@ -81,3 +81,17 @@
    scrollbar across the specimen. */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* The bar on the boot screen. A line of text that does not change is what
+   makes a cold start feel like a hang, so something has to move while the
+   host wakes. */
+@keyframes boot {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Modals fade rather than appear. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
