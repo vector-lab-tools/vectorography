@@ -535,3 +535,28 @@ the point it is worth reading twice.
 Still to do: the compass rose overlaps the sheet's job and has not been
 reconsidered; the projection prior is not exposed; settling is not recorded on
 the trail or carried in a `.vgy`.
+
+## 13. The menus, after the Spacewar! research bench
+
+The thing worth taking from that interface is not its colours. It is that
+every item in a menu says what it does, in a dimmed line under its own name,
+instead of hiding it in a tooltip.
+
+Every item here already had that sentence written. It sat in the `title`
+attribute, where it took a hover and a wait to read with a mouse and could not
+be read at all with a finger, which is most of the reason the Edit menu had
+grown into a list of names nobody could act on without trying them. The same
+words moved up into the menu, and the menu stopped needing to be learned.
+
+Group headings replace most of the bare rules, for the same reason: a divider
+says two things are different and a heading says what they are. The Edit menu
+now reads as *going back*, *places worth returning to*, *the drawing, not the
+place*, *deciding letters*, and then Settings, which is roughly the order a
+session moves through.
+
+Also taken: the caret that turns over while its menu is down, and a panel wide
+enough for a sentence to set on two lines rather than six.
+
+Not taken: the dark navy ground and the teal beam. This instrument's light
+editorial ground and burgundy are doing work the dark would undo, and a theme
+is a larger question than a menu.

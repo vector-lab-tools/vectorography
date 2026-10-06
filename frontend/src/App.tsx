@@ -999,6 +999,7 @@ export default function App() {
     {
       label: "File",
       items: [
+        { kind: "group", label: "journeys" },
         { kind: "item", label: "New Project", hint: "\u2318N",
           onSelect: newProject,
           title: "Back to the centroid with an empty trail" },
@@ -1013,11 +1014,12 @@ export default function App() {
         { kind: "item", label: "Save As\u2026", hint: "\u21e7\u2318S",
           disabled: !z, onSelect: saveAs,
           title: "Save the journey under a new name" },
+        { kind: "group", label: "bring a drawing in" },
         { kind: "item", label: "Project a font\u2026",
           disabled: busy, onSelect: projectFont,
           title: "Where in the space a typeface you already have sits, and "
                  + "what the space cannot say about it" },
-        { kind: "sep" },
+        { kind: "group", label: "take the work out" },
         { kind: "item", label: "Export\u2026", hint: "\u21e7\u2318E",
           disabled: !z, onSelect: () => setExporting(true),
           title: "Fonts to install, source to keep working on, or outlines to "
@@ -1035,13 +1037,14 @@ export default function App() {
     {
       label: "Edit",
       items: [
+        { kind: "group", label: "going back" },
         { kind: "item", label: "Undo", hint: "\u2318Z",
           disabled: here?.parent == null, onSelect: undo,
           title: "Step back to where you came from" },
         { kind: "item", label: "Redo", hint: "\u21e7\u2318Z",
           disabled: !redoStack.length, onSelect: redo,
           title: "Return to the stop you stepped back from" },
-        { kind: "sep" },
+        { kind: "group", label: "places worth returning to" },
         { kind: "item", label: "Back to the last sane position", hint: "esc",
           disabled: !z || isSane(z), onSelect: resetToSane,
           title: "Walk back up the trail to the last stop still inside the "
@@ -1050,7 +1053,6 @@ export default function App() {
         { kind: "item", label: "Back to the centroid",
           onSelect: () => setCursor(trail[0]?.id ?? 0),
           title: "The average of every font in the corpus" },
-        { kind: "sep" },
         // These two left the specimen's toolbar when undo and redo took their
         // place there. They still travel in a saved project, so they need a
         // way back in.
@@ -1062,7 +1064,7 @@ export default function App() {
         { kind: "item", label: "Clear every waypoint",
           disabled: !waypoints.length, onSelect: () => setWaypoints([]),
           title: "Unmark them all. The stops themselves stay on the trail." },
-        { kind: "sep" },
+        { kind: "group", label: "the drawing, not the place" },
         // One moves you, the other changes how what you found is drawn.
         // Together in the menu because both are edits to the work rather than
         // journeys, and neither belonged in a rail of sliders.
@@ -1081,7 +1083,7 @@ export default function App() {
             : straight < 0.01 ? 0.014 : 0),
           title: "Pull the runs between corners onto the straights they "
                  + "nearly are. Changes the drawing, not the location." },
-        { kind: "sep" },
+        { kind: "group", label: "deciding letters" },
         // Settling is where a session stops being a walk and becomes a piece
         // of work, so it sits with the other edits to the work rather than
         // with the journeys.
