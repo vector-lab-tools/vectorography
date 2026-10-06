@@ -9,6 +9,7 @@ import { LearnAxis } from "./components/LearnAxis"
 import { ProofSheet } from "./components/ProofSheet"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { Doors } from "./components/Doors"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
 import { Settings, GUIDE_KEY, GUIDE_STYLE_KEY, INK_KEY, THEME_KEY, TEXT_KEY,
@@ -235,6 +236,11 @@ export default function App() {
   const [axes, setAxes] = useKept<LearnedAxis[]>("vg.axes", [],
     (v) => Array.isArray(v))
   const [learning, setLearning] = useState(false)
+  // Whether a way in has been chosen. Kept, so the doors are the start of a
+  // project rather than a toll gate on every visit; File > New opens them
+  // again, which is the moment a project actually begins.
+  const [entered, setEntered] = useKept("vg.entered", false,
+    (v) => typeof v === "boolean")
 
   /**
    * The eight measured properties and the designer's own, as one list.
@@ -459,9 +465,9 @@ export default function App() {
 
   // What the sheet sets. The specimen's own text is usually one word, and a
   // word at three hundred pixels says nothing about how a face reads.
-  const proofText = useKept<string>("vg.prooftext",
+  const [proofText, setProofText] = useKept<string>("vg.prooftext",
     "Handgloves and quartz jigs. The quick brown fox jumps over the lazy dog.",
-    (v) => typeof v === "string")[0]
+    (v) => typeof v === "string")
 
   // Location and neighbourhood follow the position. Nothing is fetched that
   // was not asked for by a move.
@@ -569,6 +575,9 @@ export default function App() {
     setRedoStack([])
     setWaypoints([])
     setFile(null)
+    setSettled([])
+    setSettling(false)
+    setEntered(false)
     armSaved.current = true
     opened.current = false
     setMark((m) => m + 1)
@@ -1220,9 +1229,44 @@ export default function App() {
       straight, setStraight, location, rigidify])
 
   if (error && !corpus) return <Fatal message={error} />
+  /**
+   * The two doors, and the state each leaves behind it.
+   *
+   * A door sets where the work starts and what is on screen when it does.
+   * None of them shuts anything off: settling, projection, the map and the
+   * sheet are all reachable from either entrance afterwards.
+   */
+  const enterByDrawing = () => {
+    setText("no")                 // the letters that set the system
+    setProofText("nnoonn")        // and the string they are spaced against
+    setSpecimenH(380)
+    setSplit(1.3)
+    setLower("sheet")
+    setSettling(true)
+    setEntered(true)
+  }
+  const enterByReference = (name: string) => {
+    setEntered(true)
+    goToFamily(name)
+  }
+
   if (!corpus || !here) return (
     <Booting onRetry={() => window.location.reload()} />
   )
+
+  // Before the instrument, the way in. Shown on a first visit and whenever a
+  // new project is started, and never again in between.
+  if (!entered) {
+    return (
+      <Doors
+        families={corpus.families}
+        onControlCharacters={enterByDrawing}
+        onFamily={enterByReference}
+        onFont={() => { setEntered(true); projectFont() }}
+        onCentroid={() => setEntered(true)}
+      />
+    )
+  }
 
   return (
     <div className="h-full flex flex-col">

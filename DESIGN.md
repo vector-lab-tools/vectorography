@@ -649,3 +649,36 @@ direction the eight measured properties can already reproduce, since an axis
 that is mostly weight is weight and deserves to be named as such rather than
 given a second slider. An axis that fails is still usable, and is labelled as
 what it is: a direction toward the faces that were marked.
+
+## 16. The two doors
+
+The instrument opened at the centroid, which is the average of 441 families and
+a place none of them occupies. It is the one location in the space nobody would
+choose, and for three versions it was the only one on offer.
+
+A type designer starts a face at the control characters: `n` and `o` set the
+system and the rest is derived from them. Someone choosing a face for a job
+starts at a reference: this one, but narrower. Those are two entrances to the
+same work.
+
+**Doors rather than modes.** A mode splits an instrument in half and hides each
+half from the other, so whoever came in through a reference would have to leave
+to settle a letter. A door sets where the work starts and what is on screen
+when it does, and shuts nothing off: settling, projection, the map and the
+sheet are all reachable from either entrance afterwards.
+
+- **Draw the control characters** sets the specimen to `n o` at 380 pixels,
+  turns settling on, and sets the sheet in `nnoonn`, which is the string the
+  craft spaces against. Four racks of `nnoonn` along weight, width, spacing and
+  x-height, with `n` and `o` large above them.
+- **Start from a face you know** lists the corpus set in its own faces, or
+  takes a font brought in through projection, and travels there. The readings
+  then run from a place rather than from the average: standing on `cardo`
+  reads `nearest: cardo · 0.00`, and every step is a departure from something
+  real.
+
+Under both, in small type, the old behaviour: begin at the centroid.
+
+The doors are shown on a first visit and whenever a new project is started,
+and not in between. `File ▸ New` opens them again, which is the moment a
+project actually begins.
