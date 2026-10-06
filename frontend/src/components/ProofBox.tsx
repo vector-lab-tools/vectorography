@@ -107,7 +107,7 @@ export function ProofBox({ text, setText }: {
                   title={t}
                   className={`w-full text-left px-1.5 py-1 rounded-sm truncate
                               transition-colors ${text === t
-                                ? "bg-burgundy text-ivory"
+                                ? "bg-burgundy text-ivory accent-fill"
                                 : "hover:bg-muted"}`}
                 >
                   {/* Set in the face being designed, so the choice is made by

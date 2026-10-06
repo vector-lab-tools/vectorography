@@ -21,7 +21,7 @@ export function Modal({ title, subtitle, onClose, children, wide }: {
                  animate-[fadeIn_.12s_ease-out]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className={`bg-background border border-border rounded-md
+      <div className={`bg-menu border border-border rounded-md
                        shadow-editorial-md flex flex-col max-h-full w-full
                        max-sm:h-full max-sm:rounded-none pb-safe
                        ${wide ? "max-w-6xl" : "max-w-3xl"}`}>

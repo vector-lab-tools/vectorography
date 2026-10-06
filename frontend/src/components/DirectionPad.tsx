@@ -65,8 +65,17 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
                 onChange={(e) => onSlide(d.key, Number(e.target.value))}
                 onPointerUp={onCommit}
                 onKeyUp={onCommit}
-                className="flex-1 min-w-0 h-1 max-lg:h-4 mr-1"
-                style={{ accentColor: handleColour(d.key as HandleKind) }}
+                className="vg-steer flex-1 min-w-0 h-1 max-lg:h-4 mr-1"
+                style={{
+                  accentColor: handleColour(d.key as HandleKind),
+                  // Drawn rather than left to the browser on a dark ground:
+                  // Chrome's own dark track is a mid grey, which against this
+                  // navy is the lightest thing in the panel and says nothing.
+                  ["--hue" as string]: handleColour(d.key as HandleKind),
+                  ["--fill" as string]:
+                    `${Math.min(100, Math.max(0,
+                      ((now - (lo - pad)) / ((hi + pad) - (lo - pad))) * 100))}%`,
+                }}
                 title={`${d.minus} to ${d.plus}`}
               />
               <span className={`w-[30px] max-lg:w-[28px] shrink-0 text-right

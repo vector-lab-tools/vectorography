@@ -560,3 +560,36 @@ enough for a sentence to set on two lines rather than six.
 Not taken: the dark navy ground and the teal beam. This instrument's light
 editorial ground and burgundy are doing work the dark would undo, and a theme
 is a larger question than a menu.
+
+## 14. Dark, done properly
+
+The theme this replaces was the light one with its lightnesses inverted, which
+is how a dark mode goes wrong. Three faults followed from it.
+
+**Burgundy lightened enough to read on a dark ground stops being burgundy.** It
+arrives at salmon, which the eye reads as a warning rather than as the accent,
+and it was being used for the current stop on the trail. So the accent changes
+with the ground: a cyan beam is what reads on navy, and it is the colour a
+vector display actually made. The token keeps the name `--burgundy` because
+every component refers to it; the token is the accent, and burgundy is what the
+accent is in daylight.
+
+**A bright accent is right for a mark and wrong for a slab.** At full strength
+the beam filling a row made the trail's current stop the brightest thing on
+screen. Filled accents in dark become a wash at fourteen per cent with the
+accent as the writing and a two-pixel edge, which is what a beam is for.
+
+**Panels sat two per cent off the background**, so nothing separated from
+anything. The ground is now three steps (page, panel, menu), a menu or modal
+is lighter again, and shadows on dark do so little that panels also carry a
+hairline of light along the top edge.
+
+Two smaller things that were louder than anything they described. The ranges
+came with the browser's white rails: telling the page `color-scheme: dark`
+fixes most of them, since the native widget then draws its own dark track.
+The eight steer sliders are four pixels high, where the track is all a range
+really shows, and Chrome's dark track is a mid grey that against this navy was
+the lightest thing in the panel. Those draw their own rail, filled to the value
+in the property's colour.
+
+Light is untouched.

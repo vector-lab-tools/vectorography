@@ -18,21 +18,128 @@
     --muted-foreground: 0 0% 42%;
     --card: 0 0% 100%;
     --border: 40 24% 87%;
+    --menu: 0 0% 100%;
   }
+  /*
+   * Dark, after the Spacewar! research bench: a deep navy ground with a
+   * phosphor beam for the accent.
+   *
+   * The theme this replaces was the light one with its lightnesses inverted,
+   * which is how a dark mode goes wrong. Burgundy lightened enough to read on
+   * a dark ground stops being burgundy and becomes salmon, which the eye reads
+   * as a warning rather than as the accent; the panels sat two per cent off
+   * the background and so did not separate from it at all; and the ranges kept
+   * the browser's white rails, which were the brightest thing on the screen
+   * and the least important.
+   *
+   * So the accent changes with the ground. A cyan beam is what reads on navy,
+   * and it is the colour a vector display actually made. `--burgundy` keeps
+   * its name because every component refers to it: the token is the accent,
+   * and burgundy is what the accent is in daylight.
+   */
   .dark {
-    --ink: 40 20% 92%;
-    --ivory: 220 15% 12%;
-    --cream: 220 12% 16%;
-    --parchment: 220 10% 20%;
-    --burgundy: 352 55% 55%;
-    --gold: 43 75% 55%;
-    --here: 205 80% 62%;
-    --background: 220 15% 10%;
-    --foreground: 40 20% 92%;
-    --muted: 220 12% 18%;
-    --muted-foreground: 40 8% 60%;
-    --card: 220 12% 14%;
-    --border: 220 10% 25%;
+    /* Ground, in three steps, so a panel is lifted by being lighter than the
+       page rather than by a shadow nobody can see on black. */
+    --background: 218 34% 6%;
+    --card: 218 37% 11%;
+    --muted: 217 39% 15%;
+    --border: 217 37% 22%;
+    /* A menu or a modal sits above a panel, so it is lighter again. */
+    --menu: 217 33% 18%;
+
+    --foreground: 209 50% 91%;
+    --muted-foreground: 209 24% 64%;
+    /* The letters. Cool rather than the warm off-white of the light theme,
+       because a warm white on navy reads as stained. */
+    --ink: 209 50% 93%;
+    /* What sits on the accent. The beam is bright, so this is the dark. */
+    --ivory: 218 40% 8%;
+    --cream: 218 37% 13%;
+    --parchment: 217 37% 19%;
+
+    --burgundy: 186 84% 62%;
+    /* Where you are. Rose against the beam's cyan, so the two readings on a
+       crowded map are told apart by hue rather than by position. */
+    --here: 330 92% 76%;
+    --gold: 38 95% 66%;
+  }
+
+  /* Shadows on a dark ground do nothing, so panels are lifted by a hairline
+     of light along the top and a shadow deep enough to be seen at all. */
+  .dark .shadow-editorial {
+    box-shadow: 0 1px 0 0 hsl(0 0% 100% / 0.04) inset,
+                0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+  .dark .shadow-editorial-md {
+    box-shadow: 0 1px 0 0 hsl(0 0% 100% / 0.06) inset,
+                0 14px 36px rgba(0, 0, 0, 0.55),
+                0 0 0 1px rgba(0, 0, 0, 0.4);
+  }
+
+  /*
+   * The ranges came with the browser's white rails, which made the loudest
+   * thing on screen a groove. Telling the page it is dark is the whole fix:
+   * the native widget then draws its own dark track, and the accent colours
+   * the filled part. Painting the track by hand instead turns off the native
+   * rendering, and the rail becomes a block the full height of the input.
+   */
+  .dark { color-scheme: dark; }
+
+  /*
+   * The eight measured properties, drawn rather than left native. At four
+   * pixels high the browser's own track is all a range really shows, and in
+   * Chrome's dark scheme that track is a mid grey: against this navy it
+   * became the lightest thing in the panel, for the part of the control that
+   * carries no information. Each slider now draws its own rail, filled to the
+   * value in the property's colour.
+   */
+  .dark .vg-steer {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+  .dark .vg-steer::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(to right,
+      var(--hue) var(--fill), hsl(var(--border)) var(--fill));
+  }
+  .dark .vg-steer::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 9px; height: 9px; margin-top: -3px;
+    border-radius: 50%;
+    background: var(--hue);
+  }
+  .dark .vg-steer::-moz-range-track {
+    height: 3px; border-radius: 999px;
+    background: linear-gradient(to right,
+      var(--hue) var(--fill), hsl(var(--border)) var(--fill));
+  }
+  .dark .vg-steer::-moz-range-thumb {
+    width: 9px; height: 9px; border: 0; border-radius: 50%;
+    background: var(--hue);
+  }
+  @media (pointer: coarse) {
+    .dark .vg-steer::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -5.5px; }
+    .dark .vg-steer::-moz-range-thumb { width: 14px; height: 14px; }
+  }
+
+  /*
+   * A bright accent is right for a mark and wrong for a slab. On the light
+   * ground, burgundy fills read as ink; on the dark ground the beam at full
+   * strength is the brightest thing on the screen, and the current stop on
+   * the trail was a lit bar across the panel. Filled accents become a wash
+   * with the accent as the writing, which is what the beam is for.
+   */
+  .dark .accent-fill {
+    background-color: hsl(var(--burgundy) / 0.14);
+    color: hsl(var(--burgundy));
+    box-shadow: inset 2px 0 0 0 hsl(var(--burgundy));
+  }
+  /* The quieter parts of a filled row were set in the colour that sits *on*
+     the accent, which on this ground is nearly the ground. */
+  .dark .accent-fill .accent-dim {
+    color: hsl(var(--burgundy) / 0.65);
   }
   * { @apply border-border; }
   html, body, #root { height: 100%; }

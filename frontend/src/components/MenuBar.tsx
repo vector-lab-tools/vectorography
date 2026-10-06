@@ -59,7 +59,7 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
                         uppercase tracking-[0.06em] sm:tracking-[0.1em]
                         transition-colors flex items-center gap-1
                         ${open === m.label
-                          ? "bg-burgundy text-ivory"
+                          ? "bg-burgundy text-ivory accent-fill"
                           : "hover:bg-muted text-foreground"}`}
           >
             {m.label}
@@ -74,7 +74,7 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
 
           {open === m.label && (
             <div className="absolute top-full left-0 z-50 w-[330px] py-1
-                            bg-card border border-border rounded-sm
+                            bg-menu border border-border rounded-sm
                             shadow-editorial-md
                             max-lg:fixed max-lg:left-2 max-lg:right-2
                             max-lg:top-11 max-lg:w-auto max-lg:max-h-[70dvh]

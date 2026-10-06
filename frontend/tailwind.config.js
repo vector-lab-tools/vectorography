@@ -12,6 +12,8 @@ export default {
         burgundy: "hsl(var(--burgundy) / <alpha-value>)",
         gold: "hsl(var(--gold) / <alpha-value>)",
         here: "hsl(var(--here) / <alpha-value>)",
+        /* Menus and modals: above a panel, so lighter again in dark. */
+        menu: "hsl(var(--menu) / <alpha-value>)",
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         muted: "hsl(var(--muted) / <alpha-value>)",

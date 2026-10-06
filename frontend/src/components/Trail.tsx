@@ -84,10 +84,10 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                 className={`group flex-1 min-w-0 flex items-center gap-2
                             px-2 py-1
                             rounded-sm text-left transition-colors
-                            ${here ? "bg-burgundy text-ivory"
+                            ${here ? "bg-burgundy text-ivory accent-fill"
                                    : "hover:bg-muted"}`}
               >
-                <span className={`font-mono text-[10px] ${here ? "text-ivory/70"
+                <span className={`font-mono text-[10px] ${here ? "text-ivory/70 accent-dim"
                   : "text-muted-foreground"}`}>
                   {String(c.id).padStart(2, "0")}
                 </span>
@@ -96,7 +96,7 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                 </span>
                 {/* Says the row is a place you can go, not a line of a log. */}
                 <span className={`font-mono text-[10px] shrink-0 ${here
-                  ? "text-ivory/70"
+                  ? "text-ivory/70 accent-dim"
                   : "text-burgundy opacity-0 group-hover:opacity-100 "
                     + "coarse:opacity-100 transition-opacity"}`}>
                   {here ? "current loc" : "\u21a9"}
