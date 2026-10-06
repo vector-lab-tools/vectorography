@@ -295,6 +295,13 @@ export const ICONS = {
       <path d="M13.6 4.6v3.2h-3.2" />
     </svg>
   ),
+  /** A letter with a rule under it: decided, and held while the rest move. */
+  settle: (
+    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>
+      <path d="M4.2 10.5V6.2a2 2 0 0 1 4 0v4.3" />
+      <path d="M2.5 13.5h11" strokeWidth={1.8} />
+    </svg>
+  ),
   /** Back inside the corpus. */
   rescue: (
     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" {...stroke}>

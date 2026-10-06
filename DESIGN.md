@@ -504,3 +504,34 @@ heavier".
 The sheet is fetched only while it is being looked at. It is the largest
 response the server gives, a paragraph decoded for every candidate, 861 kB
 before compression and 327 kB after.
+
+## 12. The reorganisation, first pass
+
+Three features went in as additions that disturbed nothing, which was right
+while they were unproven: two of the three changed shape once they were
+measured. Having survived that, they change what the instrument is for, and
+the arrangement had to follow.
+
+**The sheet opens, not the map.** The atlas answers "where am I", which is a
+question asked a few times a session. The sheet answers "what does this look
+like a bit either way", which is asked all day. The toggle stays, and the map
+is a press away.
+
+**Settling is on the stage toolbar.** It was two levels into the Edit menu,
+which is where a thing goes when nobody is sure it is wanted. It belongs beside
+the modes that say what a press on a letter does, because that is exactly what
+it changes. The menu items stay for the keyboard route and for unsettling
+everything at once.
+
+**The readings cannot go dark.** Altitude and density were drawn inside the
+atlas. Switching to the sheet took them off the screen, so the two instruments
+that exist to show the pull toward the average went out at the moment a
+designer starts shaping, which is the moment they are for. They are a property
+of where the work stands rather than of one way of looking at it, so they sit
+on the stage with the letters: distance from the centroid, density percentile,
+and the directions still free after what has been settled. Each turns gold at
+the point it is worth reading twice.
+
+Still to do: the compass rose overlaps the sheet's job and has not been
+reconsidered; the projection prior is not exposed; settling is not recorded on
+the trail or carried in a `.vgy`.

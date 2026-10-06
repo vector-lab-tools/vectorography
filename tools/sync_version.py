@@ -6,18 +6,25 @@ frontend reads it at build time through vite.config.ts. Only CITATION.cff needs
 a literal, because citation metadata has to stand alone, so it is written here.
 Run after changing VERSION. Versions move in steps of 0.01, and only when agreed.
 """
+import datetime
 import pathlib
 import re
 import sys
 
 root = pathlib.Path(__file__).resolve().parents[1]
 version = (root / "VERSION").read_text().strip()
+# The day the version was stamped is the day it was released, so the date is
+# taken from the clock rather than typed into three files and left to rot: the
+# README said August for six weeks after August ended.
+today = datetime.date.today()
+released = today.isoformat()
+month = today.strftime("%B %Y")
 
 # The README states the version in prose, where nothing can read it back, so
 # it is stamped here with the rest.
 readme = root / "README.md"
 text = readme.read_text()
-new = re.sub(r'^\*\*Version:\*\* .*$', f"**Version:** {version}, August 2026",
+new = re.sub(r'^\*\*Version:\*\* .*$', f"**Version:** {version}, {month}",
              text, flags=re.M)
 if new != text:
     readme.write_text(new)
@@ -37,6 +44,8 @@ if model_doc.exists():
 cff = root / "CITATION.cff"
 text = cff.read_text()
 new = re.sub(r'^version: .*$', f'version: "{version}"', text, flags=re.M)
+new = re.sub(r'^date-released: .*$', f'date-released: "{released}"',
+             new, flags=re.M)
 if new != text:
     cff.write_text(new)
     print(f"CITATION.cff -> {version}")

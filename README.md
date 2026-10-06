@@ -28,7 +28,7 @@ short_description: Type design by traversal of a vector space of letterforms
 
 **Created by:** David M. Berry
 **Institution:** University of Sussex
-**Version:** 0.2, August 2026
+**Version:** 0.3, October 2026
 **Licence:** GPL-3.0
 **Copyright:** © 2026 David M. Berry
 

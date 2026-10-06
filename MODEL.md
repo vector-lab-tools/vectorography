@@ -1,7 +1,7 @@
 # VectorModel 0.2
 
 **Model version 0.2** · 441 families · 128 dimensions · fitted August 2026
-**For Vectorography 0.2** · Copyright © 2026 David M. Berry · GPL-3.0
+**For Vectorography 0.3** · Copyright © 2026 David M. Berry · GPL-3.0
 
 The fitted vector space that Vectorography travels through. It is a named,
 versioned artefact in its own right, and its version moves independently of the

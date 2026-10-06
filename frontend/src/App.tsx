@@ -213,7 +213,7 @@ export default function App() {
     useState<{ result: Projection; file: string } | null>(null)
   // The big panel shows the corpus as a place, or the same location as a wall
   // of settings. Two questions, two views, one piece of the window.
-  const [lower, setLower] = useKept<"atlas" | "sheet">("vg.lower", "atlas",
+  const [lower, setLower] = useKept<"atlas" | "sheet">("vg.lower", "sheet",
     (v) => v === "atlas" || v === "sheet")
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [sheetRadius, setSheetRadius] = useKept("vg.sheetr", 1,
@@ -300,17 +300,43 @@ export default function App() {
   // What has been decided, and how much room is left after it.
   const settledNote = useMemo(() => {
     if (!settled.length) return null
-    const free = freedom?.free?.[String(settleTol)]
     const letters = settled.slice(0, 8).join("")
       + (settled.length > 8 ? `+${settled.length - 8}` : "")
-    return free == null
-      ? `settled \u00b7 ${letters}`
-      : `settled \u00b7 ${letters} \u00b7 ${free}/${freedom?.dims ?? 128} free`
-  }, [settled, freedom, settleTol])
+    return `settled \u00b7 ${letters}`
+  }, [settled])
+
 
   const [location, setLocation] = useState<Location | null>(null)
   const [compass, setCompass] = useState<CompassPoint[]>([])
   const [busy, setBusy] = useState(false)
+
+  /**
+   * The readings that have to survive a change of view.
+   *
+   * Altitude and density were drawn inside the atlas, so the proof sheet took
+   * them off the screen: the instruments that exist to show the pull toward
+   * the average went dark at the moment a designer starts shaping. They are a
+   * property of where the work stands, not of one way of looking at it.
+   */
+  const readings = useMemo(() => {
+    const a = location?.altitude
+    const out: { label: string; value: string; tone?: string }[] = []
+    if (a) {
+      const far = corpus ? a.centroid_distance > corpus.centroid_max : false
+      out.push({ label: "from centre", value: a.centroid_distance.toFixed(1),
+                 tone: far ? "text-gold" : undefined })
+      out.push({ label: "density",
+                 value: `${a.density_percentile.toFixed(0)}th`,
+                 tone: a.density_percentile > 75 ? "text-gold" : undefined })
+    }
+    const free = freedom?.free?.[String(settleTol)]
+    if (free != null) {
+      out.push({ label: "free",
+                 value: `${free}/${freedom?.dims ?? 128}`,
+                 tone: free < 12 ? "text-gold" : undefined })
+    }
+    return out
+  }, [location, freedom, settleTol, corpus])
 
   const here = trail.find((c) => c.id === cursor) ?? null
   const z = here?.z ?? null
@@ -1231,7 +1257,9 @@ export default function App() {
               settled={settled}
               settling={settling}
               onToggleSettled={toggleSettled}
+              onSettling={() => setSettling((v) => !v)}
               settledNote={settledNote}
+              readings={readings}
               busy={false}
             />
           </div>

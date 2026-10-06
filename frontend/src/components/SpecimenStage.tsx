@@ -39,7 +39,7 @@ export function SpecimenStage({
   onUndo, onRedo, canUndo, canRedo, guideInk, guideStyle,
   setText, neighbours, onGoToFamily, geometry, busy,
   xProp, yProp, zProp, setProps,
-  settled, settling, onToggleSettled, settledNote,
+  settled, settling, onToggleSettled, settledNote, onSettling, readings,
 }: {
   glyphs: Glyph[]
   text: string
@@ -72,6 +72,10 @@ export function SpecimenStage({
   /** Whether a press on a letter settles it rather than taking hold of it. */
   settling: boolean
   onToggleSettled: (ch: string) => void
+  /** Flip into and out of deciding letters. */
+  onSettling: () => void
+  /** Measurements that must survive a change of view. */
+  readings: { label: string; value: string; tone?: string }[]
   /** What has been decided and how much room is left, beside the handle
    *  reading, because both say what the next gesture will do. */
   settledNote: string | null
@@ -371,6 +375,21 @@ export function SpecimenStage({
       title: "forward again, to the stop you came back from",
       disabled: !canRedo,
       onClick: onRedo,
+    },
+    // Settling is the decision the instrument exists to let a designer make,
+    // and it lived two levels into a menu. It belongs where the hand already
+    // is, beside the modes that say what a press on a letter does, because
+    // that is exactly what it changes.
+    {
+      key: "settle", divider: true, on: settling, icon: ICONS.settle,
+      label: settled.length
+        ? `Settle letters \u00b7 ${settled.length} decided`
+        : "Settle letters",
+      title: settling
+        ? "press a letter to decide it \u00b7 click here to stop"
+        : "decide letters: moves are then projected onto the directions "
+          + "they barely feel, so the rest of the alphabet goes on moving",
+      onClick: onSettling,
     },
     ...(beyond ? [{
       key: "rescue", on: true, icon: ICONS.rescue,
@@ -714,6 +733,26 @@ export function SpecimenStage({
           </g>
 
 
+      {/* The readings, where they cannot go dark.
+
+          Altitude and density lived inside the atlas, so switching to the
+          proof sheet took them off the screen: the instruments that exist to
+          show the pull toward the average went out at exactly the moment a
+          designer starts shaping. They belong to the work rather than to one
+          view of it, so they sit on the stage. */}
+      {readings.length > 0 && (
+        <div className="absolute top-1 left-2 flex flex-wrap items-baseline
+                        gap-x-3 gap-y-0.5 pointer-events-none">
+          {readings.map((r) => (
+            <span key={r.label} className="flex items-baseline gap-1">
+              <span className={`font-mono text-[11px] leading-none
+                                ${r.tone ?? ""}`}>{r.value}</span>
+              <span className="rail-label !text-[7px]">{r.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that
           changes every gesture should not be something to remember. */}
@@ -784,6 +823,26 @@ export function SpecimenStage({
           {"\u2191 away \u00b7 "}{zProp}
           <br />
           {"\u2194 across \u00b7 "}{xProp}
+        </div>
+      )}
+
+      {/* The readings, where they cannot go dark.
+
+          Altitude and density lived inside the atlas, so switching to the
+          proof sheet took them off the screen: the instruments that exist to
+          show the pull toward the average went out at exactly the moment a
+          designer starts shaping. They belong to the work rather than to one
+          view of it, so they sit on the stage. */}
+      {readings.length > 0 && (
+        <div className="absolute top-1 left-2 flex flex-wrap items-baseline
+                        gap-x-3 gap-y-0.5 pointer-events-none">
+          {readings.map((r) => (
+            <span key={r.label} className="flex items-baseline gap-1">
+              <span className={`font-mono text-[11px] leading-none
+                                ${r.tone ?? ""}`}>{r.value}</span>
+              <span className="rail-label !text-[7px]">{r.label}</span>
+            </span>
+          ))}
         </div>
       )}
 
