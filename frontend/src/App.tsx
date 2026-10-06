@@ -222,10 +222,13 @@ export default function App() {
   // A drawing somebody already made, and where the space puts it.
   const [projected, setProjected] =
     useState<{ result: Projection; file: string } | null>(null)
-  // The big panel shows the corpus as a place, or the same location as a wall
-  // of settings. Two questions, two views, one piece of the window.
-  const [lower, setLower] = useKept<"atlas" | "sheet">("vg.lower", "sheet",
-    (v) => v === "atlas" || v === "sheet")
+  // The proof sits under the map rather than instead of it, so this is
+  // whether the strip is open and how tall it is, not which of two things the
+  // window is showing.
+  const [proofOn, setProofOn] = useKept("vg.proof", true,
+    (v) => typeof v === "boolean")
+  const [proofH, setProofH] = useKept("vg.proofh", 190,
+    (v) => typeof v === "number" && v >= 96 && v <= 900)
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [sheetRadius, setSheetRadius] = useKept("vg.sheetr", 1,
     (v) => typeof v === "number" && v >= 0.2 && v <= 3)
@@ -508,7 +511,7 @@ export default function App() {
   // keeping it current behind the atlas would cost that on every move for
   // nothing.
   useEffect(() => {
-    if (!z || lower !== "sheet") return
+    if (!z || !proofOn) return
     let live = true
     setSheetBusy(true)
     api.sheet({ z, text: proofText, radius: sheetRadius,
@@ -517,7 +520,7 @@ export default function App() {
       .catch((e) => { if (live) setError(String(e)) })
       .finally(() => { if (live) setSheetBusy(false) })
     return () => { live = false }
-  }, [z, lower, proofText, sheetRadius, sheetProps, straight])
+  }, [z, proofOn, proofText, sheetRadius, sheetProps, straight])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -1181,6 +1184,13 @@ export default function App() {
     {
       label: "View",
       items: [
+        { kind: "item",
+          label: proofOn ? "Hide the proof strip" : "Show the proof strip",
+          hint: "under the map",
+          onSelect: () => setProofOn(!proofOn),
+          title: "Candidates a step either way along the measured properties, "
+                 + "set as text under the canvas" },
+        { kind: "sep" },
         { kind: "item", label: dark ? "Light theme" : "Dark theme",
           onSelect: () => setTheme(dark ? "light" : "dark"),
           title: "Remembered. Settings has a System option that follows the "
@@ -1222,7 +1232,7 @@ export default function App() {
           onSelect: () => setAbout(true) },
       ],
     },
-  ], [z, busy, dark, atlasHeight, ancestry.length, exportFont,
+  ], [z, busy, dark, atlasHeight, proofOn, setProofOn, ancestry.length, exportFont,
       exportJourney, exportSvg, here, redoStack.length, undo, redo,
       isSane, resetToSane, trail, shareNow,
       newProject, openProject, projectFont, save, saveAs, file, licence, theme,
@@ -1242,7 +1252,7 @@ export default function App() {
     setText("no")                 // the letters that set the system
     setProofText("nnoonn")        // and the string they are spaced against
     setSpecimenH(380)
-    setLower("sheet")
+    setProofOn(true)
     setSettling(true)
     setEntered(true)
   }
@@ -1418,55 +1428,90 @@ export default function App() {
 
 
               {!isMobile && (
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-w-0 min-h-[150px] lg:min-h-[180px]
-                                flex flex-col">
-                  {/* Two questions about the same location: where it sits, and
-                      what it looks like a little either way. The toggle is here
-                      rather than in a menu because it is a thing to flip while
-                      working. */}
-                  <div className="flex items-center gap-1 pb-1 shrink-0">
-                    {([["atlas", "Vector space"],
-                       ["sheet", "Proof sheet"]] as const).map(([k, label]) => (
-                      <button key={k} onClick={() => setLower(k)}
-                        className={`rail-label !text-[8px] px-1.5 py-0.5 rounded-sm
-                                    border transition-colors ${lower === k
-                                      ? "border-burgundy text-burgundy"
-                                      : "border-transparent text-muted-foreground"
-                                        + " hover:text-foreground"}`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    {lower === "sheet" ? (
+              <>
+                {/* The map keeps the canvas. It is the one thing here that is
+                    a picture of something rather than a control. */}
+                <div className="flex-1 min-h-0 min-w-0">
+                  <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                         directions={allDirections}
+                         colourBy={colourBy} setColourBy={setColourBy}
+                         waypoint={waypoint} setWaypoint={setWaypoint}
+                         onToward={goToward} radius={radius} sample={atlasChar}
+                         liveGlyphs={location?.glyphs ?? null}
+                         liveSelf={liveSelf}
+                         ballOn={ballOn} setBallOn={setBallOn}
+                         altitude={location?.altitude ?? null} corpus={corpus}
+                         />
+                </div>
+
+                {/*
+                    The proof, as a strip under the canvas.
+
+                    It used to be an alternative to the map, so looking at
+                    candidates meant losing sight of where they were, and the
+                    two competed for the same half of the window. FontLab runs
+                    a waterfall along the bottom of the canvas and RoboFont
+                    runs the Space Center there: a preview is something you
+                    glance down at while working on the thing above it. The
+                    strip is dragged taller when the comparison is the work.
+                 */}
+                {proofOn && (
+                  <>
+                    <div
+                      className="h-3 shrink-0 cursor-row-resize group
+                                 flex items-center justify-center"
+                      style={{ touchAction: "none" }}
+                      title="Drag to give the proof more room. Double-click to reset."
+                      onDoubleClick={() => setProofH(190)}
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no capture */ }
+                        const startY = e.clientY
+                        const start = proofH
+                        let latest = start
+                        const move = (ev: PointerEvent) => {
+                          latest = Math.max(96, Math.min(
+                            window.innerHeight - 240, start - (ev.clientY - startY)))
+                          setProofH(latest)
+                        }
+                        const up = () => {
+                          window.removeEventListener("pointermove", move)
+                          window.removeEventListener("pointerup", up)
+                          window.removeEventListener("pointercancel", up)
+                          window.removeEventListener("blur", up)
+                        }
+                        window.addEventListener("pointermove", move)
+                        window.addEventListener("pointerup", up)
+                        window.addEventListener("pointercancel", up)
+                        window.addEventListener("blur", up)
+                      }}
+                    >
+                      <div className="h-px flex-1 bg-transparent
+                                      group-hover:bg-burgundy/40 transition-colors" />
+                      <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
+                                      group-hover:bg-burgundy transition-colors" />
+                      <div className="h-px flex-1 bg-transparent
+                                      group-hover:bg-burgundy/40 transition-colors" />
+                    </div>
+                    <div className="shrink-0 min-h-0"
+                         style={{ height: proofH }}>
                       <ProofSheet
                         sheet={sheet} text={proofText} busy={sheetBusy}
                         radius={sheetRadius} setRadius={setSheetRadius}
                         properties={sheetProps} setProperties={setSheetProps}
+                        onClose={() => setProofOn(false)}
                         onTravel={(cz, closeIn) => {
-                          // A shift closes in rather than going somewhere else:
-                          // the answer to "a bit heavier" is usually another,
-                          // smaller "a bit heavier".
+                          // A shift closes in rather than going somewhere
+                          // else: the answer to "a bit heavier" is usually
+                          // another, smaller "a bit heavier".
                           if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
                           push(cz, "jump", "proof")
                         }}
                       />
-                    ) : (
-                      <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                             directions={allDirections}
-                             colourBy={colourBy} setColourBy={setColourBy}
-                             waypoint={waypoint} setWaypoint={setWaypoint}
-                             onToward={goToward} radius={radius} sample={atlasChar}
-                             liveGlyphs={location?.glyphs ?? null}
-                             liveSelf={liveSelf}
-                             ballOn={ballOn} setBallOn={setBallOn}
-                             altitude={location?.altitude ?? null} corpus={corpus}
-                             />
-                    )}
-                  </div>
-                </div>
-              </div>
+                    </div>
+                  </>
+                )}
+              </>
               )}
             </section>
           </div>

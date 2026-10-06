@@ -15,7 +15,7 @@ import { LINE_H, layout, lineCount, lineWidth } from "./handles"
  * hundred pixels, because that is the size at which a text face is decided.
  */
 export function ProofSheet({ sheet, text, radius, setRadius, onTravel,
-                            properties, setProperties, busy }: {
+                            properties, setProperties, busy, onClose }: {
   sheet: Sheet | null
   text: string
   radius: number
@@ -25,6 +25,8 @@ export function ProofSheet({ sheet, text, radius, setRadius, onTravel,
   properties: string[]
   setProperties: (p: string[]) => void
   busy: boolean
+  /** Put the strip away. The map is the canvas; this is a glance down. */
+  onClose?: () => void
 }) {
   if (!sheet) {
     return (
@@ -42,7 +44,7 @@ export function ProofSheet({ sheet, text, radius, setRadius, onTravel,
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="flex items-center gap-3 px-1 pb-1.5 shrink-0 flex-wrap">
-        <span className="rail-label !text-[8px]">proof sheet</span>
+        <span className="rail-label">Proof</span>
 
         <label className="flex items-center gap-1.5">
           <span className="rail-label !text-[8px]">step</span>
@@ -79,9 +81,17 @@ export function ProofSheet({ sheet, text, radius, setRadius, onTravel,
           })}
         </div>
 
-        <span className="font-mono text-[8px] text-muted-foreground ml-auto">
+        <span className="font-mono text-[9px] text-muted-foreground ml-auto">
           click to go there · shift-click to close in
         </span>
+        {onClose && (
+          <button onClick={onClose} title="Put the proof away"
+                  className="font-mono text-[11px] leading-none px-1
+                             text-muted-foreground hover:text-foreground
+                             transition-colors">
+            ×
+          </button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">

@@ -682,3 +682,22 @@ Under both, in small type, the old behaviour: begin at the centroid.
 The doors are shown on a first visit and whenever a new project is started,
 and not in between. `File ▸ New` opens them again, which is the moment a
 project actually begins.
+
+### The proof as a strip
+
+The proof used to be an alternative to the map, so looking at candidates meant
+losing sight of where they were, and the two competed for the same half of the
+window. FontLab runs a waterfall along the bottom of its canvas and RoboFont
+runs the Space Center there: a preview is something glanced down at while
+working on the thing above it.
+
+So the map keeps the canvas, since it is the one thing here that is a picture
+of something rather than a control, and the proof runs along the bottom at a
+height that can be dragged. Pulled tall it is the comparison view it was
+before; left short it is a glance. `View ▸ Show the proof strip` puts it back
+after the × closes it.
+
+The trail stopped truncating at the same time. In a 290px sidebar the row read
+`00 origin · the cen…` with `current loc` taking the space the label needed,
+and where you are standing is already said by the fill and the edge. Those
+words are gone and the label wraps.

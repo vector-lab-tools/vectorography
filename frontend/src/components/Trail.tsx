@@ -76,7 +76,7 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                     + "going back, and travelling on from here opens a branch "
                     + "rather than overwriting what came after. Double-click "
                     + "to mark it as a waypoint."}
-                className={`group flex-1 min-w-0 flex items-center gap-2
+                className={`group flex-1 min-w-0 flex items-baseline gap-2
                             px-2 py-1
                             rounded-sm text-left transition-colors
                             ${here ? "bg-burgundy text-ivory accent-fill"
@@ -86,16 +86,23 @@ export function Trail({ trail, cursor, onGo, waypoints, onFlag, onClearFlags }: 
                   : "text-muted-foreground"}`}>
                   {String(c.id).padStart(2, "0")}
                 </span>
-                <span className="flex-1 truncate text-[11px] font-mono">
+                <span className="flex-1 min-w-0 text-[11px] font-mono
+                                 leading-snug break-words">
                   {c.label}
                 </span>
-                {/* Says the row is a place you can go, not a line of a log. */}
-                <span className={`font-mono text-[10px] shrink-0 ${here
-                  ? "text-ivory/70 accent-dim"
-                  : "text-burgundy opacity-0 group-hover:opacity-100 "
-                    + "coarse:opacity-100 transition-opacity"}`}>
-                  {here ? "current loc" : "\u21a9"}
-                </span>
+                {/* Says the row is a place you can go, not a line of a log.
+                    Where you are standing is said by the fill and the edge,
+                    so the words that used to say it again are gone: in a
+                    sidebar they cost more than they carried, and the label
+                    they pushed out is the only thing on the row that
+                    identifies the stop. */}
+                {!here && (
+                  <span className="font-mono text-[10px] shrink-0 text-burgundy
+                                   opacity-0 group-hover:opacity-100
+                                   coarse:opacity-100 transition-opacity">
+                    \u21a9
+                  </span>
+                )}
               </button>
             </li>
           )
