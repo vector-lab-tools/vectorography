@@ -755,3 +755,35 @@ draws, so the specimen, the rose, the proof and the compiled font all show the
 same thing. Verified in the compiled OTF: `o` with `=n+20` on both sides goes
 from advance 1094 and left 92 to 1243 and 180, and n's left is 139, which is
 exactly 20 units away at 2048 upem.
+
+## 18. What a project file holds
+
+A `.vgy` recorded the journey and how it was being looked at, and none of what
+had been decided about the typeface. Settling a letter, straightening the
+outlines, spacing a glyph and naming an axis are the work, and not one of them
+could be recovered from the coordinates, so a project that reopened was a walk
+with the decisions stripped out of it.
+
+Version 2 adds a `work` block beside `view` and `travel`: the settled letters
+and their tolerance, the straighten amount, the sidebearings with their keys,
+and the learned axes whole, which means the faces each was fitted from and the
+held-out test that said whether it generalised. A vector on its own would make
+an axis unusable and unexaminable.
+
+Version 1 files still open. They have no `work`, and the defaults stand in, so
+an old journey settles nothing and spaces nothing rather than inheriting
+whatever the last project left in the browser.
+
+A learned axis is checked the way the trail is. It is a direction in this space
+and nothing at all in another one, so a file carrying an axis of the wrong
+length is refused with the two numbers rather than loaded and left to
+misbehave.
+
+The unsaved marker counts these too. A file that called itself saved after a
+letter had been settled was lying about what was on disk.
+
+The journey export carries the same decisions: every master is compiled with
+the same spacing, so sidebearings hold along the axis instead of drifting
+between the stops, and `journey.json` records what was set. Verified in the
+zip: `o` with `=n+20` on both sides reads 1243/180 against n's 139 in the
+static instances and in the variable font alike.

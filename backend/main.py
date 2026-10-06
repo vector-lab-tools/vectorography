@@ -158,6 +158,11 @@ class JourneyReq(BaseModel):
     masters: int = Field(5, ge=2, le=12)
     licence: str = "none"
     author: str = ""
+    # The drawing decisions travel with the journey. A variable font whose
+    # sidebearings were set by hand and then left behind is not the thing that
+    # was looked at.
+    straight: float = 0.0
+    spacing: dict[str, dict[str, str | float]] = {}
 
 
 def _sample_trail(trail: list[list[float]], n: int) -> np.ndarray:
@@ -1020,12 +1025,14 @@ def export_journey(req: JourneyReq):
     meta = s.metas[0]
     vectors = [s.decode(z) for z in zs]
     try:
-        vf, ds_xml, masters = build_variable(vectors, req.family, meta,
-                                             VERSION, req.licence, req.author)
+        vf, ds_xml, masters = build_variable(
+            vectors, req.family, meta, VERSION, req.licence, req.author,
+            straight=req.straight, spacing=req.spacing)
         instances = [
             (f"{req.family.replace(' ', '')}-{i:02d}.otf",
              build_otf(v, req.family, f"{i:02d}", meta, VERSION,
-                       req.licence, req.author))
+                       req.licence, req.author, straight=req.straight,
+                       spacing=req.spacing))
             for i, v in enumerate(vectors)]
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"font build failed: {exc}") from exc
@@ -1038,6 +1045,10 @@ def export_journey(req: JourneyReq):
                   "kind": "whitened principal subspace", "dims": s.dims,
                   "corpus": "google-fonts-ofl", "corpus_size": len(s.names)},
         "trail": req.trail,
+        # What was decided about the drawing, beside where it was walked. A
+        # journey file that records only the coordinates cannot be used to
+        # rebuild what came out of the instrument.
+        "work": {"straight": req.straight, "spacing": req.spacing},
         "masters": [{"file": n, "t": i / (len(masters) - 1)}
                     for i, (n, _) in enumerate(masters)],
         "licence": req.licence,

@@ -9,7 +9,10 @@ import type { Depth } from "./SpecimenStage"
  */
 export type Project = {
   format: "vectorography/project"
-  version: 1
+  /** 1 was the journey and how it was being looked at. 2 adds what the
+   *  designer decided about the typeface itself, which a project that does not
+   *  carry it is not really a project. Files at 1 still open. */
+  version: 1 | 2
   saved: string
   model: { id: string; version?: string } | null
   family: string
@@ -27,6 +30,36 @@ export type Project = {
     depth: Depth
   }
   travel: { radius: number; temperature: number; step: number }
+  /**
+   * The decisions, as against the journey and the view.
+   *
+   * A location is where the work stands; these are what has been settled
+   * about it. Letters held while the rest move, how hard the outlines are
+   * pulled onto their straights, the sidebearings and the keys that hold them
+   * to one another, and the axes the designer named by pointing at faces.
+   * None of it can be recovered from the coordinates, so none of it can be
+   * left out of the file.
+   *
+   * Absent in a version 1 file, where the defaults stand in.
+   */
+  work?: {
+    settled: string[]
+    settleTol: number
+    straight: number
+    spacing: Record<string, { left?: string; right?: string }>
+    /** Learned axes travel whole: a vector is meaningless without the faces
+     *  it was fitted from and the test that said whether it generalised. */
+    axes: unknown[]
+  }
+}
+
+/** What a file written before version 2 is taken to have meant. */
+export const NO_WORK = {
+  settled: [] as string[],
+  settleTol: 0.01,
+  straight: 0,
+  spacing: {} as Record<string, { left?: string; right?: string }>,
+  axes: [] as unknown[],
 }
 
 export const PROJECT_EXT = ".vgy"
@@ -42,7 +75,7 @@ export function serialise(p: Omit<Project, "format" | "version" | "saved">)
     : string {
   const doc: Project = {
     format: "vectorography/project",
-    version: 1,
+    version: 2,
     saved: new Date().toISOString(),
     ...p,
   }
@@ -66,7 +99,7 @@ export function parse(raw: string, dims: number): Project {
   const d = doc as Partial<Project>
   if (!d || d.format !== "vectorography/project")
     throw new Error("That is not a Vectorography project file.")
-  if (d.version !== 1)
+  if (d.version !== 1 && d.version !== 2)
     throw new Error(`Project format ${String(d.version)} is newer than this `
                     + "version of Vectorography can read.")
   if (!Array.isArray(d.trail) || d.trail.length === 0)
@@ -82,7 +115,30 @@ export function parse(raw: string, dims: number): Project {
   }
   if (!d.trail.some((c) => c.id === d.cursor))
     throw new Error("The project points at a stop that is not in its journey.")
-  return d as Project
+
+  // An axis is a direction in this space and nothing in another one, so it is
+  // checked the way the trail is rather than loaded and left to misbehave.
+  const axes = Array.isArray(d.work?.axes) ? d.work.axes : []
+  for (const a of axes) {
+    const v = (a as { vector?: unknown })?.vector
+    if (!Array.isArray(v) || v.length !== dims)
+      throw new Error(`A learned axis was fitted in ${
+        Array.isArray(v) ? v.length : "?"} dimensions and this model has `
+        + `${dims}. It was saved against a different model.`)
+  }
+
+  // A version 1 file has no work in it, and the defaults are what it meant.
+  return {
+    ...d,
+    work: {
+      ...NO_WORK,
+      ...(d.work ?? {}),
+      settled: Array.isArray(d.work?.settled) ? d.work.settled : [],
+      spacing: (d.work?.spacing && typeof d.work.spacing === "object")
+        ? d.work.spacing : {},
+      axes,
+    },
+  } as Project
 }
 
 /** Hand the file to the browser. */

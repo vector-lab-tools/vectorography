@@ -582,8 +582,13 @@ export default function App() {
     trail.map((c) => c.id), cursor, text, family, waypoints,
     axX, axY, axZ, colourBy, atlasHeight, ballOn, depth,
     radius, temperature, step,
+    // Settling a letter, spacing one, straightening the outlines or naming an
+    // axis are all changes to the work, and a file that calls itself saved
+    // after any of them is lying about what is on disk.
+    settled, settleTol, straight, spacing, axes.map((a) => a.label),
   ]), [trail, cursor, text, family, waypoints, axX, axY, axZ, colourBy,
-       atlasHeight, ballOn, depth, radius, temperature, step])
+       atlasHeight, ballOn, depth, radius, temperature, step,
+       settled, settleTol, straight, spacing, axes])
   /** The signature as it was when the journey was last written or opened.
    *  Taken during render rather than in an effect: an effect on mount runs
    *  twice in development, and the second run took its reading after the first
@@ -617,6 +622,8 @@ export default function App() {
     setFile(null)
     setSettled([])
     setSettling(false)
+    setSpacing({})
+    setStraight(0)
     setEntered(false)
     armSaved.current = true
     opened.current = false
@@ -632,13 +639,15 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
+      work: { settled, settleTol, straight, spacing, axes },
     }))
     setFile(full)
     savedSig.current = signature
     opened.current = false
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
-      family, file, radius, waypoints, step, temperature, text, trail])
+      family, file, radius, waypoints, step, temperature, text, trail,
+      settled, settleTol, straight, spacing, axes])
 
   /** The browser gives a page no way to write back to a file it was handed,
    *  so Save is Save As with the name already filled in. */
@@ -649,6 +658,7 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
+      work: { settled, settleTol, straight, spacing, axes },
     }))
     savedSig.current = signature
     opened.current = false
@@ -698,6 +708,17 @@ export default function App() {
       setRadius(doc.travel.radius)
       setTemperature(doc.travel.temperature)
       setStep(doc.travel.step)
+      // What was decided about the typeface, as against where it stands. A
+      // version 1 file has none of this and parse fills the defaults, so
+      // opening an old journey settles nothing and spaces nothing rather
+      // than leaving whatever the last project left behind.
+      const w = doc.work ?? { settled: [], settleTol: 0.01, straight: 0,
+                              spacing: {}, axes: [] }
+      setSettled(w.settled)
+      setStraight(w.straight)
+      setSpacing(w.spacing)
+      setAxes(w.axes as LearnedAxis[])
+      setSettling(false)
       setRedoStack([])
       setFile(picked.name)
       // The reading is taken once the state above has landed, not here.
@@ -967,10 +988,11 @@ export default function App() {
       await api.download("/api/export/journey",
         { trail: ancestry.map((c) => c.z), family,
           masters: Math.min(Math.max(ancestry.length, 2), 12),
-          licence: licence.id, author: licence.author },
+          licence: licence.id, author: licence.author,
+          straight, spacing },
         `${family}-journey.zip`)
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [ancestry, family, licence])
+  }, [ancestry, family, licence, straight, spacing])
 
   const exportSvg = useCallback(async () => {
     if (!z) return

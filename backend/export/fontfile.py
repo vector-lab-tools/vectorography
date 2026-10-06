@@ -282,7 +282,8 @@ def build_ttf(vec: np.ndarray, family: str, style: str = "Regular",
 
 def build_variable(vectors: list[np.ndarray], family: str,
                    meta: dict | None = None, version: str = "0.01",
-                   licence: str = "none", author: str = ""
+                   licence: str = "none", author: str = "",
+                   straight: float = 0.0, spacing: dict | None = None
                    ) -> tuple[bytes, str, list[tuple[str, bytes]]]:
     """A recorded path compiled into a variable font with one Journey axis.
 
@@ -306,7 +307,10 @@ def build_variable(vectors: list[np.ndarray], family: str,
         loc = round(i * 1000 / (n - 1))
         style = f"{i:02d}"
         stops.append((loc, style))
-        data = build_ttf(vec, family, style, meta, version, licence, author)
+        # Every master is spaced the same way, so the sidebearings hold
+        # along the axis instead of drifting between the stops.
+        data = build_ttf(vec, family, style, meta, version, licence, author,
+                         straight=straight, spacing=spacing)
         name = f"master-{i:02d}.ttf"
         (tmp / name).write_bytes(data)
         masters.append((name, data))
