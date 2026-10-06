@@ -108,9 +108,16 @@ const dot = (a: number[], c: number[]) =>
 export default function App() {
   const [corpus, setCorpus] = useState<CorpusInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Dark by default. The instrument is a dark room with letters lit in it,
+  // and a specimen is judged against its ground: the light theme is the one
+  // to choose, not the one to be given. Settings still offers System, which
+  // follows the machine.
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "system")
-  const [dark, setDark] = useState(false)
+    () => (localStorage.getItem(THEME_KEY) as Theme | null) ?? "dark")
+  // Seeded from what the inline script in index.html already decided, so the
+  // first paint and the first render agree.
+  const [dark, setDark] = useState(
+    () => document.documentElement.classList.contains("dark"))
 
   const [trail, setTrail] = useState<Crumb[]>([])
   const [cursor, setCursor] = useState(0)

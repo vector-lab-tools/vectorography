@@ -25,6 +25,29 @@
     <meta name="twitter:title" content="Vectorography · type design by traversal" />
     <meta name="twitter:description" content="A vector space of letterforms that is travelled rather than prompted." />
     <meta name="twitter:image" content="/og.png" />
+    <!-- The ground, before anything else runs.
+         React decides the theme in an effect, which is one paint too late:
+         the page would show white and then turn navy, and on a phone the
+         browser's own chrome would stay the wrong colour until it did. So the
+         same decision is made here, from the same key, and the body is given
+         its background in the same breath. Dark unless the reader has chosen
+         otherwise, matching the default in App. -->
+    <script>
+      (function () {
+        var t;
+        try { t = localStorage.getItem("vg.theme"); } catch (e) { /* blocked */ }
+        var dark = !t || t === "dark" ||
+          (t === "system" &&
+           window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+        document.documentElement.style.background = dark ? "#0a0e15" : "#faf8f4";
+        var m = document.createElement("meta");
+        m.name = "theme-color";
+        m.content = dark ? "#0a0e15" : "#faf8f4";
+        document.head.appendChild(m);
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />

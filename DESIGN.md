@@ -593,3 +593,18 @@ the lightest thing in the panel. Those draw their own rail, filled to the value
 in the property's colour.
 
 Light is untouched.
+
+### Dark is the default
+
+A specimen is judged against its ground, and this instrument is a dark room
+with letters lit in it. Light is the theme to choose rather than the one to be
+given, and Settings still offers System for anyone who wants the machine to
+decide.
+
+The theme is now settled before anything else runs. React decides it in an
+effect, which is one paint too late: the page showed white and then turned
+navy, and on a phone the browser's own chrome stayed wrong until it did. A
+short script in `index.html` reads the same key, sets the class and the
+background together, and writes a `theme-color` meta so the chrome agrees. The
+`dark` state in App is seeded from what that script decided, so the first paint
+and the first render do not disagree.
