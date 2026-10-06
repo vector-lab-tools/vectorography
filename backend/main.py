@@ -1070,11 +1070,31 @@ if BUILT.is_dir():
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
-    app.mount("/assets", StaticFiles(directory=BUILT / "assets"), name="assets")
+    class Hashed(StaticFiles):
+        """The built assets, which carry their content hash in the filename.
+
+        A file whose name changes when its contents change can be kept for
+        ever, and saying so is what stops a browser asking about it again.
+        """
+
+        async def get_response(self, path, scope):
+            r = await super().get_response(path, scope)
+            r.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return r
+
+    app.mount("/assets", Hashed(directory=BUILT / "assets"), name="assets")
 
     @app.get("/{path:path}")
     def spa(path: str):
         candidate = BUILT / path
         if path and candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(BUILT / "index.html")
+        # index.html names the hashed bundles, so a stale copy of it pins a
+        # browser to a stale app however many times the server is redeployed.
+        # It went out with an ETag and no Cache-Control, which leaves a browser
+        # free to guess how long it may keep it, and they guess generously: the
+        # page stayed on a fortnight-old build without ever asking. no-cache
+        # does not mean do not store, it means ask first, and the ETag makes
+        # asking cost a 304.
+        return FileResponse(BUILT / "index.html",
+                            headers={"Cache-Control": "no-cache"})
