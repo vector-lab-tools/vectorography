@@ -10,6 +10,7 @@ import { LearnAxis } from "./components/LearnAxis"
 import { ProofSheet } from "./components/ProofSheet"
 import { SpaceCenter } from "./components/SpaceCenter"
 import { Atlas, type Waypoint } from "./components/Atlas"
+import { CharacterSet } from "./components/CharacterSet"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { Inspector, Section } from "./components/Inspector"
 import { Doors } from "./components/Doors"
@@ -236,6 +237,13 @@ export default function App() {
   // under the letters. Both are glanced down at while working above.
   const [strip, setStrip] = useKept<"proof" | "space">("vg.strip", "proof",
     (v) => v === "proof" || v === "space")
+  // The canvas under the specimen: the corpus as a place, or this typeface as
+  // a character set. Every font editor opens on the second of those, and this
+  // one had no way to see the other hundred and fifty glyphs at all.
+  const [canvas, setCanvas] = useKept<"map" | "set">("vg.canvas", "map",
+    (v) => v === "map" || v === "set")
+  const [gridGlyphs, setGridGlyphs] = useState<Glyph[]>([])
+  const [gridBusy, setGridBusy] = useState(false)
   // Sidebearings set by hand or by key. An override on the drawing rather
   // than a place, so it is kept with the desk and carried on every request.
   const [spacing, setSpacing] = useKept<Record<string,
@@ -556,6 +564,20 @@ export default function App() {
       .catch(() => { if (live) setSpaceGlyphs([]) })
     return () => { live = false }
   }, [z, proofOn, strip, spaceText, straight, spacing])
+
+  // All 164 glyphs, fetched only while the grid is showing. It is the largest
+  // thing a location can be asked for, 336 kB before compression, and drawing
+  // a specimen does not need it.
+  useEffect(() => {
+    if (!z || canvas !== "set") return
+    let live = true
+    setGridBusy(true)
+    api.location(z, "", true, false, 1, straight)
+      .then((l) => { if (live) setGridGlyphs(l.glyphs) })
+      .catch(() => { if (live) setGridGlyphs([]) })
+      .finally(() => { if (live) setGridBusy(false) })
+    return () => { live = false }
+  }, [z, canvas, straight, spacing])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -1486,9 +1508,28 @@ export default function App() {
 
               {!isMobile && (
               <>
-                {/* The map keeps the canvas. It is the one thing here that is
-                    a picture of something rather than a control. */}
+                <div className="flex items-center gap-1 shrink-0 pb-1">
+                  {([["map", "Vector space"],
+                     ["set", "Character set"]] as const).map(([k, label]) => (
+                    <button key={k} onClick={() => setCanvas(k)}
+                      className={`text-[11px] px-1.5 py-0.5 rounded-sm border
+                                  transition-colors ${canvas === k
+                                    ? "border-burgundy text-burgundy"
+                                    : "border-transparent text-muted-foreground"
+                                      + " hover:text-foreground"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex-1 min-h-0 min-w-0">
+                {canvas === "set" ? (
+                  <CharacterSet
+                    glyphs={gridGlyphs} settled={settled} spacing={spacing}
+                    busy={gridBusy}
+                    onPick={(ch) => setText(ch)}
+                    onToggleSettled={toggleSettled}
+                  />
+                ) : (
                   <Atlas data={atlas} busy={busy} onPick={goToFamily}
                          directions={allDirections}
                          colourBy={colourBy} setColourBy={setColourBy}
@@ -1499,6 +1540,7 @@ export default function App() {
                          ballOn={ballOn} setBallOn={setBallOn}
                          altitude={location?.altitude ?? null} corpus={corpus}
                          />
+                )}
                 </div>
 
                 {/*

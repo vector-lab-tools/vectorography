@@ -787,3 +787,34 @@ the same spacing, so sidebearings hold along the axis instead of drifting
 between the stops, and `journey.json` records what was set. Verified in the
 zip: `o` with `=n+20` on both sides reads 1243/180 against n's 139 in the
 static instances and in the variable font alike.
+
+## 19. The character set
+
+Every font editor opens on one. Glyphs calls it Font View and makes it the
+first tab of every window; RoboFont runs it down the left of the canvas. It is
+where a designer finds out what they have, which letters have been decided and
+which have not, and where the work is uneven. This instrument had a specimen of
+whatever word was typed and no way to see the other hundred and fifty glyphs
+at all.
+
+It sits where the map sits, as the other half of the canvas tab, because it
+answers the same kind of question: not what to do next, but what is here.
+
+**Every cell is drawn in one vertical frame**, ascender to descender, rather
+than fitted to its own ink. Cells sized to their own ink each look correct and
+the set looks like nothing in particular: the point of a grid is that the
+baselines line up and the x-heights and cap-heights can be read down a column.
+
+The glyphs are grouped the way a character set is spoken about, lowercase
+before capitals before the accented ranges, and the numbers, currency and
+punctuation after. A settled letter is tinted, and a letter whose spacing has
+been set carries a dot, since nothing in the drawing shows either and the grid
+is where a gap in the work is supposed to become visible.
+
+Clicking a glyph sets the specimen in it, which is how a letter is looked at
+here. Shift-clicking settles it, so the set is also the fastest way to decide
+a group of letters at once.
+
+All 164 are fetched only while the grid is showing: it is the largest thing a
+location can be asked for, 336 kB before compression and 117 kB after, and
+drawing a word does not need it.
