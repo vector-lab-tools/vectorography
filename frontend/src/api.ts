@@ -72,6 +72,29 @@ export type Projection = {
   skill: { error: number; baseline: number; skill: number } | null
 }
 
+/** A direction a designer named by pointing, with the evidence for it. */
+export type LearnedAxis = {
+  vector: number[]
+  /** What it is called in the steer list; set when it is saved. */
+  label?: string
+  liked: string[]
+  against: string[]
+  /** Share of it the eight measured properties can reproduce. */
+  explained_by_named: number
+  closest_named: { key: string; cos: number }[]
+  /** Whether enough faces were marked to hold any back. */
+  tested: boolean
+  score: number | null
+  found?: number
+  of?: number
+  top: number
+  ranks: number[]
+  corpus?: number
+  plus: { family: string; at: number }[]
+  minus: { family: string; at: number }[]
+  lo: number; hi: number; min: number; max: number; spread: number
+}
+
 export type Freedom = {
   settled: string[]
   dims: number
@@ -159,6 +182,10 @@ export const api = {
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude
            drift: Record<string, number> }>("/api/travel", body),
+
+  /** An axis from faces pointed at, with the evidence for it. */
+  taste: (liked: string[], against: string[]) =>
+    post<LearnedAxis>("/api/taste", { liked, against }),
 
   /** A wall of candidates around here, one row per measured property. */
   sheet: (body: Record<string, unknown>) => post<Sheet>("/api/sheet", body),

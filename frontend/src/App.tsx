@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
          type Freedom, type Glyph, type Location,
-         type NamedDirection, type Projection,
+         type LearnedAxis, type NamedDirection, type Projection,
          type Sheet } from "./api"
 import { About } from "./components/About"
 import { ProjectionReport } from "./components/Projection"
+import { LearnAxis } from "./components/LearnAxis"
 import { ProofSheet } from "./components/ProofSheet"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
@@ -228,6 +229,34 @@ export default function App() {
   const [sheetProps, setSheetProps] = useKept<string[]>("vg.sheetprops", [],
     (v) => Array.isArray(v))
   const [sheetBusy, setSheetBusy] = useState(false)
+  // Axes the designer named by pointing at faces. They belong to the project
+  // rather than to the model, which is why they are kept here and travelled
+  // as vectors rather than looked up by a key on the server.
+  const [axes, setAxes] = useKept<LearnedAxis[]>("vg.axes", [],
+    (v) => Array.isArray(v))
+  const [learning, setLearning] = useState(false)
+
+  /**
+   * The eight measured properties and the designer's own, as one list.
+   *
+   * A learned axis carries a vector, which is the only thing the steer list
+   * and the dragged specimen actually need: both work out where a move lands
+   * from the direction itself rather than from a key the server knows. So
+   * these sit beside the measured eight instead of in a rail of their own,
+   * and everything that steers already steers along them.
+   */
+  const allDirections = useMemo<NamedDirection[]>(() => [
+    ...directions,
+    ...axes.map((a, i) => ({
+      key: `learned:${i}`,
+      label: a.label || `axis ${i + 1}`,
+      minus: a.against.slice(0, 2).join(", ") || "away",
+      plus: a.liked.slice(0, 2).join(", ") || "toward",
+      spread: a.spread,
+      vector: a.vector,
+      lo: a.lo, hi: a.hi, min: a.min, max: a.max,
+    })),
+  ], [directions, axes])
   const [guideStyle, setGuideStyle] = useState<GuideStyle>(() => {
     const kept = localStorage.getItem(GUIDE_STYLE_KEY)
     return kept === "dashed" || kept === "dotted" || kept === "hair"
@@ -801,7 +830,7 @@ export default function App() {
   /** Travel along one property until its projection reads the asked-for value. */
   const slideTo = useCallback((key: string, value: number) => {
     setSlideTick((t) => t + 1)
-    const d = directions.find((x) => x.key === key)
+    const d = allDirections.find((x) => x.key === key)
     if (!d?.vector) return
     const from = dragZ.current ?? z
     if (!from) return
@@ -1071,6 +1100,16 @@ export default function App() {
         { kind: "item", label: "Clear every waypoint",
           disabled: !waypoints.length, onSelect: () => setWaypoints([]),
           title: "Unmark them all. The stops themselves stay on the trail." },
+        { kind: "group", label: "axes of your own" },
+        { kind: "item", label: "Learn an axis from faces\u2026",
+          hint: axes.length ? `${axes.length} learned` : undefined,
+          onSelect: () => setLearning(true),
+          title: "Mark faces as this and not this. The direction between them "
+                 + "joins the steer list, and is tested on faces it was not "
+                 + "shown." },
+        { kind: "item", label: "Forget the learned axes",
+          disabled: !axes.length, onSelect: () => setAxes([]),
+          title: "The measured eight are unaffected" },
         { kind: "group", label: "the drawing, not the place" },
         // One moves you, the other changes how what you found is drawn.
         // Together in the menu because both are edits to the work rather than
@@ -1177,6 +1216,7 @@ export default function App() {
       isSane, resetToSane, trail, shareNow,
       newProject, openProject, projectFont, save, saveAs, file, licence, theme,
       settling, settled, setSettled, waypoints, cursor, flagStop,
+      axes, setAxes,
       straight, setStraight, location, rigidify])
 
   if (error && !corpus) return <Fatal message={error} />
@@ -1355,7 +1395,7 @@ export default function App() {
                   />
                 ) : (
                   <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                         directions={directions}
+                         directions={allDirections}
                          colourBy={colourBy} setColourBy={setColourBy}
                          waypoint={waypoint} setWaypoint={setWaypoint}
                          onToward={goToward} radius={radius} sample={atlasChar}
@@ -1386,7 +1426,7 @@ export default function App() {
               </div>
               {directions.length > 0 && (
                 <div className="shrink-0 border-t border-border pt-2">
-                  <DirectionPad directions={directions} at={standing}
+                  <DirectionPad directions={allDirections} at={standing}
                                 onSlide={slideTo} onCommit={slideCommit}
                                 busy={busy} />
                 </div>
@@ -1571,7 +1611,7 @@ export default function App() {
           <div className="flex-1 min-h-0 px-2 pb-1 overflow-hidden">
             <div className={`h-full ${tab === "atlas" ? "" : "hidden"}`}>
               <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                     directions={directions}
+                     directions={allDirections}
                      colourBy={colourBy} setColourBy={setColourBy}
                      waypoint={waypoint} setWaypoint={setWaypoint}
                      onToward={goToward} radius={radius} sample={atlasChar}
@@ -1584,7 +1624,7 @@ export default function App() {
             <div className={`h-full overflow-y-auto pt-1
                              ${tab === "steer" ? "" : "hidden"}`}>
               {directions.length > 0 ? (
-                <DirectionPad directions={directions} at={standing}
+                <DirectionPad directions={allDirections} at={standing}
                               onSlide={slideTo} onCommit={slideCommit}
                               busy={busy} />
               ) : (
@@ -1761,6 +1801,14 @@ export default function App() {
             localStorage.setItem(AUTHOR_KEY, v.author)
           }}
           onClose={() => setLicensing(false)} />
+      )}
+
+      {learning && (
+        <LearnAxis
+          families={corpus.families}
+          onSave={(a) => { setAxes([...axes, a]); setLearning(false) }}
+          onClose={() => setLearning(false)}
+        />
       )}
 
       {projected && (

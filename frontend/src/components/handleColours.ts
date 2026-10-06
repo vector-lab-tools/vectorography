@@ -20,6 +20,10 @@ export const HANDLE_HUE: Record<HandleKind, string> = {
   slant: "322 46% 50%",         // magenta
 }
 
+/** Axes the designer learned get a hue of their own, kept apart from the
+ *  eight so a borrowed colour never implies a borrowed meaning. */
+const LEARNED_HUE = "186 84% 52%"
+
 export function handleColour(kind: HandleKind, alpha = 1) {
-  return `hsl(${HANDLE_HUE[kind]} / ${alpha})`
+  return `hsl(${HANDLE_HUE[kind] ?? LEARNED_HUE} / ${alpha})`
 }

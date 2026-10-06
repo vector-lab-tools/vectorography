@@ -608,3 +608,44 @@ short script in `index.html` reads the same key, sets the class and the
 background together, and writes a `theme-color` meta so the chrome agrees. The
 `dark` state in App is seeded from what that script decided, so the first paint
 and the first render do not disagree.
+
+## 15. Axes learned from taste
+
+The eight measured properties are the vocabulary of the craft and are not the
+whole of what a designer sees. "More like that one" is the commonest thing said
+in front of a rack of proofs, and the instrument had no way to hear it.
+
+**Edit ▸ Learn an axis from faces** takes two handfuls of families, marked
+*this* and *not this*, and makes the direction between their means into a
+heading. The space is whitened, so that difference is already in the units the
+compass travels in. A learned axis joins the steer list beside the measured
+eight, because the slider and the dragged specimen both work from a vector
+rather than from a key the server knows, so everything that steers already
+steers along it.
+
+### It works, and it does not always work
+
+Fitting on four examples against forty others and holding four back:
+
+| Marked | Held-out ranks, of 441 | In the top 20 | Not explained by the eight |
+|---|---|---|---|
+| monospaced | 6, 10, 11, 7 | 4 of 4 | 91% |
+| script | 285, 233, 23, 269 | 0 of 4 | 93% |
+| slab | 143, 190, 206, 232, 318, 318, 441 | 0 of 7 | 72% |
+
+Monospaced generalises from four examples and surfaces families nobody marked.
+Script does not: the top of that axis is the four training faces and a sibling
+of one of them, and the other end is more scripts. Slab learned "plain and
+heavy against decorative", which is a real direction and not the one asked for.
+
+**Monospaced names a geometric regularity. Script names a cultural category**,
+and brush, copperplate and casual scripts share a word rather than a shape. A
+taste axis learns the first and memorises the second, and the two are
+indistinguishable until some faces are held back.
+
+So nothing returns an axis without that test beside it. The panel reports how
+many of the withheld faces the axis puts near its own top, and how much of the
+direction the eight measured properties can already reproduce, since an axis
+that is mostly weight is weight and deserves to be named as such rather than
+given a second slider. An axis that fails is still usable, and is labelled as
+what it is: a direction toward the faces that were marked.

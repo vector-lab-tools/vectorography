@@ -132,6 +132,9 @@ class TravelReq(Z):
     temperature: float = 0.5
     step: float = 0.5
     direction: str | None = None
+    # A learned axis travels as itself. It belongs to the project rather than
+    # to the model, so there is no key on the server to look it up by.
+    vector: list[float] | None = None
     sign: float = 1.0
     amount: float | None = None
     target_x: float | None = None
@@ -426,6 +429,52 @@ def sheet(req: SheetReq):
     }
 
 
+class TasteReq(BaseModel):
+    """Faces pointed at, rather than a property measured off the outlines."""
+    liked: list[str] = []
+    against: list[str] = []
+
+
+@app.post("/api/taste")
+def taste_axis(req: TasteReq):
+    """An axis a designer names by pointing, with the evidence for it.
+
+    The evidence is the point. Fitting a direction between two handfuls of
+    faces always returns something; whether it is a property or a list of
+    favourites is settled by holding some of them back and seeing whether the
+    axis finds them again.
+    """
+    from space import taste as tst
+
+    s = space()
+    try:
+        liked = [s.names.index(n) for n in req.liked]
+        against = [s.names.index(n) for n in req.against]
+    except ValueError as e:
+        raise HTTPException(404, f"not a family in this corpus: {e}") from None
+    try:
+        out = tst.fit(s, liked, against)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+
+    ends = tst.ranked(s, out["vector"], 6)
+    proj = np.asarray(s.Z, dtype=np.float64) @ np.asarray(out["vector"])
+    out.update({
+        "liked": [s.names[i] for i in out["liked"]],
+        "against": [s.names[i] for i in out["against"]],
+        "minus": ends["minus"],
+        "plus": ends["plus"],
+        # The same shape the measured directions carry, so a learned axis can
+        # sit in the steer list beside them rather than in a list of its own.
+        "lo": float(np.percentile(proj, 10)),
+        "hi": float(np.percentile(proj, 90)),
+        "min": float(proj.min()),
+        "max": float(proj.max()),
+        "spread": float(proj.max() - proj.min()),
+    })
+    return out
+
+
 class FreedomReq(BaseModel):
     settled: list[str] = []
 
@@ -634,6 +683,15 @@ def travel(req: TravelReq):
             nz = np.asarray(s.steer(z, req.direction, req.sign, req.amount))
         except KeyError:
             raise HTTPException(404, f"no direction {req.direction!r}") from None
+    elif req.mode == "vector":
+        if not req.vector:
+            raise HTTPException(400, "vector mode needs a vector")
+        v = np.asarray(req.vector, dtype=np.float64)
+        n = float(np.linalg.norm(v))
+        if n < 1e-12:
+            raise HTTPException(400, "that vector has no direction in it")
+        nz = z + req.sign * (req.amount if req.amount is not None
+                             else req.radius) * (v / n)
     elif req.mode == "orbit":
         if req.centre is None:
             raise HTTPException(400, "orbit needs a centre")
