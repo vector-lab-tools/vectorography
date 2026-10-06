@@ -141,12 +141,24 @@ def _setup_common(fb: FontBuilder, dec: dict, metrics: dict,
 
 # ----------------------------------------------------------------- static OTF
 
+def _spaced(dec: dict, spacing: dict | None) -> dict:
+    """The sidebearings the designer set, applied before anything is compiled.
+
+    What is installed has to be what was looked at, so this is the same call
+    the renderer makes rather than a second idea of what a key means.
+    """
+    if not spacing:
+        return dec
+    import spacing as sp
+    return sp.apply(dec, GLYPHS, spacing)
+
+
 def build_otf(vec: np.ndarray, family: str, style: str = "Regular",
               meta: dict | None = None, version: str = "0.01",
               licence: str = "none", author: str = "",
-              straight: float = 0.0) -> bytes:
+              straight: float = 0.0, spacing: dict | None = None) -> bytes:
     """One location as a static OTF, cubic outlines, matching the screen."""
-    dec = decode_vector(np.asarray(vec, dtype=np.float32))
+    dec = _spaced(decode_vector(np.asarray(vec, dtype=np.float32)), spacing)
     meta = meta or {}
 
     fb = FontBuilder(UPEM, isTTF=False)
@@ -236,8 +248,8 @@ def _empty_glyph() -> Glyph:
 def build_ttf(vec: np.ndarray, family: str, style: str = "Regular",
               meta: dict | None = None, version: str = "0.01",
               licence: str = "none", author: str = "",
-              straight: float = 0.0) -> bytes:
-    dec = decode_vector(np.asarray(vec, dtype=np.float32))
+              straight: float = 0.0, spacing: dict | None = None) -> bytes:
+    dec = _spaced(decode_vector(np.asarray(vec, dtype=np.float32)), spacing)
     meta = meta or {}
 
     fb = FontBuilder(UPEM, isTTF=True)

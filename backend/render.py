@@ -58,7 +58,8 @@ def glyph_path(contours: np.ndarray) -> str:
 
 def decode_to_glyphs(vec: np.ndarray, geometry: bool = False,
                      only: set[str] | None = None,
-                     straight: float = 0.0) -> list[dict]:
+                     straight: float = 0.0,
+                     spacing: dict | None = None) -> list[dict]:
     """Glyphs as drawable paths, and optionally as the points behind them.
 
     The points are what makes the specimen touchable: deciding whether a
@@ -70,9 +71,14 @@ def decode_to_glyphs(vec: np.ndarray, geometry: bool = False,
     asks for eight positions, and the character set is a hundred and sixty
     four.
     """
-    from corpus.outlines import decode_vector
+    import spacing as sp
+    from corpus.outlines import GLYPHS as _G, decode_vector
     from curves import straighten
     dec = decode_vector(vec)
+    # Sidebearings before straightening, so a key reads the ink edge the
+    # location actually gives rather than one a drawing decision moved.
+    if spacing:
+        dec = sp.apply(dec, _G, spacing)
     if straight > 0:
         dec = {**dec, "contours": [
             np.stack([straighten(c, straight) for c in g]) for g in dec["contours"]]}

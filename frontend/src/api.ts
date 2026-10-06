@@ -95,6 +95,19 @@ export type LearnedAxis = {
   lo: number; hi: number; min: number; max: number; spread: number
 }
 
+export type SpacingRow = {
+  char: string
+  left: number; right: number; advance: number
+  natural_left: number; natural_right: number
+  written_left: string; written_right: string
+}
+
+/** What the corpus would write for a glyph, per side, best first. */
+export type SpacingSuggestion = {
+  left?: { key: string; spread: number }[]
+  right?: { key: string; spread: number }[]
+}
+
 export type Freedom = {
   settled: string[]
   dims: number
@@ -140,8 +153,12 @@ export type CompassPoint = {
  * honouring what had been settled. The server ignores the fields on the
  * endpoints that have no use for them.
  */
-export const held: { settled: string[]; tol: number } =
-  { settled: [], tol: 0.01 }
+export const held: {
+  settled: string[]
+  tol: number
+  /** Sidebearings the designer has set, by glyph. */
+  spacing: Record<string, { left?: string; right?: string }>
+} = { settled: [], tol: 0.01, spacing: {} }
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const r = await fetch(url, {
@@ -182,6 +199,11 @@ export const api = {
   travel: (body: Record<string, unknown>) =>
     post<{ z: number[]; altitude: Altitude
            drift: Record<string, number> }>("/api/travel", body),
+
+  /** Sidebearings for a string, and the keys the corpus would write. */
+  spacing: (body: Record<string, unknown>) =>
+    post<{ rows: SpacingRow[]
+           suggested?: Record<string, SpacingSuggestion> }>("/api/spacing", body),
 
   /** An axis from faces pointed at, with the evidence for it. */
   taste: (liked: string[], against: string[]) =>

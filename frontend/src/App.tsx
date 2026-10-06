@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
          type Freedom, type Glyph, type Location,
          type LearnedAxis, type NamedDirection, type Projection,
+         type SpacingRow, type SpacingSuggestion,
          type Sheet } from "./api"
 import { About } from "./components/About"
 import { ProjectionReport } from "./components/Projection"
 import { LearnAxis } from "./components/LearnAxis"
 import { ProofSheet } from "./components/ProofSheet"
+import { SpaceCenter } from "./components/SpaceCenter"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { Inspector, Section } from "./components/Inspector"
@@ -229,6 +231,23 @@ export default function App() {
     (v) => typeof v === "boolean")
   const [proofH, setProofH] = useKept("vg.proofh", 190,
     (v) => typeof v === "number" && v >= 96 && v <= 900)
+  // Which of the two things the strip under the canvas is showing. Proof is
+  // what a location looks like a step either way; spacing is the numbers
+  // under the letters. Both are glanced down at while working above.
+  const [strip, setStrip] = useKept<"proof" | "space">("vg.strip", "proof",
+    (v) => v === "proof" || v === "space")
+  // Sidebearings set by hand or by key. An override on the drawing rather
+  // than a place, so it is kept with the desk and carried on every request.
+  const [spacing, setSpacing] = useKept<Record<string,
+    { left?: string; right?: string }>>("vg.spacing", {},
+    (v) => !!v && typeof v === "object")
+  const [spaceText, setSpaceText] = useKept("vg.spacetext", "nnoonn",
+    (v) => typeof v === "string")
+  const [spaceRows, setSpaceRows] = useState<SpacingRow[]>([])
+  const [spaceGlyphs, setSpaceGlyphs] = useState<Glyph[]>([])
+  const [suggestions, setSuggestions] =
+    useState<Record<string, SpacingSuggestion> | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const [sheetRadius, setSheetRadius] = useKept("vg.sheetr", 1,
     (v) => typeof v === "number" && v >= 0.2 && v <= 3)
@@ -331,13 +350,14 @@ export default function App() {
   useEffect(() => {
     held.settled = settled
     held.tol = settleTol
+    held.spacing = spacing
     if (!settled.length) { setFreedom(null); return }
     let live = true
     api.freedom(settled)
       .then((f) => { if (live) setFreedom(f) })
       .catch(() => { if (live) setFreedom(null) })
     return () => { live = false }
-  }, [settled, settleTol])
+  }, [settled, settleTol, spacing])
 
   const toggleSettled = useCallback((ch: string) => {
     setSettled(settled.includes(ch)
@@ -521,6 +541,21 @@ export default function App() {
       .finally(() => { if (live) setSheetBusy(false) })
     return () => { live = false }
   }, [z, proofOn, proofText, sheetRadius, sheetProps, straight])
+
+  // The spacing readout, fetched only while that strip is showing. It is a
+  // decode and a measure per glyph, which is cheap, and asking for it behind
+  // the proof would be paying for a reading nobody is looking at.
+  useEffect(() => {
+    if (!z || !proofOn || strip !== "space") return
+    let live = true
+    api.spacing({ z, text: spaceText, straight })
+      .then((r) => { if (live) setSpaceRows(r.rows) })
+      .catch(() => { if (live) setSpaceRows([]) })
+    api.location(z, spaceText, false, false, 1, straight)
+      .then((l) => { if (live) setSpaceGlyphs(l.glyphs) })
+      .catch(() => { if (live) setSpaceGlyphs([]) })
+    return () => { live = false }
+  }, [z, proofOn, strip, spaceText, straight, spacing])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -1493,8 +1528,43 @@ export default function App() {
                       <div className="h-px flex-1 bg-transparent
                                       group-hover:bg-burgundy/40 transition-colors" />
                     </div>
-                    <div className="shrink-0 min-h-0"
+                    <div className="shrink-0 min-h-0 flex flex-col"
                          style={{ height: proofH }}>
+                      <div className="flex items-center gap-1 shrink-0 pb-1">
+                        {([["proof", "Proof"],
+                           ["space", "Spacing"]] as const).map(([k, label]) => (
+                          <button key={k} onClick={() => setStrip(k)}
+                            className={`text-[11px] px-1.5 py-0.5 rounded-sm
+                                        border transition-colors ${strip === k
+                                          ? "border-burgundy text-burgundy"
+                                          : "border-transparent"
+                                            + " text-muted-foreground"
+                                            + " hover:text-foreground"}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex-1 min-h-0">
+                      {strip === "space" ? (
+                        <SpaceCenter
+                          text={spaceText} setText={setSpaceText}
+                          glyphs={spaceGlyphs} rows={spaceRows}
+                          suggestions={suggestions}
+                          spacing={spacing} setSpacing={setSpacing}
+                          busy={suggesting}
+                          onClose={() => setProofOn(false)}
+                          onSuggest={async () => {
+                            setSuggesting(true)
+                            try {
+                              const r = await api.spacing(
+                                { z, text: spaceText, straight, suggest: true })
+                              setSuggestions(r.suggested ?? null)
+                              setSpaceRows(r.rows)
+                            } catch (e) { setError(String(e)) }
+                            finally { setSuggesting(false) }
+                          }}
+                        />
+                      ) : (
                       <ProofSheet
                         sheet={sheet} text={proofText} busy={sheetBusy}
                         radius={sheetRadius} setRadius={setSheetRadius}
@@ -1508,6 +1578,8 @@ export default function App() {
                           push(cz, "jump", "proof")
                         }}
                       />
+                      )}
+                      </div>
                     </div>
                   </>
                 )}

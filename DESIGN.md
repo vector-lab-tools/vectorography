@@ -701,3 +701,57 @@ The trail stopped truncating at the same time. In a 290px sidebar the row read
 `00 origin · the cen…` with `current loc` taking the space the label needed,
 and where you are standing is already said by the fill and the edge. Those
 words are gone and the label wraps.
+
+## 17. Spacing, by metrics key
+
+The instrument had one slider called tightness, which moves every advance in
+the alphabet together. That is a reading of the corpus. Spacing is per glyph,
+done by eye against strings the craft has used for a century, and it is where a
+face stops being a set of drawings and starts being something that sets text.
+
+**A sidebearing is a formula rather than a number**, after Glyphs' metrics
+keys. `=n` on the left of `m` means *mine equals n's*, and it stays true when
+`n` moves. `=|n` takes n's other side, `=n+8` adds, `=|` mirrors within the
+glyph, and a plain number sets a value. A key may point at a glyph that has a
+key of its own; a cycle resolves to the glyph's own sidebearing rather than
+running until the stack gives out, because a spacing table is edited by hand
+and will be wrong halfway through being right.
+
+The first attempt at this was spacing *groups*: the letters that begin with a
+stem should agree, so measure the group and flag the outlier. That inverts the
+relationship. A designer is not choosing a number, they are saying that two
+letters begin the same way, and the number is a consequence. A group has a
+machine guess what the designer would have declared.
+
+### What the corpus adds
+
+A key has to be chosen, and the corpus has an opinion. The instrument reads
+sixty families and reports, per side, the three letters whose sidebearing this
+one tracks most steadily, with how steadily it held.
+
+**Measured over sixty families drawn at random from the 441**, `m` and `n`
+agree on their left sidebearing to within 17.8 units, which is not an opinion
+worth having. **Over the sixty nearest the centroid** the same pair holds to
+9.7, `o` and `c` to 4.1, `d` and `o` to 7.5, and the pair that should not hold,
+`m` against `o`, stays worst at 11.4 and keeps a 21-unit offset.
+
+Spacing conventions are a property of text type. They do not survive a corpus
+that also holds blackletter, brush scripts and inline display, so the sample is
+the dense middle rather than the whole.
+
+Two corrections the measurement forced. The candidates are restricted to the
+same case, since the arithmetic will happily offer `=D` on the right of `o`.
+And three keys are offered rather than one: for `m`'s left, `=c+22`, `=r+3` and
+`=n-2` sit within two tenths of a unit of each other, and which of them to
+write is a judgement about what the letters have in common rather than about
+which number came out lowest.
+
+### Where it lives
+
+The Spacing tab of the strip under the canvas, after RoboFont's Space Center:
+the string set large, a card per letter with its sidebearings and advance, and
+the offered keys as chips under each field. Spacing rides on every request that
+draws, so the specimen, the rose, the proof and the compiled font all show the
+same thing. Verified in the compiled OTF: `o` with `=n+20` on both sides goes
+from advance 1094 and left 92 to 1243 and 180, and n's left is 139, which is
+exactly 20 units away at 2048 upem.

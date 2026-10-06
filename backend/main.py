@@ -76,9 +76,10 @@ def space() -> StyleSpace:
 
 
 def _glyph_subset(vec: np.ndarray, text: str, geometry: bool = False,
-                  straight: float = 0.0) -> list[dict]:
+                  straight: float = 0.0, spacing=None) -> list[dict]:
     want = {c for c in text if c in set(GLYPHS)}
-    return decode_to_glyphs(vec, geometry, only=want, straight=straight)
+    return decode_to_glyphs(vec, geometry, only=want, straight=straight,
+                            spacing=spacing)
 
 
 class Z(BaseModel):
@@ -89,6 +90,10 @@ class Z(BaseModel):
     # them exactly is not on offer.
     settled: list[str] = []
     settle_tol: float = Field(0.01, gt=0.0, le=0.5)
+    # Sidebearings the designer has set, as {char: {left, right}} where each is
+    # a number in units or a key such as "=n+8". An override on the drawing
+    # rather than a move in the space, the way straightening is.
+    spacing: dict[str, dict[str, str | float]] = {}
 
 
 class LocationReq(Z):
@@ -239,9 +244,11 @@ def directions():
 def location(req: LocationReq):
     s = space()
     vec = s.decode(req.z)
-    glyphs = (decode_to_glyphs(vec, req.geometry, straight=req.straight)
+    glyphs = (decode_to_glyphs(vec, req.geometry, straight=req.straight,
+                               spacing=req.spacing)
               if req.full
-              else _glyph_subset(vec, req.text, req.geometry, req.straight))
+              else _glyph_subset(vec, req.text, req.geometry, req.straight,
+                                 req.spacing))
     return {
         "glyphs": glyphs,
         "altitude": s.altitude(req.z),
@@ -260,7 +267,8 @@ def compass(req: CompassReq):
         # the settled letters would not survive.
         p["z"] = settle.hold(s, req.z, p["z"], req.settled,
                              req.settle_tol).tolist()
-        p["glyphs"] = _glyph_subset(s.decode(p["z"]), req.text)
+        p["glyphs"] = _glyph_subset(s.decode(p["z"]), req.text,
+                                    spacing=req.spacing)
         p["altitude"] = {"density_percentile":
                          s.altitude(p["z"])["density_percentile"]}
     return {"points": pts}
@@ -408,7 +416,8 @@ def sheet(req: SheetReq):
                 "step": step,
                 "z": cz.tolist(),
                 "glyphs": _glyph_subset(s.decode(cz), req.text,
-                                        straight=req.straight),
+                                        straight=req.straight,
+                                        spacing=req.spacing),
             })
         rows.append({
             "key": key,
@@ -421,7 +430,8 @@ def sheet(req: SheetReq):
     return {
         "here": {"z": z.tolist(),
                  "glyphs": _glyph_subset(s.decode(z), req.text,
-                                         straight=req.straight)},
+                                         straight=req.straight,
+                                         spacing=req.spacing)},
         "rows": rows,
         "steps": req.steps[:6],
         "available": [{"key": k, "label": v.get("label", k)}
@@ -472,6 +482,30 @@ def taste_axis(req: TasteReq):
         "max": float(proj.max()),
         "spread": float(proj.max() - proj.min()),
     })
+    return out
+
+
+class SpacingReq(Z):
+    """The string being spaced, and what has been set on it so far."""
+    text: str = "nnoonn"
+    straight: float = 0.0
+    # Ask the corpus which glyph each one should take its sidebearing from.
+    # A full decode per family, so it is asked for rather than always done.
+    suggest: bool = False
+
+
+@app.post("/api/spacing")
+def spacing_report(req: SpacingReq):
+    """Sidebearings for the string, and the keys the corpus would write."""
+    import spacing as sp
+    from corpus.outlines import decode_vector
+
+    s = space()
+    dec = decode_vector(s.decode(req.z))
+    want = [c for c in dict.fromkeys(req.text) if c in set(GLYPHS)]
+    out = {"rows": sp.report(dec, GLYPHS, want, req.spacing)}
+    if req.suggest:
+        out["suggested"] = sp.suggest(s, want)
     return out
 
 
@@ -754,7 +788,8 @@ def export_font(req: FontReq):
         raise HTTPException(400, "format must be otf or ttf")
     build = build_otf if fmt == "otf" else build_ttf
     data = build(vec, req.family, req.style, s.metas[0], VERSION,
-                 req.licence, req.author, straight=req.straight)
+                 req.licence, req.author, straight=req.straight,
+                 spacing=req.spacing)
     safe = req.family.replace(" ", "") or "Vectorography"
     style = (req.style or "").strip()
     stem = safe if style.lower() in ("", "regular") else f"{safe}-{style}"
