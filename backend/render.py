@@ -56,10 +56,31 @@ def glyph_path(contours: np.ndarray) -> str:
     return "".join(contour_path(c) for c in contours if _area(c) > MIN_AREA)
 
 
+def _lay_in(slots: np.ndarray, drawn) -> np.ndarray:
+    """Put a hand drawing back into the glyph's contour slots.
+
+    A glyph has five slots and most letters fill two or three; the rest are
+    collapsed pads, which `geometry` leaves out because nothing can be drawn
+    on a point. So a drawing arrives with only the contours that were on
+    screen, and they belong in the slots that were on screen, in the order
+    they were given out.
+    """
+    got = np.asarray(drawn, dtype=np.float64)
+    out = np.asarray(slots, dtype=np.float64).copy()
+    if got.shape == out.shape:
+        return got
+    live = [j for j in range(len(out)) if _area(out[j]) > MIN_AREA]
+    if len(got) == len(live) and got.shape[1:] == out.shape[1:]:
+        for k, j in enumerate(live):
+            out[j] = got[k]
+    return out
+
+
 def decode_to_glyphs(vec: np.ndarray, geometry: bool = False,
                      only: set[str] | None = None,
                      straight: float = 0.0,
-                     spacing: dict | None = None) -> list[dict]:
+                     spacing: dict | None = None,
+                     outlines: dict | None = None) -> list[dict]:
     """Glyphs as drawable paths, and optionally as the points behind them.
 
     The points are what makes the specimen touchable: deciding whether a
@@ -82,6 +103,21 @@ def decode_to_glyphs(vec: np.ndarray, geometry: bool = False,
     if straight > 0:
         dec = {**dec, "contours": [
             np.stack([straighten(c, straight) for c in g]) for g in dec["contours"]]}
+
+    # A glyph drawn by hand replaces what the location decodes to, rather than
+    # being added to it. That is what leaving the space means: the outline
+    # stops being a reading of a point and starts being a drawing, and nothing
+    # the traveller does afterwards moves it until the edit is cleared or the
+    # space is pulled to it.
+    if outlines:
+        cont = [np.asarray(g, dtype=np.float64).copy() for g in dec["contours"]]
+        for i, ch in enumerate(_G):
+            drawn = outlines.get(ch)
+            if not drawn:
+                continue
+            cont[i] = _lay_in(cont[i], drawn)
+        dec = {**dec, "contours": cont}
+
     out = []
     for i, ch in enumerate(GLYPHS):
         if only is not None and ch not in only:

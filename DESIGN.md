@@ -855,3 +855,45 @@ on, nothing else moves at all.
 
 Done in the browser rather than on the server, because a slider that waits on
 a round trip is dead and this is a Gram-Schmidt over at most a dozen vectors.
+
+## 21. Drawing on a glyph, and what it costs
+
+Everything else here reads a point in the space and shows what it decodes to.
+The glyph editor does the opposite: a point is dragged on the letter and the
+letter stops being a reading. The edit is held beside the location the way
+spacing is, so the glyph no longer follows when the traveller moves, and the
+output is no longer a sample from the fitted distribution.
+
+That departure is the point. In the taxonomy of Broad, Berns, Colton and
+Grierson (arXiv:2107.05599) this instrument had been doing §4.1, novelty
+search over a learned representation, since August: REPEL descends the density
+gradient, the altitude meter reads distance from the centroid. Drawing by hand
+is a different family. The output leaves the distribution rather than searching
+within it.
+
+**Pull the space to it** asks the other question. It takes the drawing as a
+target, solves for the nearest location the space can offer, travels there and
+reports what it still cannot reach. A quarter-width stretch of the `o` reaches
+47.6% and leaves 0.0131 em over. Dragging a single point of forty reaches 6%,
+because one point out of forty is a frequency the space has no way to carry;
+the residual is small only because the edit was.
+
+The points are the model's own: forty per contour at uniform arc length, five
+contours, the same ones every other part of the instrument works on. They are
+not where a type designer would have put them. Dragging them is drawing on the
+representation.
+
+A glyph has five contour slots and most letters fill two or three, the rest
+being collapsed pads. `geometry` leaves the pads out, because nothing can be
+drawn on a point, so a drawing comes back with only the contours that were on
+screen and `_lay_in` puts them back in the slots they came from.
+
+### A correction
+
+`ca0e2b5` said spacing rode on every request that draws. It did not. The line
+that carries it was lost in editing and the commit went out without it, so the
+specimen, the rose and the proof were drawing unspaced glyphs for ten days.
+The export path takes its own route and was never affected, which is why the
+compiled OTF verified correctly at the time. Now measured in the browser: with
+`o` keyed `=n+20` on both sides, the second `o` of `oo` moves from 0.5341 to
+0.6071 em, which is 73 units, exactly `(68+20−45) + (52+20−42)`.

@@ -158,13 +158,16 @@ export const held: {
   tol: number
   /** Sidebearings the designer has set, by glyph. */
   spacing: Record<string, { left?: string; right?: string }>
-} = { settled: [], tol: 0.01, spacing: {} }
+  /** Glyphs drawn by hand, which no longer follow the location. */
+  outlines: Record<string, number[][][]>
+} = { settled: [], tol: 0.01, spacing: {}, outlines: {} }
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ settled: held.settled, settle_tol: held.tol,
+                           spacing: held.spacing, outlines: held.outlines,
                            ...(body as object) }),
   })
   if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`)
@@ -204,6 +207,11 @@ export const api = {
   spacing: (body: Record<string, unknown>) =>
     post<{ rows: SpacingRow[]
            suggested?: Record<string, SpacingSuggestion> }>("/api/spacing", body),
+
+  /** The nearest location the space can offer to a hand drawing. */
+  pull: (body: Record<string, unknown>) =>
+    post<{ z: number[]; explained: number; residual_overall: number
+           moved: number; neighbours: Neighbour[] }>("/api/pull", body),
 
   /** An axis from faces pointed at, with the evidence for it. */
   taste: (liked: string[], against: string[]) =>

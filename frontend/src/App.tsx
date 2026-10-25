@@ -13,6 +13,7 @@ import { SpaceCenter } from "./components/SpaceCenter"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { CharacterSet } from "./components/CharacterSet"
 import { ComingSoon, type Planned } from "./components/ComingSoon"
+import { GlyphEdit } from "./components/GlyphEdit"
 import { Inspector, Section } from "./components/Inspector"
 import { Doors } from "./components/Doors"
 import { ExportPanel, type ExportKind } from "./components/Export"
@@ -21,7 +22,8 @@ import { Settings, GUIDE_KEY, GUIDE_STYLE_KEY, INK_KEY, THEME_KEY, TEXT_KEY,
          type GuideStyle, type Theme } from "./components/Settings"
 import { LicencePicker, LICENCE_KEY, AUTHOR_KEY, type Licence }
   from "./components/Licence"
-import { download, parse, pickFile, pickFont, projectFilename, serialise }
+import { download, NO_WORK, parse, pickFile, pickFont, projectFilename,
+         serialise }
   from "./components/project"
 import { ShareCard } from "./components/ShareCard"
 import { cardPng, cardSvg, sendCard } from "./components/cardImage"
@@ -241,8 +243,19 @@ export default function App() {
   // The canvas under the specimen: the corpus as a place, or this typeface as
   // a character set. Every font editor opens on the second of those, and this
   // one had no way to see the other hundred and fifty glyphs at all.
-  const [canvas, setCanvas] = useKept<"map" | "set">("vg.canvas", "map",
-    (v) => v === "map" || v === "set")
+  const [canvas, setCanvas] = useKept<"map" | "set" | "glyph">(
+    "vg.canvas", "map",
+    (v) => v === "map" || v === "set" || v === "glyph")
+  // The letter being drawn on, and the drawings. An edited glyph has left the
+  // space: it stops following the location, which is what the edit is for.
+  const [editChar, setEditChar] = useKept("vg.editchar", "n",
+    (v) => typeof v === "string" && v.length === 1)
+  const [outlines, setOutlines] = useKept<Record<string, number[][][]>>(
+    "vg.outlines", {}, (v) => !!v && typeof v === "object")
+  const [editGlyph, setEditGlyph] = useState<Glyph | null>(null)
+  const [pulling, setPulling] = useState(false)
+  const [pulled, setPulled] = useState<
+    { explained: number; residual: number; moved: number } | null>(null)
   const [gridGlyphs, setGridGlyphs] = useState<Glyph[]>([])
   const [gridBusy, setGridBusy] = useState(false)
   // Sidebearings set by hand or by key. An override on the drawing rather
@@ -371,13 +384,14 @@ export default function App() {
     held.settled = settled
     held.tol = settleTol
     held.spacing = spacing
+    held.outlines = outlines
     if (!settled.length) { setFreedom(null); return }
     let live = true
     api.freedom(settled)
       .then((f) => { if (live) setFreedom(f) })
       .catch(() => { if (live) setFreedom(null) })
     return () => { live = false }
-  }, [settled, settleTol, spacing])
+  }, [settled, settleTol, spacing, outlines])
 
   const toggleSettled = useCallback((ch: string) => {
     setSettled(settled.includes(ch)
@@ -577,6 +591,17 @@ export default function App() {
     return () => { live = false }
   }, [z, proofOn, strip, spaceText, straight, spacing])
 
+  // The letter being drawn on, with its points. Asked for with geometry,
+  // which the specimen does not need and the editor cannot work without.
+  useEffect(() => {
+    if (!z || canvas !== "glyph") return
+    let live = true
+    api.location(z, editChar, false, true, 1, straight)
+      .then((l) => { if (live) setEditGlyph(l.glyphs[0] ?? null) })
+      .catch(() => { if (live) setEditGlyph(null) })
+    return () => { live = false }
+  }, [z, canvas, editChar, straight, spacing, outlines])
+
   // All 164 glyphs, fetched only while the grid is showing. It is the largest
   // thing a location can be asked for, 336 kB before compression, and drawing
   // a specimen does not need it.
@@ -619,10 +644,11 @@ export default function App() {
     // Settling a letter, spacing one, straightening the outlines or naming an
     // axis are all changes to the work, and a file that calls itself saved
     // after any of them is lying about what is on disk.
-    settled, settleTol, straight, spacing, axes.map((a) => a.label),
+    settled, settleTol, straight, spacing, Object.keys(outlines),
+    axes.map((a) => a.label),
   ]), [trail, cursor, text, family, waypoints, axX, axY, axZ, colourBy,
        atlasHeight, ballOn, depth, radius, temperature, step,
-       settled, settleTol, straight, spacing, axes])
+       settled, settleTol, straight, spacing, outlines, axes])
   /** The signature as it was when the journey was last written or opened.
    *  Taken during render rather than in an effect: an effect on mount runs
    *  twice in development, and the second run took its reading after the first
@@ -657,6 +683,7 @@ export default function App() {
     setSettled([])
     setSettling(false)
     setSpacing({})
+    setOutlines({})
     setStraight(0)
     setEntered(false)
     armSaved.current = true
@@ -673,7 +700,7 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
-      work: { settled, settleTol, straight, spacing, axes },
+      work: { settled, settleTol, straight, spacing, outlines, axes },
     }))
     setFile(full)
     savedSig.current = signature
@@ -681,7 +708,7 @@ export default function App() {
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
       family, file, radius, waypoints, step, temperature, text, trail,
-      settled, settleTol, straight, spacing, axes])
+      settled, settleTol, straight, spacing, outlines, axes])
 
   /** The browser gives a page no way to write back to a file it was handed,
    *  so Save is Save As with the name already filled in. */
@@ -692,7 +719,7 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
-      work: { settled, settleTol, straight, spacing, axes },
+      work: { settled, settleTol, straight, spacing, outlines, axes },
     }))
     savedSig.current = signature
     opened.current = false
@@ -746,11 +773,11 @@ export default function App() {
       // version 1 file has none of this and parse fills the defaults, so
       // opening an old journey settles nothing and spaces nothing rather
       // than leaving whatever the last project left behind.
-      const w = doc.work ?? { settled: [], settleTol: 0.01, straight: 0,
-                              spacing: {}, axes: [] }
+      const w = doc.work ?? { ...NO_WORK }
       setSettled(w.settled)
       setStraight(w.straight)
       setSpacing(w.spacing)
+      setOutlines(w.outlines ?? {})
       setAxes(w.axes as LearnedAxis[])
       setSettling(false)
       setRedoStack([])
@@ -1351,7 +1378,9 @@ export default function App() {
   const enterByDrawing = () => {
     setText("no")                 // the letters that set the system
     setProofText("nnoonn")        // and the string they are spaced against
-    setSpecimenH(380)
+    setEditChar("n")
+    setCanvas("glyph")            // a letter to draw on, which is where a
+    setSpecimenH(150)             // face starts, with the word kept in view
     setProofOn(true)
     setSettling(true)
     setEntered(true)
@@ -1531,7 +1560,8 @@ export default function App() {
               <>
                 <div className="flex items-center gap-1 shrink-0 pb-1">
                   {([["map", "Vector space"],
-                     ["set", "Character set"]] as const).map(([k, label]) => (
+                     ["set", "Character set"],
+                     ["glyph", "Glyph"]] as const).map(([k, label]) => (
                     <button key={k} onClick={() => setCanvas(k)}
                       className={`text-[11px] px-1.5 py-0.5 rounded-sm border
                                   transition-colors ${canvas === k
@@ -1543,7 +1573,44 @@ export default function App() {
                   ))}
                 </div>
                 <div className="flex-1 min-h-0 min-w-0">
-                {canvas === "set" ? (
+                {canvas === "glyph" ? (
+                  <GlyphEdit
+                    char={editChar} setChar={setEditChar}
+                    glyph={editGlyph}
+                    edited={outlines[editChar] ?? null}
+                    alphabet={corpus.glyphs}
+                    busy={pulling}
+                    pulled={pulled}
+                    onEdit={(c) => {
+                      setOutlines({ ...outlines, [editChar]: c })
+                      setPulled(null)
+                    }}
+                    onClear={() => {
+                      const next = { ...outlines }
+                      delete next[editChar]
+                      setOutlines(next)
+                      setPulled(null)
+                    }}
+                    onPull={async () => {
+                      if (!z) return
+                      setPulling(true)
+                      try {
+                        const r = await api.pull({ z, glyphs: [editChar] })
+                        setPulled({ explained: r.explained,
+                                    residual: r.residual_overall,
+                                    moved: r.moved })
+                        // The space moves to the drawing; the drawing is let
+                        // go, since the point of travelling there is that the
+                        // letter is now something the space can say.
+                        const next = { ...outlines }
+                        delete next[editChar]
+                        setOutlines(next)
+                        push(r.z, "jump", `pulled to ${editChar}`)
+                      } catch (e) { setError(String(e)) }
+                      finally { setPulling(false) }
+                    }}
+                  />
+                ) : canvas === "set" ? (
                   <CharacterSet
                     glyphs={gridGlyphs} settled={settled} spacing={spacing}
                     busy={gridBusy}

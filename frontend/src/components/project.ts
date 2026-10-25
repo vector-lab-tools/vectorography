@@ -47,6 +47,9 @@ export type Project = {
     settleTol: number
     straight: number
     spacing: Record<string, { left?: string; right?: string }>
+    /** Glyphs drawn by hand. The largest decision in the file: a glyph with
+     *  one has left the space and no longer follows the location. */
+    outlines: Record<string, number[][][]>
     /** Learned axes travel whole: a vector is meaningless without the faces
      *  it was fitted from and the test that said whether it generalised. */
     axes: unknown[]
@@ -59,6 +62,7 @@ export const NO_WORK = {
   settleTol: 0.01,
   straight: 0,
   spacing: {} as Record<string, { left?: string; right?: string }>,
+  outlines: {} as Record<string, number[][][]>,
   axes: [] as unknown[],
 }
 
@@ -136,6 +140,8 @@ export function parse(raw: string, dims: number): Project {
       settled: Array.isArray(d.work?.settled) ? d.work.settled : [],
       spacing: (d.work?.spacing && typeof d.work.spacing === "object")
         ? d.work.spacing : {},
+      outlines: (d.work?.outlines && typeof d.work.outlines === "object")
+        ? d.work.outlines : {},
       axes,
     },
   } as Project

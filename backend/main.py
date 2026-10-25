@@ -76,10 +76,11 @@ def space() -> StyleSpace:
 
 
 def _glyph_subset(vec: np.ndarray, text: str, geometry: bool = False,
-                  straight: float = 0.0, spacing=None) -> list[dict]:
+                  straight: float = 0.0, spacing=None,
+                  outlines=None) -> list[dict]:
     want = {c for c in text if c in set(GLYPHS)}
     return decode_to_glyphs(vec, geometry, only=want, straight=straight,
-                            spacing=spacing)
+                            spacing=spacing, outlines=outlines)
 
 
 class Z(BaseModel):
@@ -94,6 +95,12 @@ class Z(BaseModel):
     # a number in units or a key such as "=n+8". An override on the drawing
     # rather than a move in the space, the way straightening is.
     spacing: dict[str, dict[str, str | float]] = {}
+    # Glyphs drawn by hand, as contours of points in em coordinates. These
+    # replace what the location decodes to, so a glyph carrying one has left
+    # the space: it is no longer a reading of a point in the fitted
+    # distribution. Shaped like spacing because it is the same kind of thing,
+    # a decision about the drawing held beside the place.
+    outlines: dict[str, list[list[list[float]]]] = {}
 
 
 class LocationReq(Z):
@@ -250,10 +257,10 @@ def location(req: LocationReq):
     s = space()
     vec = s.decode(req.z)
     glyphs = (decode_to_glyphs(vec, req.geometry, straight=req.straight,
-                               spacing=req.spacing)
+                               spacing=req.spacing, outlines=req.outlines)
               if req.full
               else _glyph_subset(vec, req.text, req.geometry, req.straight,
-                                 req.spacing))
+                                 req.spacing, req.outlines))
     return {
         "glyphs": glyphs,
         "altitude": s.altitude(req.z),
@@ -511,6 +518,57 @@ def spacing_report(req: SpacingReq):
     out = {"rows": sp.report(dec, GLYPHS, want, req.spacing)}
     if req.suggest:
         out["suggested"] = sp.suggest(s, want)
+    return out
+
+
+class PullReq(Z):
+    """Ask the space for the nearest location to what has been drawn."""
+    # Which drawn glyphs to fit on. Empty takes every one that has an edit.
+    glyphs: list[str] = []
+    prior: float = Field(0.01, gt=0.0, le=100.0)
+
+
+@app.post("/api/pull")
+def pull_to_drawing(req: PullReq):
+    """Travel to the nearest location the space can offer to a hand drawing.
+
+    An edited glyph has left the space: the outline is a drawing rather than a
+    reading of a point. This asks what the space would have to be standing at
+    for that drawing to be the closest thing it can say, and reports what it
+    still cannot say, which is the measure of how far the hand has gone.
+    """
+    from corpus.outlines import GLYPH_DIM, decode_vector
+    from space import project as proj
+
+    s = space()
+    if not req.outlines:
+        raise HTTPException(400, "nothing has been drawn")
+
+    # The drawing, in the coordinates the space is fitted in: the location as
+    # it stands, with the edited glyphs written over it.
+    vec = np.asarray(s.decode(req.z), dtype=np.float64).copy()
+    dec = decode_vector(vec.astype(np.float32))
+    want = [g for g in (req.glyphs or list(req.outlines))
+            if g in set(GLYPHS) and g in req.outlines]
+    if not want:
+        raise HTTPException(400, "none of those glyphs has been drawn")
+    from render import _lay_in
+    for ch in want:
+        i = GLYPHS.index(ch)
+        laid = _lay_in(dec["contours"][i], req.outlines[ch])
+        if laid.shape != dec["contours"][i].shape:
+            raise HTTPException(
+                422, f"the drawing of {ch!r} has the wrong shape for this model")
+        vec[i * GLYPH_DIM:(i + 1) * GLYPH_DIM] = laid.reshape(-1)
+
+    # No realignment: the drawing was made on outlines this model produced, so
+    # the points are already in the corpus's correspondence. Rotating them
+    # against the mean, as an imported font needs, would move the hand's work.
+    out = proj.fit(s, vec, want, align=False, prior=req.prior)
+    z1 = np.asarray(out["z"])
+    out["neighbours"] = s.neighbours(z1, 5)
+    out["altitude"] = s.altitude(z1)
+    out["moved"] = float(np.linalg.norm(z1 - np.asarray(req.z, dtype=np.float64)))
     return out
 
 
