@@ -1,6 +1,6 @@
 import { Modal } from "./Modal"
 
-export type HelpTopic = "what" | "readings" | "keys"
+export type HelpTopic = "what" | "keys"
 
 /**
  * What the instrument is telling you, and how to work it.
@@ -15,8 +15,7 @@ export function Help({ topic, onClose }: {
   onClose: () => void
 }) {
   return topic === "keys" ? <Keys onClose={onClose} />
-    : topic === "what" ? <What onClose={onClose} />
-    : <Readings onClose={onClose} />
+    : <What onClose={onClose} />
 }
 
 function What({ onClose }: { onClose: () => void }) {
@@ -56,8 +55,8 @@ function What({ onClose }: { onClose: () => void }) {
           <p className="mb-2">
             <strong>There is no generate button.</strong> Nothing here takes a
             description and returns a result. Every control is a movement: a
-            step, a drift, a repulsion, an orbit, a drag on the letterform
-            itself. You arrive at a typeface the way you arrive at a place.
+            step, a drift, a repulsion, a pull onto a drawing, a drag on the
+            letterform itself. You arrive at a typeface the way you arrive at a place.
           </p>
           <p>
             <strong>It shows you the pull towards the average.</strong> Any
@@ -81,44 +80,7 @@ function What({ onClose }: { onClose: () => void }) {
           </p>
         </Section>
 
-        <p className="text-[10px] text-muted-foreground pt-2 border-t
-                      border-border/60">
-          Created by David M. Berry, University of Sussex. Version{" "}
-          {__APP_VERSION__}, August 2026. Copyright © 2026 David M. Berry,
-          GPL-3.0.
-        </p>
-      </div>
-    </Modal>
-  )
-}
-
-function Row({ term, children }: { term: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-[7.5rem_1fr] gap-1 sm:gap-3
-                    items-baseline py-1.5
-                    border-b border-border/40 last:border-0">
-      <span className="rail-label !text-[8px] pt-0.5">{term}</span>
-      <span className="text-[12px] leading-relaxed">{children}</span>
-    </div>
-  )
-}
-
-function Section({ title, children }: {
-  title: string; children: React.ReactNode
-}) {
-  return (
-    <section className="mb-5 last:mb-0">
-      <h3 className="font-display text-[13px] mb-1.5">{title}</h3>
-      {children}
-    </section>
-  )
-}
-
-function Readings({ onClose }: { onClose: () => void }) {
-  return (
-    <Modal title="What the readings mean" wide onClose={onClose}
-           subtitle="The instrument measures where you are, not only what you drew">
-      <div className="max-h-none sm:max-h-[62vh] overflow-y-auto pr-2">
+        <div className="pt-3 border-t border-border">
         <Section title="The pull towards the middle">
           <p className="text-[12px] leading-relaxed mb-2">
             A vector space fitted on a corpus has a centre, and the centre is
@@ -171,33 +133,45 @@ function Readings({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="Ways of moving">
-          <Row term="traverse">
-            One step out on the two axes the map is drawn in. There is no
-            generate button because there is nothing to generate: the
-            letterforms are already everywhere in the space.
+          <Row term="step">
+            A step either way along each axis, set as text under the canvas,
+            so the candidates are read rather than guessed at. Every row moves
+            the letters the same distance, 0.04 em, which is what makes two
+            rows comparable: scaled by each axis's own spread instead, weight
+            moved 0.0127 em against width's 0.0410 and the sheet was a
+            picture of the corpus rather than of the face.
           </Row>
           <Row term="drift">
-            A random walk, scaled by temperature.
+            A random walk, scaled by the amount in Settings.
           </Row>
           <Row term="repel">
             A step directly against the local density gradient, away from
             wherever the corpus is thickest. This is the anti-average control.
           </Row>
-          <Row term="ride">
-            The difference between two real families, taken as a heading you
-            can steer by from anywhere.
+          <Row term="rigidify">
+            Half the way to the nearest real family, and half again on the
+            next press, for when a face has gone further out than it should
+            have.
           </Row>
-          <Row term="orbit">
-            Circle one family at your present distance, to see what sits at the
-            same remove from it in every direction.
+          <Row term="pull here">
+            Move the typeface to a drawing. A hand-drawn contour is 401
+            coordinates against 128 dimensions, so it is a least squares with
+            the corpus prior as its ridge term, and the reading says how far
+            it reached: a stretched contour pulls to about 48 per cent, a
+            single moved point to 6.
+          </Row>
+          <Row term="dragging a letter">
+            The letterform itself as the control. The part under the hand
+            decides which property moves, so a stem edge moves weight and the
+            top of an x moves x-height.
           </Row>
         </Section>
 
         <Section title="Working the letterform">
           <p className="text-[12px] leading-relaxed mb-2">
-            Three ways for the hand to drive the type, chosen from the first
-            group of the toolbar on the specimen. Press a tool a second time,
-            or hold it, to see what it is set to.
+            Three ways for the hand to drive the type, chosen in Settings.
+            They were a toolbar of seven icons over the letters, which is
+            where the canvas had been going.
           </p>
           <Row term="handles">
             Grab the part of the letter that carries the property: the side of
@@ -238,8 +212,38 @@ function Readings({ onClose }: { onClose: () => void }) {
             is not, because that belongs in a file.
           </Row>
         </Section>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground pt-2 border-t
+                      border-border/60">
+          Created by David M. Berry, University of Sussex. Version{" "}
+          {__APP_VERSION__}, October 2026. Copyright © 2026 David M. Berry,
+          GPL-3.0.
+        </p>
       </div>
     </Modal>
+  )
+}
+
+function Row({ term, children }: { term: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[7.5rem_1fr] gap-1 sm:gap-3
+                    items-baseline py-1.5
+                    border-b border-border/40 last:border-0">
+      <span className="rail-label !text-[8px] pt-0.5">{term}</span>
+      <span className="text-[12px] leading-relaxed">{children}</span>
+    </div>
+  )
+}
+
+function Section({ title, children }: {
+  title: string; children: React.ReactNode
+}) {
+  return (
+    <section className="mb-5 last:mb-0">
+      <h3 className="font-display text-[13px] mb-1.5">{title}</h3>
+      {children}
+    </section>
   )
 }
 
@@ -261,18 +265,15 @@ const POINTER: [string, string][] = [
   ["Hover a family", "Name it"],
   ["Click a stop", "Return to it, keeping everything after it"],
   ["Double-click a stop", "Mark or unmark it as a waypoint"],
-  ["Hold a tool", "Open what it is set to"],
-  ["Drag the toolbar's grip", "Move it to another edge of the specimen"],
-  ["Drag a divider", "Trade room between the specimen, the map and the panels"],
+  ["Click a metrics card", "Select that letter for the inspector and for edit mode"],
+  ["Click the open tab", "Retype the string it is set in"],
 ]
 
 const TOUCH: [string, string][] = [
-  ["The lower half", "One instrument at a time: map, steer, trail, traverse, settings"],
+  ["The handle between the two", "Trade room between the canvas and the inspector"],
   ["Two fingers in the map", "Pinch to zoom; one finger turns the model"],
   ["Tap a family", "Names it; tap it again to travel there"],
   ["The fader", "Stands in for the wheel when modifier drives a third property"],
-  ["Tap the altitude strip", "Show the readings, since there is nothing to hover"],
-  ["Hold a tool", "Open what it is set to"],
 ]
 
 function Keys({ onClose }: { onClose: () => void }) {

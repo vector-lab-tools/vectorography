@@ -12,7 +12,7 @@ export type Project = {
   /** 1 was the journey and how it was being looked at. 2 adds what the
    *  designer decided about the typeface itself, which a project that does not
    *  carry it is not really a project. Files at 1 still open. */
-  version: 1 | 2
+  version: 1 | 2 | 3
   saved: string
   model: { id: string; version?: string } | null
   family: string
@@ -53,6 +53,11 @@ export type Project = {
     /** Learned axes travel whole: a vector is meaningless without the faces
      *  it was fitted from and the test that said whether it generalised. */
     axes: unknown[]
+    /** The tabs open, and the strings they are set in. A string somebody
+     *  chose to space a face against is part of the work, not a view of it:
+     *  nnoonn and a paragraph of running text are two different judgements
+     *  and a project is usually in the middle of both. Added at version 3. */
+    docs?: unknown[]
   }
 }
 
@@ -64,6 +69,7 @@ export const NO_WORK = {
   spacing: {} as Record<string, { left?: string; right?: string }>,
   outlines: {} as Record<string, number[][][]>,
   axes: [] as unknown[],
+  docs: undefined as unknown[] | undefined,
 }
 
 export const PROJECT_EXT = ".vgy"
@@ -79,7 +85,7 @@ export function serialise(p: Omit<Project, "format" | "version" | "saved">)
     : string {
   const doc: Project = {
     format: "vectorography/project",
-    version: 2,
+    version: 3,
     saved: new Date().toISOString(),
     ...p,
   }
@@ -103,7 +109,7 @@ export function parse(raw: string, dims: number): Project {
   const d = doc as Partial<Project>
   if (!d || d.format !== "vectorography/project")
     throw new Error("That is not a Vectorography project file.")
-  if (d.version !== 1 && d.version !== 2)
+  if (d.version !== 1 && d.version !== 2 && d.version !== 3)
     throw new Error(`Project format ${String(d.version)} is newer than this `
                     + "version of Vectorography can read.")
   if (!Array.isArray(d.trail) || d.trail.length === 0)
@@ -142,6 +148,9 @@ export function parse(raw: string, dims: number): Project {
         ? d.work.spacing : {},
       outlines: (d.work?.outlines && typeof d.work.outlines === "object")
         ? d.work.outlines : {},
+      // A file written before version 3 has no tabs, and the ones already
+      // open are left alone rather than replaced with a guess.
+      docs: Array.isArray(d.work?.docs) ? d.work.docs : undefined,
       axes,
     },
   } as Project

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
+import { api, held, type AtlasData, type CorpusInfo,
          type Freedom, type Glyph, type Location,
          type LearnedAxis, type NamedDirection, type Projection,
          type SpacingRow, type SpacingSuggestion,
@@ -12,9 +12,13 @@ import { ProofSheet } from "./components/ProofSheet"
 import { SpaceCenter } from "./components/SpaceCenter"
 import { Atlas, type Waypoint } from "./components/Atlas"
 import { CharacterSet } from "./components/CharacterSet"
-import { ComingSoon, type Planned } from "./components/ComingSoon"
 import { GlyphEdit } from "./components/GlyphEdit"
 import { Inspector, Section } from "./components/Inspector"
+import { Divergence } from "./components/Divergence"
+import { FamilyPicker } from "./components/FamilyPicker"
+import { GlyphMetrics } from "./components/GlyphMetrics"
+import { Tabs, type Doc } from "./components/Tabs"
+import { TrailPalette } from "./components/TrailPalette"
 import { Doors } from "./components/Doors"
 import { ExportPanel, type ExportKind } from "./components/Export"
 import { Help, type HelpTopic } from "./components/Help"
@@ -26,16 +30,13 @@ import { download, NO_WORK, parse, pickFile, pickFont, projectFilename,
          serialise }
   from "./components/project"
 import { ShareCard } from "./components/ShareCard"
-import { cardPng, cardSvg, sendCard } from "./components/cardImage"
-import { CompassRose } from "./components/CompassRose"
 import { DirectionPad } from "./components/DirectionPad"
 import { JourneyTester } from "./components/JourneyTester"
 import { MenuBar, type Menu } from "./components/MenuBar"
 import { SpecimenStage, type Depth, type DragReport }
   from "./components/SpecimenStage"
 import type { HandleKind } from "./components/handles"
-import { Trail, type Crumb } from "./components/Trail"
-import { TravelBar, type Orbit, type Ride } from "./components/TravelBar"
+import { type Crumb } from "./components/Trail"
 import { useIsMobile } from "./hooks/useIsMobile"
 import { useKept } from "./kept"
 
@@ -48,69 +49,6 @@ const DEFAULT_TEXT = "Hamburgefonstiv"
  * spacing test. The pangram is for reading running text, which is a different
  * judgement from reading a shape.
  */
-/**
- * The scales of work this instrument will grow into. A mode is what you are
- * working on, which is why these are not in the View menu: view is how you
- * look at what you already have.
- */
-const PLANNED: Record<"glyph" | "set" | "compare" | "licence", Planned> = {
-  glyph: {
-    title: "Edit a glyph",
-    blurb: "Work on one letter rather than the whole typeface. Travelling "
-      + "moves every glyph together, because a location in the space is a "
-      + "whole alphabet; a designer who wants this g and not that one needs to "
-      + "leave the space for a moment and come back with the change.",
-    needs: [
-      "A per-glyph position, so one letter can sit away from the location the "
-        + "rest share, and a rule for what that means when the journey is "
-        + "compiled.",
-      "Outline editing that survives the round trip: points moved by hand have "
-        + "to keep the point count the masters interpolate on.",
-      "A way to show that a glyph has been taken off the location, since the "
-        + "specimen would otherwise be quietly lying about where it is.",
-    ],
-  },
-  set: {
-    title: "The whole character set",
-    blurb: "Every glyph the model carries, laid out at once, so a location can "
-      + "be judged as an alphabet rather than as a word. The decode already "
-      + "produces all sixty-two.",
-    needs: [
-      "A grid that stays readable at sixty-two glyphs and redraws fast enough "
-        + "to keep up with a drag.",
-      "Somewhere to say which glyphs the space handles badly, since the pads "
-        + "for missing counters show up here first.",
-    ],
-  },
-  licence: {
-    title: "Choose a licence for the export",
-    blurb: "Pick the terms a compiled typeface goes out under, and have them "
-      + "written into the font itself rather than added by hand afterwards. A "
-      + "typeface that leaves here carries a name table, and the licence "
-      + "belongs in it.",
-    needs: [
-      "A choice at export time, remembered per journey rather than per "
-        + "session, since the licence belongs to the typeface and not to the "
-        + "afternoon it was made in.",
-      "The name table fields that carry it: licence description and licence "
-        + "URL, which fontTools writes but nothing currently fills.",
-      "The same text in the bundle README, so the zip and the binary do not "
-        + "disagree.",
-    ],
-  },
-  compare: {
-    title: "Compare two locations",
-    blurb: "Two positions side by side, or overlaid, with the difference "
-      + "between them named in measured properties. The instrument can say "
-      + "where you are; it cannot yet say how here differs from there.",
-    needs: [
-      "A second held position, which the keep control already provides.",
-      "A difference read out in the eight measured properties, which is the "
-        + "same arithmetic the ride heading uses.",
-    ],
-  },
-}
-
 const dot = (a: number[], c: number[]) =>
   a.reduce((t, ai, i) => t + ai * c[i], 0)
 
@@ -133,8 +71,62 @@ export default function App() {
   const [cursor, setCursor] = useState(0)
   const [defaultText, setDefaultText] = useState(
     () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
-  const [text, setText] = useState(
-    () => localStorage.getItem(TEXT_KEY) || DEFAULT_TEXT)
+  /*
+    What the window is showing, as tabs.
+
+    One Font tab holding the character set, a tab per string being worked on,
+    and the Map. Five separate surfaces used to show the same typeface at once
+    with no way to keep two strings open, which is how every font editor has
+    worked since Fontographer.
+  */
+  const [docs, setDocs] = useKept<Doc[]>("vg.docs", [
+    { kind: "font" },
+    { kind: "text", id: 1, text: "nnoonn" },
+    { kind: "text", id: 2, text: DEFAULT_TEXT },
+    { kind: "map" },
+  ], (v) => Array.isArray(v) && v.length > 0
+            && v.some((d) => d && d.kind === "text"))
+  const [docAt, setDocAt] = useKept("vg.docat", 1,
+    (v) => typeof v === "number" && v >= 0)
+  /*
+    Text mode sets the string; edit mode draws on one letter of it.
+
+    Edit is the default, because a font editor opens on a glyph. Glyphs,
+    FontLab and RoboFont all put one letter at drawing size in front of you
+    and keep the string as the thing you check it in. This opened on a word,
+    which is the proof rather than the work.
+  */
+  const [mode, setMode] = useKept<"text" | "edit">("vg.mode", "edit",
+    (v) => v === "text" || v === "edit")
+  /** The size the canvas sets at, in points. Proof is this, small. */
+  const [size, setSize] = useKept("vg.size", 180,
+    (v) => typeof v === "number" && v >= 9 && v <= 400)
+  /** The trail, open over the work rather than held open beside it. */
+  const [trailOpen, setTrailOpen] = useState(false)
+  /** What the canvas managed, which is the size asked for unless the string
+   *  is too long to fit the box at it. */
+  const [drawnAt, setDrawnAt] = useState<number | null>(null)
+  /** Both were buttons on the stage toolbar the two canvas modes replaced. */
+  const [points, setPoints] = useKept<"on" | "minimal" | "off">(
+    "vg.points.v2", "on",
+    (v) => v === "on" || v === "minimal" || v === "off")
+  const [guides, setGuides] = useKept("vg.guides.v2", true,
+    (v) => typeof v === "boolean")
+  const [priority, setPriority] = useKept<HandleKind | "all">(
+    "vg.handle.v2", "all", (v) => typeof v === "string")
+  const at = Math.min(docAt, docs.length - 1)
+  const doc = docs[at]
+  // The string belongs to a tab. When the Font or Map tab is in front there
+  // is still a string to set the map's sample and the proof in, so it is the
+  // nearest text tab's rather than nothing.
+  const textAt = doc?.kind === "text"
+    ? at : docs.findIndex((d) => d.kind === "text")
+  const text = (docs[textAt] as { text?: string } | undefined)?.text
+    ?? DEFAULT_TEXT
+  const setText = useCallback((t: string) => {
+    setDocs(docs.map((d, i) =>
+      i === textAt && d.kind === "text" ? { ...d, text: t } : d))
+  }, [docs, setDocs, textAt])
   const [radius, setRadius] = useKept("vg.radius", 0.6, ((v) => typeof v === "number"))
   const [temperature, setTemperature] = useKept("vg.temp", 0.5, ((v) => typeof v === "number"))
   const [step, setStep] = useKept("vg.step", 0.5, ((v) => typeof v === "number"))
@@ -144,8 +136,6 @@ export default function App() {
   const [axX, setAxX] = useKept("vg.axX", "axis:0", ((v) => typeof v === "string"))
   const [axY, setAxY] = useKept("vg.axY", "axis:1", ((v) => typeof v === "string"))
   const [axZ, setAxZ] = useKept("vg.axZ", "axis:2", ((v) => typeof v === "string"))
-  const [ride, setRide] = useState<Ride>(null)
-  const [orbit, setOrbit] = useState<Orbit>(null)
   const [family, setFamily] = useState("Unnamed")
   const [testing, setTesting] = useState(false)
   const [about, setAbout] = useState(false)
@@ -165,7 +155,6 @@ export default function App() {
   // is the whole typeface at once; the rest are the scales of work this will
   // grow into, and they are listed now so the shape of the tool is visible
   // before the parts exist.
-  const [planned, setPlanned] = useState<Planned | null>(null)
   const [sharing, setSharing] = useState(false)
   const [directions, setDirections] = useState<NamedDirection[]>([])
   const [atlas, setAtlas] = useState<AtlasData | null>(null)
@@ -221,31 +210,17 @@ export default function App() {
     (v) => Array.isArray(v) && v.every((c) => typeof c === "string"))
   const [settleTol] = useKept("vg.settletol", 0.01,
     (v) => typeof v === "number" && v > 0 && v <= 0.5)
-  // Whether a press on a letter settles it rather than taking hold of it.
-  // A mode rather than a setting, so it is not kept.
-  const [settling, setSettling] = useState(false)
   const [freedom, setFreedom] = useState<Freedom | null>(null)
   // A drawing somebody already made, and where the space puts it.
   const [projected, setProjected] =
     useState<{ result: Projection; file: string } | null>(null)
-  // The proof sits under the map rather than instead of it, so this is
-  // whether the strip is open and how tall it is, not which of two things the
-  // window is showing.
-  const [proofOn, setProofOn] = useKept("vg.proof", true,
+  // What a step either way along each axis looks like, set as text under the
+  // canvas. This is the preview belonging to Diverge > Step rather than a
+  // view of its own: the rows are the candidates that item would take.
+  const [stepOn, setStepOn] = useKept("vg.step.on", false,
     (v) => typeof v === "boolean")
-  const [proofH, setProofH] = useKept("vg.proofh", 190,
+  const [proofH] = useKept("vg.proofh", 190,
     (v) => typeof v === "number" && v >= 96 && v <= 900)
-  // Which of the two things the strip under the canvas is showing. Proof is
-  // what a location looks like a step either way; spacing is the numbers
-  // under the letters. Both are glanced down at while working above.
-  const [strip, setStrip] = useKept<"proof" | "space">("vg.strip", "proof",
-    (v) => v === "proof" || v === "space")
-  // The canvas under the specimen: the corpus as a place, or this typeface as
-  // a character set. Every font editor opens on the second of those, and this
-  // one had no way to see the other hundred and fifty glyphs at all.
-  const [canvas, setCanvas] = useKept<"map" | "set" | "glyph">(
-    "vg.canvas", "map",
-    (v) => v === "map" || v === "set" || v === "glyph")
   // The letter being drawn on, and the drawings. An edited glyph has left the
   // space: it stops following the location, which is what the edit is for.
   const [editChar, setEditChar] = useKept("vg.editchar", "n",
@@ -263,8 +238,6 @@ export default function App() {
   const [spacing, setSpacing] = useKept<Record<string,
     { left?: string; right?: string }>>("vg.spacing", {},
     (v) => !!v && typeof v === "object")
-  const [spaceText, setSpaceText] = useKept("vg.spacetext", "nnoonn",
-    (v) => typeof v === "string")
   const [spaceRows, setSpaceRows] = useState<SpacingRow[]>([])
   const [spaceGlyphs, setSpaceGlyphs] = useState<Glyph[]>([])
   const [suggestions, setSuggestions] =
@@ -353,30 +326,13 @@ export default function App() {
   // Below lg the instruments share one region and swap by tab; the specimen
   // and the atlas stay on screen throughout, because they are the work.
   const isMobile = useIsMobile()
-  const TABS = ["atlas", "steer", "trail", "walk", "settings"]
   // How the phone's window is shared between the specimen and whatever tab
   // is showing. Kept, because it is a decision about the desk, and a
   // designer who wants a big map wants it on every visit.
-  // How tall the letters are at desk widths. The atlas takes what is left,
-  // so this handle is the same bargain as the one below it.
-  const [specimenH, setSpecimenH] = useState(() => {
-    const kept = Number(localStorage.getItem("vg.specimen"))
-    // Was 168, which made the letters a band above the instruments. With the
-    // instruments gone into the sidebar the specimen is the canvas, and a
-    // canvas opens at a size the work can be judged at.
-    return kept >= 90 && kept <= 900 ? kept : 330
-  })
   const [phoneSplit, setPhoneSplit] = useState(() => {
     const kept = Number(localStorage.getItem("vg.split"))
     return kept >= 0.18 && kept <= 0.82 ? kept : 0.4
   })
-  const [tab, setTab] = useState(() => {
-    const kept = localStorage.getItem("vg.tab")
-    return kept && TABS.includes(kept) ? kept : "atlas"
-  })
-  const pickTab = (t: string) => {
-    setTab(t); localStorage.setItem("vg.tab", t)
-  }
 
   // The api module carries these on every request, so a control added later
   // honours what has been settled without having to remember to.
@@ -403,41 +359,13 @@ export default function App() {
     if (!settled.length) return null
     const letters = settled.slice(0, 8).join("")
       + (settled.length > 8 ? `+${settled.length - 8}` : "")
-    return `settled \u00b7 ${letters}`
+    return `decided \u00b7 ${letters}`
   }, [settled])
 
 
   const [location, setLocation] = useState<Location | null>(null)
-  const [compass, setCompass] = useState<CompassPoint[]>([])
   const [busy, setBusy] = useState(false)
 
-  /**
-   * The readings that have to survive a change of view.
-   *
-   * Altitude and density were drawn inside the atlas, so the proof sheet took
-   * them off the screen: the instruments that exist to show the pull toward
-   * the average went dark at the moment a designer starts shaping. They are a
-   * property of where the work stands, not of one way of looking at it.
-   */
-  const readings = useMemo(() => {
-    const a = location?.altitude
-    const out: { label: string; value: string; tone?: string }[] = []
-    if (a) {
-      const far = corpus ? a.centroid_distance > corpus.centroid_max : false
-      out.push({ label: "from centre", value: a.centroid_distance.toFixed(1),
-                 tone: far ? "text-gold" : undefined })
-      out.push({ label: "density",
-                 value: `${a.density_percentile.toFixed(0)}th`,
-                 tone: a.density_percentile > 75 ? "text-gold" : undefined })
-    }
-    const free = freedom?.free?.[String(settleTol)]
-    if (free != null) {
-      out.push({ label: "free",
-                 value: `${free}/${freedom?.dims ?? 128}`,
-                 tone: free < 12 ? "text-gold" : undefined })
-    }
-    return out
-  }, [location, freedom, settleTol, corpus])
 
   const here = trail.find((c) => c.id === cursor) ?? null
   const z = here?.z ?? null
@@ -489,10 +417,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    api.basis(axX, axY, axZ, ride?.vec ?? null)
+    api.basis(axX, axY, axZ, null)
       .then((b) => { basis.current = b })
       .catch(() => { basis.current = null })
-  }, [axX, axY, axZ, ride])
+  }, [axX, axY, axZ])
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -517,10 +445,6 @@ export default function App() {
     return t || "Ham"
   }, [text])
 
-  const compassText = useMemo(() => {
-    const t = [...text].filter((c) => c !== " ").slice(0, 3).join("")
-    return t || "ag"
-  }, [text])
 
   // What the sheet sets. The specimen's own text is usually one word, and a
   // word at three hundred pixels says nothing about how a face reads.
@@ -536,17 +460,14 @@ export default function App() {
     setBusy(true)
     Promise.all([
       api.location(z, text, false, false, 24, straight),
-      api.compass(z, compassText, radius, axX, axY, ride?.vec ?? null),
       // The map is drawn from the families' own font files, so the server
       // only has to decode the traveller's own specimen.
       api.atlas({ z, text: atlasChar, ax: axX, ay: axY, az: axZ,
-                  ride: ride?.vec ?? null,
                   height: ballOn ? "axis" : atlasHeight,
                   sprites: 0, colour_by: colourBy, trail: ancestryZ }),
-    ]).then(([loc, comp, atl]) => {
+    ]).then(([loc, atl]) => {
       if (n !== seq.current) return
       setLocation(loc)
-      setCompass(comp.points)
       setAtlas(atl)
       // The locally computed position is let go only now, when the server's
       // own answer is in hand. Dropped at the end of the gesture instead, the
@@ -557,7 +478,7 @@ export default function App() {
       }
     }).catch((e) => { if (n === seq.current) setError(String(e)) })
       .finally(() => { if (n === seq.current) setBusy(false) })
-  }, [z, text, compassText, atlasChar, radius, axX, axY, axZ, ride,
+  }, [z, text, atlasChar, axX, axY, axZ,
       atlasHeight, colourBy, ballOn, ancestryZ, straight])
 
   // The sheet is fetched only while it is being looked at. It is the largest
@@ -565,7 +486,7 @@ export default function App() {
   // keeping it current behind the atlas would cost that on every move for
   // nothing.
   useEffect(() => {
-    if (!z || !proofOn) return
+    if (!z || !stepOn) return
     let live = true
     setSheetBusy(true)
     api.sheet({ z, text: proofText, radius: sheetRadius,
@@ -574,39 +495,38 @@ export default function App() {
       .catch((e) => { if (live) setError(String(e)) })
       .finally(() => { if (live) setSheetBusy(false) })
     return () => { live = false }
-  }, [z, proofOn, proofText, sheetRadius, sheetProps, straight])
+  }, [z, stepOn, proofText, sheetRadius, sheetProps, straight])
 
-  // The spacing readout, fetched only while that strip is showing. It is a
-  // decode and a measure per glyph, which is cheap, and asking for it behind
-  // the proof would be paying for a reading nobody is looking at.
+  // The sidebearings under the letters, and in the inspector for whichever
+  // letter is selected. A decode and a measure per glyph, which is cheap.
   useEffect(() => {
-    if (!z || !proofOn || strip !== "space") return
+    if (!z) return
     let live = true
-    api.spacing({ z, text: spaceText, straight })
+    api.spacing({ z, text, straight })
       .then((r) => { if (live) setSpaceRows(r.rows) })
       .catch(() => { if (live) setSpaceRows([]) })
-    api.location(z, spaceText, false, false, 1, straight)
+    api.location(z, text, false, false, 1, straight)
       .then((l) => { if (live) setSpaceGlyphs(l.glyphs) })
       .catch(() => { if (live) setSpaceGlyphs([]) })
     return () => { live = false }
-  }, [z, proofOn, strip, spaceText, straight, spacing])
+  }, [z, text, straight, spacing])
 
   // The letter being drawn on, with its points. Asked for with geometry,
   // which the specimen does not need and the editor cannot work without.
   useEffect(() => {
-    if (!z || canvas !== "glyph") return
+    if (!z || doc?.kind !== "text" || mode !== "edit") return
     let live = true
     api.location(z, editChar, false, true, 1, straight)
       .then((l) => { if (live) setEditGlyph(l.glyphs[0] ?? null) })
       .catch(() => { if (live) setEditGlyph(null) })
     return () => { live = false }
-  }, [z, canvas, editChar, straight, spacing, outlines])
+  }, [z, doc?.kind, mode, editChar, straight, spacing, outlines])
 
   // All 164 glyphs, fetched only while the grid is showing. It is the largest
   // thing a location can be asked for, 336 kB before compression, and drawing
   // a specimen does not need it.
   useEffect(() => {
-    if (!z || canvas !== "set") return
+    if (!z || doc?.kind !== "font") return
     let live = true
     setGridBusy(true)
     api.location(z, "", true, false, 1, straight)
@@ -614,7 +534,7 @@ export default function App() {
       .catch(() => { if (live) setGridGlyphs([]) })
       .finally(() => { if (live) setGridBusy(false) })
     return () => { live = false }
-  }, [z, canvas, straight, spacing])
+  }, [z, doc?.kind, straight, spacing])
 
   // Ids come from a counter rather than from the trail's length, and the
   // updater stays pure. Setting the cursor inside it made the update a side
@@ -648,7 +568,7 @@ export default function App() {
     axes.map((a) => a.label),
   ]), [trail, cursor, text, family, waypoints, axX, axY, axZ, colourBy,
        atlasHeight, ballOn, depth, radius, temperature, step,
-       settled, settleTol, straight, spacing, outlines, axes])
+       settled, settleTol, straight, spacing, outlines, axes, docs])
   /** The signature as it was when the journey was last written or opened.
    *  Taken during render rather than in an effect: an effect on mount runs
    *  twice in development, and the second run took its reading after the first
@@ -681,7 +601,6 @@ export default function App() {
     setWaypoints([])
     setFile(null)
     setSettled([])
-    setSettling(false)
     setSpacing({})
     setOutlines({})
     setStraight(0)
@@ -700,7 +619,8 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
-      work: { settled, settleTol, straight, spacing, outlines, axes },
+      work: { settled, settleTol, straight, spacing, outlines, axes,
+              docs },
     }))
     setFile(full)
     savedSig.current = signature
@@ -719,13 +639,15 @@ export default function App() {
       family, text, trail, cursor, waypoints,
       view: { axX, axY, axZ, colourBy, atlasHeight, ballOn, depth },
       travel: { radius, temperature, step },
-      work: { settled, settleTol, straight, spacing, outlines, axes },
+      work: { settled, settleTol, straight, spacing, outlines, axes,
+              docs },
     }))
     savedSig.current = signature
     opened.current = false
     setMark((m) => m + 1)
   }, [signature, atlasHeight, axX, axY, axZ, ballOn, colourBy, corpus, cursor, depth,
-      family, file, radius, saveAs, waypoints, step, temperature, text, trail])
+      family, file, radius, saveAs, waypoints, step, temperature, text, trail,
+      settled, settleTol, straight, spacing, outlines, axes, docs])
 
   /**
    * Run the space backwards: take a drawing somebody already made and ask
@@ -779,7 +701,10 @@ export default function App() {
       setSpacing(w.spacing)
       setOutlines(w.outlines ?? {})
       setAxes(w.axes as LearnedAxis[])
-      setSettling(false)
+      if (Array.isArray(w.docs) && w.docs.length) {
+        setDocs(w.docs as Doc[])
+        setDocAt(0)
+      }
       setRedoStack([])
       setFile(picked.name)
       // The reading is taken once the state above has landed, not here.
@@ -842,11 +767,11 @@ export default function App() {
     setBusy(true)
     try {
       const r = await api.travel({ z, radius, ax: axX, ay: axY, az: axZ,
-                                   ride: ride?.vec ?? null, temperature, step,
+                                   ride: null, temperature, step,
                                    ...body })
       push(r.z, mode, label)
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [z, radius, axX, axY, axZ, ride, temperature, step, push])
+  }, [z, radius, axX, axY, axZ, temperature, step, push])
 
   const walk = useCallback((bearing: number) =>
     travel({ mode: "walk", bearing }, "walk",
@@ -1010,6 +935,14 @@ export default function App() {
     } catch (e) { setError(String(e)) }
   }, [push])
 
+  /** Bring a text tab to the front, since both canvas modes work on one. */
+  const goToText = useCallback(() => {
+    if (doc?.kind !== "text") {
+      const i = docs.findIndex((d) => d.kind === "text")
+      if (i >= 0) setDocAt(i)
+    }
+  }, [doc, docs, setDocAt])
+
   // Arrow keys move. The instrument should feel like a vehicle.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1026,6 +959,8 @@ export default function App() {
         e.preventDefault(); undo()
       }
       if (e.key === "Escape") { e.preventDefault(); resetToSane(); return }
+      if (e.key === "t" || e.key === "T") { goToText(); setMode("text") }
+      if (e.key === "e" || e.key === "E") { goToText(); setMode("edit") }
       const meta = e.metaKey || e.ctrlKey
       if (meta && e.key.toLowerCase() === "z") {
         e.preventDefault()
@@ -1042,11 +977,16 @@ export default function App() {
         e.preventDefault(); setExporting(true)
       }
       if (meta && e.key === ",") { e.preventDefault(); setSettingsOpen(true) }
+      if (meta && e.key === "1") {
+        e.preventDefault()
+        const i = docs.findIndex((d) => d.kind === "font")
+        if (i >= 0) setDocAt(i)
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [walk, travel, temperature, step, here, undo, redo, resetToSane,
-      save, saveAs, openProject, newProject])
+      save, saveAs, openProject, newProject, goToText, setMode, docs, setDocAt])
 
   // The journey exported is the path actually taken to get here, root to
   // cursor, so a branch exports its own line rather than the whole tree.
@@ -1069,19 +1009,6 @@ export default function App() {
     try { await api.download("/api/export/svg", { z, text }, "specimen.svg") }
     catch (e) { setError(String(e)) }
   }, [z, text])
-
-  /** Straight to the share sheet, without stopping to look at it. */
-  const shareNow = useCallback(async () => {
-    if (!z) return
-    setBusy(true)
-    try {
-      const svg = await cardSvg({ z, text, family })
-      const png = await cardPng(svg)
-      const how = await sendCard(png, (family || text).replace(/ /g, ""),
-                                 family || text)
-      if (how !== "shared" && how !== "cancelled") setError(`Share card ${how}`)
-    } catch (e) { setError(String(e)) } finally { setBusy(false) }
-  }, [z, text, family])
 
   const exportFamily = useCallback(async () => {
     if (!z) return
@@ -1172,200 +1099,231 @@ export default function App() {
     setBallOn(true)
   }, [])
 
+  /*
+    What the corpus would write for each sidebearing, and how steadily.
+
+    Restricted to the sixty families nearest the centroid, not all 441.
+    Across the whole corpus m and n agree to only +/-17.8 units, which is no
+    use; in the text core m~n holds to +/-9.7 and o~c to +/-4.1.
+  */
+  const suggest = useCallback(async () => {
+    if (!z) return
+    setSuggesting(true)
+    try {
+      const r = await api.spacing({ z, text, straight, suggest: true })
+      setSuggestions(r.suggested ?? null)
+      setSpaceRows(r.rows)
+    } catch (e) { setError(String(e)) }
+    finally { setSuggesting(false) }
+  }, [z, text, straight])
+
+  /*
+    Move the typeface to a drawing, as far as the space can reach it.
+
+    A hand-drawn contour is not a point in the space: it is 401 coordinates
+    against 128 dimensions, so the fit is a least squares with the corpus
+    prior as its ridge term. Measured: a stretched contour pulls to 47.6 per
+    cent of the way, a single moved point to 6. The drawing is then let go,
+    because the point of travelling there is that the letter has become
+    something the space can say.
+  */
+  const pullToDrawing = useCallback(async () => {
+    if (!z) return
+    setPulling(true)
+    try {
+      const r = await api.pull({ z, glyphs: [editChar] })
+      setPulled({ explained: r.explained, residual: r.residual_overall,
+                  moved: r.moved })
+      const next = { ...outlines }
+      delete next[editChar]
+      setOutlines(next)
+      push(r.z, "jump", `pulled to ${editChar}`)
+    } catch (e) { setError(String(e)) }
+    finally { setPulling(false) }
+  }, [z, editChar, outlines, setOutlines, push])
+
+  /*
+    Six menus, twenty-four items, each named in a word or two.
+
+    There were thirty-three, several of them a sentence long, and six of them
+    did the same work as something else: "Project a font" and opening from a
+    face, "Draw" and entering edit mode, a Mode menu of views, waypoints in
+    two places. An item that has to explain itself cannot be scanned, and the
+    sentence that explained it is a tooltip, which is where it is now.
+
+    The division is by what an item acts on. File is the document. Glyph is
+    the letter or letters selected, and nothing else, which is also what
+    network bending needs: a group chosen, then one deterministic transform on
+    it. Diverge moves the typeface through the space. View changes what is on
+    the screen and never the work.
+  */
   const menus: Menu[] = useMemo(() => [
     {
       label: "File",
       items: [
-        { kind: "group", label: "journeys" },
-        { kind: "item", label: "New Project", hint: "\u2318N",
-          onSelect: newProject,
-          title: "Back to the centroid with an empty trail" },
-        { kind: "item", label: "Open\u2026", hint: "\u2318O",
-          onSelect: openProject,
-          title: "Open a saved journey, its branches and its settings" },
+        { kind: "item", label: "New", hint: "\u2318N", onSelect: newProject,
+          title: "Back to the doors with an empty trail" },
+        { kind: "item", label: "Open", hint: "\u2318O", onSelect: openProject,
+          title: "A saved project, its branches and its decisions" },
+        { kind: "item", label: "Save", hint: "\u2318S", disabled: !z,
+          onSelect: save,
+          title: file ? `Save over ${file}` : "Save the project" },
+        { kind: "item", label: "Save As", hint: "\u21e7\u2318S", disabled: !z,
+          onSelect: saveAs, title: "Save under a new name" },
         { kind: "sep" },
-        { kind: "item", label: "Save", hint: file ? file : "\u2318S",
-          disabled: !z, onSelect: save,
-          title: file ? `Save over ${file}`
-                      : "Save the journey, its branches and its settings" },
-        { kind: "item", label: "Save As\u2026", hint: "\u21e7\u2318S",
-          disabled: !z, onSelect: saveAs,
-          title: "Save the journey under a new name" },
-        { kind: "group", label: "bring a drawing in" },
-        { kind: "item", label: "Project a font\u2026",
-          disabled: busy, onSelect: projectFont,
-          title: "Where in the space a typeface you already have sits, and "
+        { kind: "item", label: "Import font", disabled: busy,
+          onSelect: projectFont,
+          title: "Where a typeface you already have sits in the space, and "
                  + "what the space cannot say about it" },
-        { kind: "group", label: "take the work out" },
-        { kind: "item", label: "Export\u2026", hint: "\u21e7\u2318E",
-          disabled: !z, onSelect: () => setExporting(true),
-          title: "Fonts to install, source to keep working on, or outlines to "
-                 + "draw with" },
         { kind: "sep" },
-        { kind: "item", label: "Share image", hint: "here",
-          disabled: !z || busy, onSelect: shareNow,
-          title: "Send this location straight to the share sheet as a PNG, "
-                 + "which is what WhatsApp and Messages take" },
-        { kind: "item", label: "Share card\u2026",
-          disabled: !z, onSelect: () => setSharing(true),
-          title: "Look at the card first, then send, copy or save it" },
+        { kind: "item", label: "Export", hint: "\u21e7\u2318E", disabled: !z,
+          onSelect: () => setExporting(true),
+          title: "Fonts to install, source to keep working on, or outlines "
+                 + "to draw with" },
+        { kind: "item", label: "Share", disabled: !z,
+          onSelect: () => setSharing(true),
+          title: "This face as a card, to send, copy or save" },
       ],
     },
     {
       label: "Edit",
       items: [
-        { kind: "group", label: "going back" },
         { kind: "item", label: "Undo", hint: "\u2318Z",
           disabled: here?.parent == null, onSelect: undo,
-          title: "Step back to where you came from" },
+          title: "Step back to where you came from. Nothing is deleted: a "
+                 + "step taken after an undo branches the trail." },
         { kind: "item", label: "Redo", hint: "\u21e7\u2318Z",
           disabled: !redoStack.length, onSelect: redo,
           title: "Return to the stop you stepped back from" },
-        { kind: "group", label: "places worth returning to" },
-        { kind: "item", label: "Back to the last sane position", hint: "esc",
-          disabled: !z || isSane(z), onSelect: resetToSane,
-          title: "Walk back up the trail to the last stop still inside the "
-                 + "corpus, where the outlines are still readings rather than "
-                 + "guesses" },
-        { kind: "item", label: "Back to the centroid",
-          onSelect: () => setCursor(trail[0]?.id ?? 0),
-          title: "The average of every font in the corpus" },
-        // These two left the specimen's toolbar when undo and redo took their
-        // place there. They still travel in a saved project, so they need a
-        // way back in.
+        { kind: "sep" },
+        { kind: "item", label: "Settings", hint: "\u2318,",
+          onSelect: () => setSettingsOpen(true),
+          title: "Theme, guides, how the hand drives the letters, and the "
+                 + "licence exports carry" },
+      ],
+    },
+    {
+      label: "Glyph",
+      items: [
         { kind: "item",
-          label: waypoints.includes(cursor) ? "Unmark this waypoint"
-                                            : "Mark a waypoint here",
-          disabled: !z, onSelect: () => flagStop(cursor),
-          title: "Flag this stop on the trail so it is easy to find again" },
-        { kind: "item", label: "Clear every waypoint",
-          disabled: !waypoints.length, onSelect: () => setWaypoints([]),
-          title: "Unmark them all. The stops themselves stay on the trail." },
-        { kind: "group", label: "axes of your own" },
-        { kind: "item", label: "Learn an axis from faces\u2026",
-          hint: axes.length ? `${axes.length} learned` : undefined,
-          onSelect: () => setLearning(true),
-          title: "Mark faces as this and not this. The direction between them "
-                 + "joins the steer list, and is tested on faces it was not "
-                 + "shown." },
-        { kind: "item", label: "Forget the learned axes",
-          disabled: !axes.length, onSelect: () => setAxes([]),
-          title: "The measured eight are unaffected" },
-        { kind: "group", label: "the drawing, not the place" },
-        // One moves you, the other changes how what you found is drawn.
-        // Together in the menu because both are edits to the work rather than
-        // journeys, and neither belonged in a rail of sliders.
-        { kind: "item", label: "Rigidify towards nearest font",
+          label: settled.includes(editChar) ? "Undecide" : "Decide",
+          hint: editChar, disabled: !z,
+          on: settled.includes(editChar),
+          onSelect: () => toggleSettled(editChar),
+          title: `Hold ${editChar} while everything else moves. Moves are `
+                 + "then projected onto the directions the decided letters "
+                 + "barely feel, so the rest of the alphabet goes on moving." },
+        { kind: "item", label: "Reset", hint: editChar,
+          disabled: !outlines[editChar] && !spacing[editChar],
+          onSelect: () => {
+            const o = { ...outlines }; delete o[editChar]; setOutlines(o)
+            const sp = { ...spacing }; delete sp[editChar]; setSpacing(sp)
+            setPulled(null)
+          },
+          title: `Drop the drawing and the sidebearings on ${editChar} and `
+                 + "let it follow the space again" },
+        { kind: "sep" },
+        { kind: "item",
+          label: straight === 0 ? "Straighten"
+            : straight < 0.01 ? "Straighten harder" : "Straighten off",
+          disabled: !z,
+          onSelect: () => setStraight(straight === 0 ? 0.006
+            : straight < 0.01 ? 0.014 : 0),
+          title: "Pull the runs between corners onto the straights they "
+                 + "nearly are. Changes the drawing, not the location. This "
+                 + "one is still the whole alphabet rather than the "
+                 + "selection." },
+      ],
+    },
+    {
+      label: "Diverge",
+      items: [
+        { kind: "item", label: "Step", on: stepOn,
+          disabled: !z, onSelect: () => setStepOn(!stepOn),
+          title: "A step either way along each axis, set as text under the "
+                 + "canvas. Every row moves the letters the same distance, "
+                 + "0.04 em, so the rows can be read against each other." },
+        { kind: "item", label: "Drift", disabled: !z || busy,
+          onSelect: () => travel({ mode: "drift" }, "drift",
+                                 `drift t${temperature.toFixed(2)}`),
+          title: "Somewhere nearby that the corpus thinks is plausible. The "
+                 + "amount is in Settings." },
+        { kind: "item", label: "Repel", disabled: !z || busy,
+          onSelect: () => travel({ mode: "repel" }, "repel",
+                                 `repel s${step.toFixed(2)}`),
+          title: "Away from the nearest real families, into the gaps between "
+                 + "what exists" },
+        { kind: "item", label: "Rigidify",
           hint: location?.neighbours?.[0]?.family,
           disabled: !z || busy || !location?.neighbours?.length,
           onSelect: rigidify,
           title: "Half the way to the nearest real family, and half again on "
                  + "the next press" },
-        { kind: "item",
-          label: straight === 0 ? "Straighten outlines"
-            : straight < 0.01 ? "Straighten outlines: harder"
-              : "Straighten outlines: off",
-          disabled: !z,
-          onSelect: () => setStraight(straight === 0 ? 0.006
-            : straight < 0.01 ? 0.014 : 0),
-          title: "Pull the runs between corners onto the straights they "
-                 + "nearly are. Changes the drawing, not the location." },
-        { kind: "group", label: "deciding letters" },
-        // Settling is where a session stops being a walk and becomes a piece
-        // of work, so it sits with the other edits to the work rather than
-        // with the journeys.
-        { kind: "item",
-          label: settling ? "Stop settling letters" : "Settle letters\u2026",
-          hint: settled.length ? `${settled.length} settled` : "none yet",
-          disabled: !z,
-          onSelect: () => setSettling((v) => !v),
-          title: "Press a letter in the specimen to decide it. Moves are then "
-                 + "projected onto the directions the decided letters barely "
-                 + "feel, so the rest of the alphabet goes on moving." },
-        { kind: "item", label: "Unsettle every letter",
-          disabled: !settled.length,
-          onSelect: () => { setSettled([]); setSettling(false) },
-          title: "Give the whole alphabet back its freedom" },
         { kind: "sep" },
-        { kind: "item", label: "Settings\u2026", hint: "\u2318,",
-          onSelect: () => setSettingsOpen(true),
-          title: "Theme, opening text, and the licence exports carry" },
-      ],
-    },
-    {
-      label: "Mode",
-      items: [
-        { kind: "item", label: "Travel the space", hint: "\u2713",
-          onSelect: () => {},
-          title: "The whole typeface at once: a location in the space, read as "
-                 + "a specimen. This is the mode that works." },
+        { kind: "item", label: "Pull here", hint: editChar,
+          disabled: !z || pulling || !outlines[editChar],
+          onSelect: pullToDrawing,
+          title: `Move the typeface to the drawing on ${editChar}, as far as `
+                 + "the space can reach it, and say how far that was" },
         { kind: "sep" },
-        { kind: "item", label: "Edit a glyph\u2026",
-          onSelect: () => setPlanned(PLANNED.glyph) },
-        { kind: "item", label: "The whole character set\u2026",
-          onSelect: () => setPlanned(PLANNED.set) },
-        { kind: "item", label: "Compare two locations\u2026",
-          onSelect: () => setPlanned(PLANNED.compare) },
+        { kind: "item", label: "Name axis",
+          hint: axes.length ? `${axes.length}` : undefined,
+          onSelect: () => setLearning(true),
+          title: "Mark faces as this and not this. The direction between "
+                 + "them joins the axes, and is tested on faces it was not "
+                 + "shown." },
       ],
     },
     {
       label: "View",
       items: [
-        { kind: "item",
-          label: proofOn ? "Hide the proof strip" : "Show the proof strip",
-          hint: "under the map",
-          onSelect: () => setProofOn(!proofOn),
-          title: "Candidates a step either way along the measured properties, "
-                 + "set as text under the canvas" },
+        { kind: "item", label: "Font view", hint: "\u23181",
+          on: doc?.kind === "font",
+          onSelect: () => setDocAt(docs.findIndex((d) => d.kind === "font")),
+          title: "Every glyph in the character set, with the decided ones "
+                 + "marked" },
+        { kind: "item", label: "Text mode", hint: "T",
+          on: doc?.kind === "text" && mode === "text",
+          onSelect: () => { goToText(); setMode("text") },
+          title: "The string, at the size it will be set at" },
+        { kind: "item", label: "Edit mode", hint: "E",
+          on: doc?.kind === "text" && mode === "edit",
+          onSelect: () => { goToText(); setMode("edit") },
+          title: `Draw on ${editChar} point by point` },
         { kind: "sep" },
-        { kind: "item", label: dark ? "Light theme" : "Dark theme",
+        { kind: "item", label: "Map", on: doc?.kind === "map",
+          onSelect: () => setDocAt(docs.findIndex((d) => d.kind === "map")),
+          title: "Where this face sits among the 441 families" },
+        { kind: "item", label: "Trail", on: trailOpen,
+          onSelect: () => setTrailOpen(!trailOpen),
+          title: "Every stop this project has made. The stops are the "
+                 + "weights an export compiles and the route between them is "
+                 + "the axis." },
+        { kind: "sep" },
+        { kind: "item", label: "Dark mode", on: dark,
           onSelect: () => setTheme(dark ? "light" : "dark"),
           title: "Remembered. Settings has a System option that follows the "
-                 + "machine" },
-        { kind: "sep" },
-        { kind: "item",
-          label: `Atlas height: ${
-            atlasHeight === "density" ? "crowding"
-              : atlasHeight === "centroid" ? "distance from centroid"
-              : "third axis"}`,
-          hint: "cycle",
-          onSelect: () => setAtlasHeight(
-            atlasHeight === "density" ? "centroid"
-              : atlasHeight === "centroid" ? "axis" : "density"),
-          title: "What the vertical axis measures. On a corpus axis it becomes "
-                 + "a direction you can drag along." },
+                 + "machine." },
       ],
     },
     {
       label: "Help",
       items: [
-        { kind: "item", label: "What is Vectorography\u2026",
-          onSelect: () => setHelp("what"),
-          title: "What the instrument is, and the two things it will not do" },
+        { kind: "item", label: "Guide", onSelect: () => setHelp("what"),
+          title: "What the instrument is, what the readings mean, and the "
+                 + "three things it will not do" },
+        { kind: "item", label: "Shortcuts", onSelect: () => setHelp("keys"),
+          title: "Every key and gesture, and what it moves" },
         { kind: "sep" },
-        { kind: "item", label: "What the readings mean",
-          onSelect: () => setHelp("readings"),
-          title: "altitude, density, the shell, the route and the axes" },
-        { kind: "item", label: "Keyboard and pointer",
-          onSelect: () => setHelp("keys"),
-          title: "every key and gesture, and what it moves" },
-        { kind: "sep" },
-        { kind: "item", label: "Source on GitHub",
-          onSelect: () => window.open(
-            "https://github.com/vector-lab-tools/vectorography", "_blank",
-            "noopener") },
-        { kind: "sep" },
-        { kind: "item", label: "About Vectorography\u2026",
-          onSelect: () => setAbout(true) },
+        { kind: "item", label: "About", onSelect: () => setAbout(true) },
       ],
     },
-  ], [z, busy, dark, atlasHeight, proofOn, setProofOn, ancestry.length, exportFont,
-      exportJourney, exportSvg, here, redoStack.length, undo, redo,
-      isSane, resetToSane, trail, shareNow,
-      newProject, openProject, projectFont, save, saveAs, file, licence, theme,
-      settling, settled, setSettled, waypoints, cursor, flagStop,
-      axes, setAxes,
-      straight, setStraight, location, rigidify])
+  ], [z, busy, dark, stepOn, setStepOn, exportFont, here, redoStack.length,
+      undo, redo, newProject, openProject, projectFont, save, saveAs, file,
+      theme, settled, toggleSettled, editChar, outlines, setOutlines, spacing,
+      setSpacing, straight, setStraight, location, rigidify, axes.length,
+      travel, temperature, step, pulling, pullToDrawing, doc, docs, setDocAt,
+      mode, setMode, goToText, trailOpen, setTheme])
 
   if (error && !corpus) return <Fatal message={error} />
   /**
@@ -1379,11 +1337,10 @@ export default function App() {
     setText("no")                 // the letters that set the system
     setProofText("nnoonn")        // and the string they are spaced against
     setEditChar("n")
-    setCanvas("glyph")            // a letter to draw on, which is where a
-    setSpecimenH(150)             // face starts, with the word kept in view
-    setProofOn(true)
-    setSettling(true)
-    setEntered(true)
+    setMode("edit")               // a letter to draw on, which is where a
+    setEntered(true)              // face starts
+    const i = docs.findIndex((d) => d.kind === "text")
+    if (i >= 0) setDocAt(i)
   }
   const enterByReference = (name: string) => {
     setEntered(true)
@@ -1408,6 +1365,9 @@ export default function App() {
     )
   }
 
+  const decided = settled.includes(editChar)
+  const row = spaceRows.find((r) => r.char === editChar) ?? null
+
   return (
     <div className="h-full flex flex-col">
       {/* Not a scroll container: overflow-x on the bar forces overflow-y with
@@ -1425,10 +1385,20 @@ export default function App() {
         </h1>
         <MenuBar menus={menus} />
         <div className="flex-1" />
-        <label className="self-center flex items-baseline gap-1.5 min-w-0
-                          shrink"
-               title={"The name this typeface carries. It goes into every font "
-                 + "you compile, the filenames, and the share card."}>
+        {/*
+            Typeface, not master.
+
+            A master is one of several authored points you interpolate
+            between. What is on screen is a single face at a coordinate, so
+            the word promised a family that is not there.
+         */}
+        {/* Below the phone's width six menus and a name field do not both
+            fit, and the header cannot scroll: the menus hang out of it. The
+            name is also in the Export panel, which is where it is needed. */}
+        <label className="self-center hidden sm:flex items-baseline gap-1.5
+                          min-w-0 shrink"
+               title={"The name this typeface carries. It goes into every "
+                 + "font you compile, the filenames, and the share card."}>
           <span className="rail-label !text-[8px]">typeface</span>
           <input
             value={family}
@@ -1442,391 +1412,221 @@ export default function App() {
                        focus:ring-1 focus:ring-burgundy/30"
           />
         </label>
-        <span className="self-center font-mono text-[10px] text-muted-foreground
-                         hidden lg:inline whitespace-nowrap">
-          {corpus.model?.name} {corpus.model?.version} · {corpus.dims}d
-        </span>
       </header>
 
-      {/* The work area scrolls as a whole. The footer is a sibling of this,
-          not a child, so it stays where it is however far down you go. */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto
-                       max-lg:overflow-hidden">
-        {/* Top: the type itself, at a size the hand can work on, with the
-            space it sits in below and beside it. */}
-        {/*
-            One canvas and one inspector, after Glyphs, FontLab and RoboFont.
+      <Tabs docs={docs} at={at} pick={setDocAt}
+            add={() => {
+              const id = Math.max(0, ...docs.map((d) =>
+                d.kind === "text" ? d.id : 0)) + 1
+              const last = docs.map((d) => d.kind).lastIndexOf("text")
+              const next = [...docs]
+              next.splice(last + 1, 0, { kind: "text", id, text: "adhesion" })
+              setDocs(next)
+              setDocAt(last + 1)
+            }}
+            close={(i) => {
+              setDocs(docs.filter((_, j) => j !== i))
+              if (at >= i) setDocAt(Math.max(0, at - 1))
+            }}
+            rename={(i, t) => setDocs(docs.map((d, j) =>
+              j === i && d.kind === "text" ? { ...d, text: t } : d))} />
 
-            This had the same material down three edges at once: compass and
-            sliders in a column on the right, travel controls and the trail in
-            a row along the bottom, the map filling what was left. Six panels
-            of equal weight and none of them the work. Every one of those
-            editors gives the window to the thing being made and collects the
-            rest into a single sidebar, so that is what this does now.
-         */}
-        <div className="flex-1 min-h-0 flex max-lg:block">
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-            <section className="flex-1 min-h-0 overflow-hidden flex flex-col
-                                gap-2 lg:gap-3 px-2 lg:px-3 pt-2 lg:pt-3
-                                pb-2 lg:pb-3"
-                     style={isMobile
-                       ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
-                       : undefined}>
-              {/* The letters take their colour from here, so everything drawn
-                  with currentColor inside follows: the specimen, its ghost in
-                  perspective, and nothing else. */}
-              <div className="panel max-lg:flex-1 max-lg:min-h-0 lg:shrink-0
-                              px-2 sm:px-3 py-2 text-ink"
-                   style={{ ...(isMobile ? {} : { height: specimenH }),
-                            ...(ink === "auto" ? {} : { color: ink }) }}>
-                <SpecimenStage
-                  glyphs={location?.glyphs ?? []}
-                  geometry={geometry}
-                  text={text}
-                  hullRadius={atlas?.ball?.max ?? null}
-                  radius={atlas?.ball?.self ?? null}
-                  depth={depth}
-                  setDepth={setDepth}
-                  xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
-                  setProps={(x, y, zz) => setProps3([x, y, zz])}
-                  onDragStart={dragStart}
-                  onDrag={dragMove}
-                  onDragEnd={dragEnd}
-                  lost={!!z && !isSane(z)}
-                  onReset={resetToSane}
-                  setText={setText}
-                  neighbours={location?.neighbours ?? []}
-                  onGoToFamily={goToFamily}
-                  onUndo={undo}
-                  onRedo={redo}
-                  canUndo={trail.find((c) => c.id === cursor)?.parent != null}
-                  canRedo={redoStack.length > 0}
-                  guideInk={guideInk} guideStyle={guideStyle}
-                  settled={settled}
-                  settling={settling}
-                  onToggleSettled={toggleSettled}
-                  onSettling={() => setSettling((v) => !v)}
-                  settledNote={settledNote}
-                  readings={readings}
-                  busy={false}
+      {/*
+          One canvas and one inspector, after Glyphs, FontLab and RoboFont.
+
+          This had the same material down three edges at once: compass and
+          sliders in a column on the right, travel controls and the trail in a
+          row along the bottom, the map filling what was left. Six panels of
+          equal weight and none of them the work. Every one of those editors
+          gives the window to the thing being made and collects the rest into
+          a single sidebar, so that is what this does now.
+
+          The phone gets the same two, stacked, with the handle between them
+          deciding the share. It used to get four instruments on a tab rail of
+          its own, which meant two interfaces to keep true to each other.
+       */}
+      <main className="flex-1 min-h-0 flex max-lg:flex-col relative">
+
+        <section className="flex-1 min-w-0 min-h-0 flex flex-col bg-card/30
+                            lg:border-r border-border"
+                 style={isMobile
+                   ? { flex: `0 0 ${(phoneSplit * 100).toFixed(1)}%` }
+                   : undefined}>
+
+          {doc?.kind === "text" && (
+            <div className="flex items-center gap-3 px-3 py-1.5 shrink-0
+                            border-b border-border/60 flex-wrap">
+              <div className="flex rounded-sm border border-border
+                              overflow-hidden">
+                {(["text", "edit"] as const).map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                          title={m === "text"
+                            ? "The string, at the size it will be set at"
+                            : `Draw on ${editChar} point by point`}
+                          className={`text-[11px] px-2.5 py-0.5
+                                      transition-colors ${mode === m
+                                        ? "bg-burgundy text-ivory"
+                                        : "text-muted-foreground"
+                                          + " hover:text-foreground"}`}>
+                    {m === "text" ? "Text" : "Edit"}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] text-muted-foreground
+                               hidden sm:inline">
+                {mode === "text"
+                  ? "Drag a letter to move the typeface. Click one to select it."
+                  : `Drag the points of ${editChar}. Diverge ▸ Pull here `
+                    + "moves the space to what you drew."}
+              </span>
+              {mode === "text" && (
+                <label className="ml-auto flex items-center gap-2
+                                  shrink-0">
+                  <span className="rail-label !text-[8px]">size</span>
+                  <input type="range" min={9} max={400} value={size}
+                         onChange={(e) => setSize(Number(e.target.value))}
+                         className="w-[110px] accent-burgundy"
+                         title="How large the canvas sets the string" />
+                  <span className="font-mono text-[10px] text-muted-foreground
+                                   tabular-nums whitespace-nowrap"
+                        title={drawnAt != null && Math.abs(drawnAt - size) > 1
+                          ? "The string is too long to set at that size in "
+                            + "this window, so it is drawn as large as fits"
+                          : "The size the canvas is setting at"}>
+                    {drawnAt != null && Math.abs(drawnAt - size) > 1
+                      ? `${size} → ${Math.round(drawnAt)} pt`
+                      : `${size} pt`}
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 flex flex-col p-2 lg:p-3 gap-2">
+            {doc?.kind === "font" ? (
+              <CharacterSet
+                glyphs={gridGlyphs} settled={settled} spacing={spacing}
+                busy={gridBusy}
+                onPick={(ch) => { setEditChar(ch); goToText() }}
+                onToggleSettled={toggleSettled}
+              />
+            ) : doc?.kind === "map" ? (
+              <Atlas data={atlas} busy={busy} onPick={goToFamily}
+                     directions={allDirections}
+                     colourBy={colourBy} setColourBy={setColourBy}
+                     waypoint={waypoint} setWaypoint={setWaypoint}
+                     onToward={goToward} radius={radius} sample={atlasChar}
+                     liveGlyphs={location?.glyphs ?? null}
+                     liveSelf={liveSelf}
+                     ballOn={ballOn} setBallOn={setBallOn}
+                     altitude={location?.altitude ?? null} corpus={corpus}
+                     axX={axX} axY={axY} axZ={axZ}
+                     setAxes={(x, y, zz) => {
+                       setAxX(x); setAxY(y); setAxZ(zz)
+                     }} />
+            ) : mode === "edit" ? (
+              <GlyphEdit
+                char={editChar} setChar={setEditChar}
+                glyph={editGlyph}
+                edited={outlines[editChar] ?? null}
+                alphabet={corpus.glyphs}
+                busy={pulling}
+                pulled={pulled}
+                onEdit={(c) => {
+                  setOutlines({ ...outlines, [editChar]: c })
+                  setPulled(null)
+                }}
+                onClear={() => {
+                  const next = { ...outlines }
+                  delete next[editChar]
+                  setOutlines(next)
+                  setPulled(null)
+                }}
+                onPull={pullToDrawing}
+              />
+            ) : (
+              <>
+                {/* The letters take their colour from here, so everything
+                    drawn with currentColor inside follows. */}
+                <div className="flex-1 min-h-0 text-ink"
+                     style={ink === "auto" ? undefined : { color: ink }}>
+                  <SpecimenStage
+                    glyphs={location?.glyphs ?? []}
+                    geometry={geometry}
+                    text={text}
+                    hullRadius={atlas?.ball?.max ?? null}
+                    radius={atlas?.ball?.self ?? null}
+                    depth={depth}
+                    xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
+                    setProps={(x, y, zz) => setProps3([x, y, zz])}
+                    onDragStart={dragStart}
+                    onDrag={dragMove}
+                    onDragEnd={dragEnd}
+                    lost={!!z && !isSane(z)}
+                    onReset={resetToSane}
+                    guideInk={guideInk} guideStyle={guideStyle}
+                    points={points} guides={guides} priority={priority}
+                    size={size} onDrawnAt={setDrawnAt}
+                    settled={settled}
+                    settledNote={settledNote}
+                    busy={false}
+                  />
+                </div>
+
+                {/* The sidebearings, under the letters they belong to, which
+                    is where the Space Center puts them in RoboFont. Clicking
+                    one selects that letter for the inspector and for edit
+                    mode. */}
+                <div className="shrink-0">
+                  <SpaceCenter
+                    text={text} setText={setText}
+                    glyphs={spaceGlyphs} rows={spaceRows}
+                    suggestions={suggestions}
+                    spacing={spacing} setSpacing={setSpacing}
+                    busy={suggesting}
+                    showString={false}
+                    selected={editChar} onSelect={setEditChar}
+                    onSuggest={suggest}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* What a step either way looks like, as text. Diverge > Step. */}
+            {stepOn && doc?.kind !== "font" && (
+              <div className="shrink-0 min-h-0 flex flex-col"
+                   style={{ height: proofH }}>
+                <ProofSheet
+                  sheet={sheet} text={proofText} busy={sheetBusy}
+                  radius={sheetRadius} setRadius={setSheetRadius}
+                  properties={sheetProps} setProperties={setSheetProps}
+                  onClose={() => setStepOn(false)}
+                  onTravel={(cz, closeIn) => {
+                    // A shift closes in rather than going somewhere else: the
+                    // answer to "a bit heavier" is usually another, smaller
+                    // "a bit heavier".
+                    if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
+                    push(cz, "jump", "proof")
+                  }}
                 />
               </div>
-
-              {!isMobile && (
-                <div
-                  className="hidden lg:flex h-3 shrink-0 -my-1 cursor-row-resize
-                             group items-center justify-center"
-                  style={{ touchAction: "none" }}
-                  title="Drag to give the specimen or the space more room. Double-click to reset."
-                  onDoubleClick={() => {
-                    setSpecimenH(168)
-                    localStorage.setItem("vg.specimen", "168")
-                  }}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
-                    const host = e.currentTarget.parentElement as HTMLElement
-                    const startY = e.clientY
-                    const start = specimenH
-                    let latest = start
-                    const move = (ev: PointerEvent) => {
-                      const room = host.clientHeight - 140
-                      latest = Math.max(90, Math.min(Math.max(140, room),
-                        start + (ev.clientY - startY)))
-                      setSpecimenH(latest)
-                    }
-                    const up = () => {
-                      localStorage.setItem("vg.specimen", String(latest))
-                      window.removeEventListener("pointermove", move)
-                      window.removeEventListener("pointerup", up)
-                      window.removeEventListener("pointercancel", up)
-                    }
-                    window.addEventListener("pointermove", move)
-                    window.addEventListener("pointerup", up)
-                    window.addEventListener("pointercancel", up)
-                  }}
-                >
-                  <div className="h-px flex-1 bg-transparent
-                                  group-hover:bg-burgundy/40 transition-colors" />
-                  <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
-                                  group-hover:bg-burgundy transition-colors" />
-                  <div className="h-px flex-1 bg-transparent
-                                  group-hover:bg-burgundy/40 transition-colors" />
-                </div>
-              )}
-
-
-              {!isMobile && (
-              <>
-                <div className="flex items-center gap-1 shrink-0 pb-1">
-                  {([["map", "Vector space"],
-                     ["set", "Character set"],
-                     ["glyph", "Glyph"]] as const).map(([k, label]) => (
-                    <button key={k} onClick={() => setCanvas(k)}
-                      className={`text-[11px] px-1.5 py-0.5 rounded-sm border
-                                  transition-colors ${canvas === k
-                                    ? "border-burgundy text-burgundy"
-                                    : "border-transparent text-muted-foreground"
-                                      + " hover:text-foreground"}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex-1 min-h-0 min-w-0">
-                {canvas === "glyph" ? (
-                  <GlyphEdit
-                    char={editChar} setChar={setEditChar}
-                    glyph={editGlyph}
-                    edited={outlines[editChar] ?? null}
-                    alphabet={corpus.glyphs}
-                    busy={pulling}
-                    pulled={pulled}
-                    onEdit={(c) => {
-                      setOutlines({ ...outlines, [editChar]: c })
-                      setPulled(null)
-                    }}
-                    onClear={() => {
-                      const next = { ...outlines }
-                      delete next[editChar]
-                      setOutlines(next)
-                      setPulled(null)
-                    }}
-                    onPull={async () => {
-                      if (!z) return
-                      setPulling(true)
-                      try {
-                        const r = await api.pull({ z, glyphs: [editChar] })
-                        setPulled({ explained: r.explained,
-                                    residual: r.residual_overall,
-                                    moved: r.moved })
-                        // The space moves to the drawing; the drawing is let
-                        // go, since the point of travelling there is that the
-                        // letter is now something the space can say.
-                        const next = { ...outlines }
-                        delete next[editChar]
-                        setOutlines(next)
-                        push(r.z, "jump", `pulled to ${editChar}`)
-                      } catch (e) { setError(String(e)) }
-                      finally { setPulling(false) }
-                    }}
-                  />
-                ) : canvas === "set" ? (
-                  <CharacterSet
-                    glyphs={gridGlyphs} settled={settled} spacing={spacing}
-                    busy={gridBusy}
-                    onPick={(ch) => setText(ch)}
-                    onToggleSettled={toggleSettled}
-                  />
-                ) : (
-                  <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                         directions={allDirections}
-                         colourBy={colourBy} setColourBy={setColourBy}
-                         waypoint={waypoint} setWaypoint={setWaypoint}
-                         onToward={goToward} radius={radius} sample={atlasChar}
-                         liveGlyphs={location?.glyphs ?? null}
-                         liveSelf={liveSelf}
-                         ballOn={ballOn} setBallOn={setBallOn}
-                         altitude={location?.altitude ?? null} corpus={corpus}
-                         />
-                )}
-                </div>
-
-                {/*
-                    The proof, as a strip under the canvas.
-
-                    It used to be an alternative to the map, so looking at
-                    candidates meant losing sight of where they were, and the
-                    two competed for the same half of the window. FontLab runs
-                    a waterfall along the bottom of the canvas and RoboFont
-                    runs the Space Center there: a preview is something you
-                    glance down at while working on the thing above it. The
-                    strip is dragged taller when the comparison is the work.
-                 */}
-                {proofOn && (
-                  <>
-                    <div
-                      className="h-3 shrink-0 cursor-row-resize group
-                                 flex items-center justify-center"
-                      style={{ touchAction: "none" }}
-                      title="Drag to give the proof more room. Double-click to reset."
-                      onDoubleClick={() => setProofH(190)}
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no capture */ }
-                        const startY = e.clientY
-                        const start = proofH
-                        let latest = start
-                        const move = (ev: PointerEvent) => {
-                          latest = Math.max(96, Math.min(
-                            window.innerHeight - 240, start - (ev.clientY - startY)))
-                          setProofH(latest)
-                        }
-                        const up = () => {
-                          window.removeEventListener("pointermove", move)
-                          window.removeEventListener("pointerup", up)
-                          window.removeEventListener("pointercancel", up)
-                          window.removeEventListener("blur", up)
-                        }
-                        window.addEventListener("pointermove", move)
-                        window.addEventListener("pointerup", up)
-                        window.addEventListener("pointercancel", up)
-                        window.addEventListener("blur", up)
-                      }}
-                    >
-                      <div className="h-px flex-1 bg-transparent
-                                      group-hover:bg-burgundy/40 transition-colors" />
-                      <div className="mx-2 h-1 w-8 shrink-0 rounded-full bg-border/70
-                                      group-hover:bg-burgundy transition-colors" />
-                      <div className="h-px flex-1 bg-transparent
-                                      group-hover:bg-burgundy/40 transition-colors" />
-                    </div>
-                    <div className="shrink-0 min-h-0 flex flex-col"
-                         style={{ height: proofH }}>
-                      <div className="flex items-center gap-1 shrink-0 pb-1">
-                        {([["proof", "Proof"],
-                           ["space", "Spacing"]] as const).map(([k, label]) => (
-                          <button key={k} onClick={() => setStrip(k)}
-                            className={`text-[11px] px-1.5 py-0.5 rounded-sm
-                                        border transition-colors ${strip === k
-                                          ? "border-burgundy text-burgundy"
-                                          : "border-transparent"
-                                            + " text-muted-foreground"
-                                            + " hover:text-foreground"}`}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex-1 min-h-0">
-                      {strip === "space" ? (
-                        <SpaceCenter
-                          text={spaceText} setText={setSpaceText}
-                          glyphs={spaceGlyphs} rows={spaceRows}
-                          suggestions={suggestions}
-                          spacing={spacing} setSpacing={setSpacing}
-                          busy={suggesting}
-                          onClose={() => setProofOn(false)}
-                          onSuggest={async () => {
-                            setSuggesting(true)
-                            try {
-                              const r = await api.spacing(
-                                { z, text: spaceText, straight, suggest: true })
-                              setSuggestions(r.suggested ?? null)
-                              setSpaceRows(r.rows)
-                            } catch (e) { setError(String(e)) }
-                            finally { setSuggesting(false) }
-                          }}
-                        />
-                      ) : (
-                      <ProofSheet
-                        sheet={sheet} text={proofText} busy={sheetBusy}
-                        radius={sheetRadius} setRadius={setSheetRadius}
-                        properties={sheetProps} setProperties={setSheetProps}
-                        onClose={() => setProofOn(false)}
-                        onTravel={(cz, closeIn) => {
-                          // A shift closes in rather than going somewhere
-                          // else: the answer to "a bit heavier" is usually
-                          // another, smaller "a bit heavier".
-                          if (closeIn) setSheetRadius(Math.max(0.2, sheetRadius / 2))
-                          push(cz, "jump", "proof")
-                        }}
-                      />
-                      )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </>
-              )}
-            </section>
+            )}
           </div>
+        </section>
 
-          {!isMobile && (
-            <Inspector>
-              <Section id="steer" title="Steer" defaultOpen
-                       note={`${allDirections.length}`}>
-                <DirectionPad directions={allDirections} at={standing}
-                              onSlide={slideTo} onCommit={slideCommit}
-                              locks={locks} setLocks={setLocks}
-                              isolate={isolate} setIsolate={setIsolate}
-                              busy={busy} />
-              </Section>
-
-              <Section id="rose" title="One step away" defaultOpen>
-                <CompassRose
-                  points={compass}
-                  compassText={compassText}
-                  radius={radius}
-                  onTravel={(p) => walk(p.bearing)}
-                  busy={busy}
-                />
-              </Section>
-
-              <Section id="travel" title="Travel">
-                <TravelBar
-                  corpus={corpus}
-                  radius={radius} setRadius={setRadius}
-                  temperature={temperature} setTemperature={setTemperature}
-                  step={step} setStep={setStep}
-                  axX={axX} axY={axY} axZ={axZ}
-                  setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
-                  overlap={atlas?.axes.overlap ?? null}
-                  ride={ride} orbit={orbit}
-                  onDrift={() => travel({ mode: "drift" }, "drift",
-                                        `drift t${temperature.toFixed(2)}`)}
-                  onRepel={() => travel({ mode: "repel" }, "repel",
-                                        `repel s${step.toFixed(2)}`)}
-                  onOrbit={() => orbit && travel(
-                    { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
-                    `orbit ${orbit.name} +20°`)}
-                  onSetRide={async (a, b) => {
-                    try {
-                      const [za, zb] = await Promise.all(
-                        [api.fontPosition(a), api.fontPosition(b)])
-                      setRide({ a, b, vec: zb.z.map((v, i) => v - za.z[i]) })
-                    } catch (e) { setError(String(e)) }
-                  }}
-                  onClearRide={() => setRide(null)}
-                  onSetOrbit={async (name) => {
-                    try {
-                      const r = await api.fontPosition(name)
-                      setOrbit({ name, z: r.z })
-                    } catch (e) { setError(String(e)) }
-                  }}
-                  onClearOrbit={() => setOrbit(null)}
-                  busy={busy}
-                />
-              </Section>
-
-              <Section id="trail" title="Trail"
-                       note={`${trail.length} stop${trail.length === 1 ? "" : "s"}`}
-                       defaultOpen>
-                <div className="max-h-[36vh] overflow-y-auto">
-                    <Trail trail={trail} cursor={cursor} onGo={setCursor}
-                           waypoints={waypoints} onFlag={flagStop}
-                           onClearFlags={() => setWaypoints([])} />
-                </div>
-              </Section>
-            </Inspector>
-          )}
-        </div>
-
-
-        {isMobile && (<>
-          {/* The same handle the desk has, for the same reason: how much room
-              the letters get against the instrument below them is the
-              traveller's call. */}
+        {isMobile && (
           <div
             className="h-4 shrink-0 mx-2 flex items-center justify-center
                        touch-none group"
             style={{ touchAction: "none" }}
-            title="Drag to give the specimen or the panel below more room"
+            title="Drag to give the canvas or the inspector more room"
             onDoubleClick={() => {
-              setPhoneSplit(0.4)
-              localStorage.setItem("vg.split", "0.4")
+              setPhoneSplit(0.55)
+              localStorage.setItem("vg.split", "0.55")
             }}
             onPointerDown={(e) => {
               e.preventDefault()
-              try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+              try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no capture */ }
               const host = e.currentTarget.parentElement as HTMLElement
               const total = host.clientHeight
               const startY = e.clientY
@@ -1851,165 +1651,133 @@ export default function App() {
             <div className="h-1 w-12 rounded-full bg-border
                             group-active:bg-burgundy transition-colors" />
           </div>
+        )}
 
-          {/* The lower half of a phone: one instrument at a time, all of
-              them mounted so a slider keeps its place across a swap. */}
-          <div className="flex-1 min-h-0 px-2 pb-1 overflow-hidden">
-            <div className={`h-full ${tab === "atlas" ? "" : "hidden"}`}>
-              <Atlas data={atlas} busy={busy} onPick={goToFamily}
-                     directions={allDirections}
-                     colourBy={colourBy} setColourBy={setColourBy}
-                     waypoint={waypoint} setWaypoint={setWaypoint}
-                     onToward={goToward} radius={radius} sample={atlasChar}
-                     liveGlyphs={location?.glyphs ?? null}
-                     liveSelf={liveSelf}
-                     ballOn={ballOn} setBallOn={setBallOn}
-                     altitude={location?.altitude ?? null} corpus={corpus}
-                     />
-            </div>
-            <div className={`h-full overflow-y-auto pt-1
-                             ${tab === "steer" ? "" : "hidden"}`}>
-              {directions.length > 0 ? (
-                <DirectionPad directions={allDirections} at={standing}
-                              onSlide={slideTo} onCommit={slideCommit}
-                              locks={locks} setLocks={setLocks}
-                              isolate={isolate} setIsolate={setIsolate}
-                              busy={busy} />
+        {/*
+            One inspector, and its sections follow what is selected, the way
+            the Palette does in Glyphs and the sidebar does in RoboFont.
+            Nothing in it is new work: every reading already existed and is
+            already measured. What changed is that only the ones bearing on
+            the present selection are open.
+         */}
+        <Inspector>
+          <Section id="divergence" title="Divergence" defaultOpen
+                   note={`of ${corpus.count}`}>
+            <Divergence altitude={location?.altitude ?? null}
+                        freedom={freedom} tol={settleTol}
+                        settled={settled} dims={corpus.dims} />
+          </Section>
+
+          <Section id="axes" title="Axes" defaultOpen={mode !== "edit"}
+                   note={`${allDirections.length}`}>
+            {allDirections.length ? (
+              <DirectionPad directions={allDirections} at={standing}
+                            onSlide={slideTo} onCommit={slideCommit}
+                            locks={locks} setLocks={setLocks}
+                            isolate={isolate} setIsolate={setIsolate}
+                            busy={busy} />
+            ) : (
+              <p className="font-mono text-[10px] text-muted-foreground">
+                No measured directions in this model.
+              </p>
+            )}
+          </Section>
+
+          {mode === "edit" && doc?.kind === "text" ? (
+            <Section id="drawing" title={`Drawing on ${editChar}`} defaultOpen
+                     note={outlines[editChar] ? "off the space" : "none"}>
+              {outlines[editChar] ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] leading-snug">
+                    This letter has left the space: it no longer follows the
+                    typeface. Pull the typeface to it, or drop the drawing.
+                  </p>
+                  <div className="flex gap-2">
+                    <button className="btn !text-[11px]" disabled={pulling}
+                            onClick={pullToDrawing}>
+                      {pulling ? "pulling…" : "Pull here"}
+                    </button>
+                    <button className="btn !text-[11px]"
+                            onClick={() => {
+                              const next = { ...outlines }
+                              delete next[editChar]
+                              setOutlines(next)
+                              setPulled(null)
+                            }}>
+                      Drop it
+                    </button>
+                  </div>
+                  {pulled && (
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      {`reached ${(pulled.explained * 100).toFixed(1)}% · `
+                        + `${pulled.residual.toFixed(4)} em it could not · `
+                        + `${pulled.moved.toFixed(2)} moved`}
+                    </p>
+                  )}
+                </div>
               ) : (
-                <p className="font-mono text-[10px] text-muted-foreground p-2">
-                  No measured directions in this model.
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Drag a point to draw. The points are forty to a contour at
+                  uniform arc length, so this is drawing on the
+                  representation.
                 </p>
               )}
-
-              {/* Ways of moving that are not a property on a slider, on the
-                  same sheet as the sliders: a phone has one pane, and making
-                  the traveller change tabs to drift was a tab too many. */}
-              <div className="mt-4 pt-3 border-t border-border">
-                <span className="rail-label">Controls</span>
-                <div className="mt-2">
-                  <TravelBar
-                    corpus={corpus}
-                    radius={radius} setRadius={setRadius}
-                    temperature={temperature} setTemperature={setTemperature}
-                    step={step} setStep={setStep}
-                    axX={axX} axY={axY} axZ={axZ}
-                    setAxes={(x, y, zz) => { setAxX(x); setAxY(y); setAxZ(zz) }}
-                    overlap={atlas?.axes.overlap ?? null}
-                    ride={ride} orbit={orbit}
-                    onDrift={() => travel({ mode: "drift" }, "drift",
-                                          `drift t${temperature.toFixed(2)}`)}
-                    onRepel={() => travel({ mode: "repel" }, "repel",
-                                          `repel s${step.toFixed(2)}`)}
-                    onOrbit={() => orbit && travel(
-                      { mode: "orbit", centre: orbit.z, angle: 20 }, "orbit",
-                      `orbit ${orbit.name} +20°`)}
-                    onSetRide={async (a, b) => {
-                      try {
-                        const [za, zb] = await Promise.all(
-                          [api.fontPosition(a), api.fontPosition(b)])
-                        setRide({ a, b,
-                                  vec: zb.z.map((v, i) => v - za.z[i]) })
-                      } catch (e) { setError(String(e)) }
-                    }}
-                    onClearRide={() => setRide(null)}
-                    onSetOrbit={async (name) => {
-                      try {
-                        const r = await api.fontPosition(name)
-                        setOrbit({ name, z: r.z })
-                      } catch (e) { setError(String(e)) }
-                    }}
-                    onClearOrbit={() => setOrbit(null)}
-                    busy={busy}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className={`h-full min-h-0 flex-col rounded-md border
-                             border-border/60 bg-muted/25 px-2.5 py-2
-                             overflow-y-auto
-                             ${tab === "trail" ? "flex" : "hidden"}`}>
-              <Trail trail={trail} cursor={cursor} onGo={setCursor}
-                     waypoints={waypoints} onFlag={flagStop}
-                     onClearFlags={() => setWaypoints([])} />
-            </div>
-            <div className={`h-full pt-1 overflow-hidden
-                             ${tab === "settings" ? "" : "hidden"}`}>
-              <Settings
-                inline
-                theme={theme} setTheme={setTheme}
-                defaultText={defaultText} setDefaultText={changeDefaultText}
-                ballOn={ballOn} setBallOn={changeBall}
-                licence={licence} setLicence={changeLicence}
-                xProp={props3[0]} yProp={props3[1]} zProp={props3[2]}
-                setProps={(x, y, zz) => setProps3([x, y, zz])}
-                guideInk={guideInk} setGuideInk={changeGuideInk}
-                ink={ink} setInk={changeInk}
-                guideStyle={guideStyle} setGuideStyle={changeGuideStyle}
-                onForget={forgetAll}
-                onClose={() => pickTab("atlas")} />
-            </div>
-            <div className={`h-full pt-1
-                             ${tab === "walk" ? "" : "hidden"}`}>
-              <CompassRose
-                points={compass}
-                compassText={compassText}
-                radius={radius}
-                onTravel={(p) => walk(p.bearing)}
-                busy={busy}
-              />
-            </div>
-          </div>
-
-          <nav className="shrink-0 h-12 flex items-stretch border-t
-                          border-border bg-card/60 pb-safe px-safe">
-            {([["atlas", "Map"], ["steer", "Steer"],
-               ["trail", "Trail"], ["walk", "Traverse"]] as const)
-              .map(([key, label]) => (
-              <button key={key}
-                      aria-selected={tab === key}
-                      onClick={() => pickTab(key)}
-                      className={`flex-1 rail-label !text-[9px] border-t-2
-                                  -mt-px transition-colors
-                                  ${tab === key
-                                    ? "border-burgundy text-burgundy"
-                                    : "border-transparent"}`}>
-                {label}
-              </button>
-            ))}
-            {/* Undo sits on the specimen's own toolbar, under the hand that
-                needs it. This corner is better spent on the settings, which
-                a phone otherwise reaches only through a menu. */}
-            <button onClick={() => pickTab("settings")}
-                    aria-selected={tab === "settings"}
-                    className={`w-14 rail-label !text-[13px] border-l
-                                border-border border-t-2 -mt-px
-                                transition-colors ${tab === "settings"
-                                  ? "border-t-burgundy text-burgundy"
-                                  : "border-t-transparent"}`}
-                    title="Settings">
-              ⚙
-            </button>
-          </nav>
-
-          {error && (
-            <button
-              className="fixed left-2 right-2 z-40 panel px-3 py-2 font-mono
-                         text-[10px] text-burgundy text-left truncate"
-              style={{ bottom: "calc(3.25rem + env(safe-area-inset-bottom))" }}
-              onClick={() => setError(null)}>
-              {error}
-            </button>
+              {Object.keys(outlines).length > 0 && (
+                <p className="mt-2 font-mono text-[10px]
+                              text-muted-foreground">
+                  {`drawn by hand: ${Object.keys(outlines).join(" ")}`}
+                </p>
+              )}
+            </Section>
+          ) : (
+            <Section id="glyph" title={`Glyph ${editChar}`} defaultOpen
+                     note={decided ? "decided" : undefined}>
+              <GlyphMetrics
+                char={editChar} row={row}
+                suggestion={suggestions?.[editChar] ?? null}
+                spacing={spacing} setSpacing={setSpacing}
+                decided={decided} busy={suggesting}
+                onSuggest={suggest} />
+            </Section>
           )}
-        </>)}
+
+          <Section id="near" title="Nearest families"
+                   note={`${location?.neighbours?.length ?? 0}`}>
+            {location?.neighbours?.length ? (
+              <FamilyPicker neighbours={location.neighbours}
+                            onPick={goToFamily}
+                            inline
+                            sample={[...text]
+                              .filter((c) => /[A-Za-z]/.test(c))
+                              .slice(0, 3).join("") || "Ham"} />
+            ) : (
+              <p className="font-mono text-[10px] text-muted-foreground">
+                nothing measured yet
+              </p>
+            )}
+          </Section>
+        </Inspector>
+
+        {trailOpen && (
+          <TrailPalette trail={trail} cursor={cursor} onGo={setCursor}
+                        waypoints={waypoints} onFlag={flagStop}
+                        onClearFlags={() => setWaypoints([])}
+                        onClose={() => setTrailOpen(false)} />
+        )}
+
+        {error && isMobile && (
+          <button
+            className="fixed left-2 right-2 bottom-2 z-40 panel px-3 py-2
+                       font-mono text-[10px] text-burgundy text-left truncate"
+            onClick={() => setError(null)}>
+            {error}
+          </button>
+        )}
       </main>
 
       {sharing && z && (
         <ShareCard z={z} text={text} family={family}
                    onClose={() => setSharing(false)} />
-      )}
-
-      {planned && (
-        <ComingSoon item={planned} onClose={() => setPlanned(null)} />
       )}
 
       {help && <Help topic={help} onClose={() => setHelp(null)} />}
@@ -2025,6 +1793,12 @@ export default function App() {
           guideInk={guideInk} setGuideInk={changeGuideInk}
           ink={ink} setInk={changeInk}
           guideStyle={guideStyle} setGuideStyle={changeGuideStyle}
+          depth={depth} setDepth={setDepth}
+          points={points} setPoints={setPoints}
+          guides={guides} setGuides={setGuides}
+          priority={priority} setPriority={setPriority}
+          temperature={temperature} setTemperature={setTemperature}
+          step={step} setStep={setStep}
           onForget={forgetAll}
           onClose={() => setSettingsOpen(false)} />
       )}

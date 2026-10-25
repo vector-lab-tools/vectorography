@@ -10,18 +10,13 @@ export type MenuItem =
 export type Menu = { label: string; items: MenuItem[] }
 
 /**
- * The menu bar, after the one on the Spacewar! research bench.
+ * The menu bar.
  *
- * The thing worth taking from it is not the look. It is that every item says
- * what it does, in a dimmed line under its own name, instead of hiding it in a
- * tooltip. Every item here already had that sentence written: it sat in the
- * `title` attribute, where it took a hover and a wait to read on a mouse and
- * could not be read at all on a touchscreen. The same words, moved up into the
- * menu, turn a list of names into something a person can use without being
- * told what the names mean.
- *
- * Headings over groups rather than bare rules, for the same reason: a divider
- * says two things are different, and a heading says what they are.
+ * Every item is a word or two and a shortcut. The sentence that explains it
+ * is in the tooltip, not under the name: with thirty-three items each
+ * carrying a line of its own, the menus had become documentation, and a menu
+ * that has to be read cannot be scanned. Naming the items properly is what
+ * paid for dropping the lines.
  */
 export function MenuBar({ menus }: { menus: Menu[] }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -73,7 +68,7 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
           </button>
 
           {open === m.label && (
-            <div className="absolute top-full left-0 z-50 w-[330px] py-1
+            <div className="absolute top-full left-0 z-50 w-[220px] py-1
                             bg-menu border border-border rounded-sm
                             shadow-editorial-md
                             max-lg:fixed max-lg:left-2 max-lg:right-2
@@ -91,9 +86,10 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
                   <button
                     key={i}
                     disabled={it.disabled}
+                    title={it.title}
                     onClick={() => { setOpen(null); it.onSelect() }}
                     className={`w-full block px-3 py-1.5 coarse:py-2.5
-                                text-left hover:bg-muted
+                                py-1 text-left hover:bg-muted
                                 disabled:opacity-35 disabled:hover:bg-transparent
                                 disabled:cursor-not-allowed transition-colors
                                 ${it.on ? "bg-burgundy/10" : ""}`}
@@ -110,12 +106,6 @@ export function MenuBar({ menus }: { menus: Menu[] }) {
                         </span>
                       )}
                     </span>
-                    {it.title && (
-                      <span className="block font-mono text-[9px] leading-snug
-                                       text-muted-foreground mt-0.5">
-                        {it.title}
-                      </span>
-                    )}
                   </button>
                 ),
               )}

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Modal } from "./Modal"
 import { TERMS } from "./Licence"
-import { PROPS } from "./SpecimenStage"
+import { PROPS, type Depth } from "./SpecimenStage"
 import type { HandleKind } from "./handles"
 
 export type Theme = "system" | "light" | "dark"
@@ -56,15 +56,19 @@ const SELECT = "font-mono text-[11px] bg-card border border-border "
 /**
  * The choices that outlast a session.
  *
- * Anything here is remembered; anything on the stage toolbar is a thing you
- * flip while working. The theme in particular was not being kept at all, so
- * every reload put a dark room back into daylight.
+ * Anything here is remembered. The stage toolbar used to hold seven of these
+ * as icons over the letters, where they competed with the work for the
+ * canvas; the two canvas modes replaced the modes it switched between, and
+ * the rest came here.
  */
 export function Settings({
   theme, setTheme, defaultText, setDefaultText, ballOn, setBallOn,
   licence, setLicence, onForget, onClose,
   xProp, yProp, zProp, setProps, guideInk, setGuideInk, ink, setInk,
-  guideStyle, setGuideStyle, inline = false,
+  guideStyle, setGuideStyle, depth, setDepth, points, setPoints,
+  guides, setGuides, priority, setPriority,
+  temperature, setTemperature, step, setStep,
+  inline = false,
 }: {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -87,6 +91,22 @@ export function Settings({
   setInk: (v: string) => void
   guideStyle: GuideStyle
   setGuideStyle: (v: GuideStyle) => void
+  /* These five were buttons on a stage toolbar of seven that the two canvas
+     modes replaced. They are choices a designer makes once about how the
+     desk behaves, which is what this panel is for. */
+  depth: Depth
+  setDepth: (d: Depth) => void
+  points: "on" | "minimal" | "off"
+  setPoints: (v: "on" | "minimal" | "off") => void
+  guides: boolean
+  setGuides: (v: boolean) => void
+  priority: HandleKind | "all"
+  setPriority: (v: HandleKind | "all") => void
+  /** How far Drift wanders and how hard Repel pushes. */
+  temperature: number
+  setTemperature: (v: number) => void
+  step: number
+  setStep: (v: number) => void
   /** Shown in place, as one of the phone's tabs, rather than over the work. */
   inline?: boolean
 }) {
@@ -99,7 +119,7 @@ export function Settings({
         <p className="text-[12px] leading-relaxed">
           Every remembered choice goes back to its default: the theme, the
           opening text, the licence and copyright holder, the corpus shell,
-          and where the stage toolbar sits.
+          the guides, and the tabs you have open.
         </p>
         <p className="text-[12px] leading-relaxed mt-2">
           The journey you are on is not touched, and nothing already saved to
@@ -238,6 +258,47 @@ export function Settings({
 
         <section>
           <h3 className="font-display text-[13px] mb-0.5">Dragging the specimen</h3>
+          <Field label="How the hand drives"
+                 note="Handles grabs the part of the letter that expresses the
+                       property. The other two make the whole word one control
+                       and read a third property off the wheel or the depth">
+            <select className={SELECT} value={depth}
+                    onChange={(e) => setDepth(e.target.value as Depth)}>
+              <option value="handles">Handles</option>
+              <option value="modifier">Modifier</option>
+              <option value="perspective">Perspective</option>
+            </select>
+          </Field>
+          <Field label="Grab points"
+                 note="How much of the control surface the type carries">
+            <select className={SELECT} value={points}
+                    onChange={(e) => setPoints(
+                      e.target.value as "on" | "minimal" | "off")}>
+              <option value="on">All of them</option>
+              <option value="minimal">Only the one under the hand</option>
+              <option value="off">None</option>
+            </select>
+          </Field>
+          <Field label="Handle to grab"
+                 note="Which property a press prefers when several handles
+                       overlap. All is the letterform answering for itself,
+                       which is the mode the instrument is named after">
+            <select className={SELECT} value={priority}
+                    onChange={(e) => setPriority(
+                      e.target.value as HandleKind | "all")}>
+              <option value="all">All, chosen by what is under the hand</option>
+              {PROPS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="Metrics"
+                 note="Baseline, x-height and cap behind the letters">
+            <label className="flex items-center gap-2 text-[11px]">
+              <input type="checkbox" checked={guides}
+                     className="accent-burgundy"
+                     onChange={(e) => setGuides(e.target.checked)} />
+              Draw them on the canvas
+            </label>
+          </Field>
           <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
             In modifier and perspective the whole word is one control: these
             say which property each direction of the hand moves. Handles mode
@@ -262,6 +323,44 @@ export function Settings({
               </select>
             </Field>
           ))}
+        </section>
+
+        <section>
+          <h3 className="font-display text-[13px] mb-0.5">Diverging</h3>
+          <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
+            How far the two wandering items in the Diverge menu go. Step and
+            Rigidify take their distance from the work instead: a step is
+            0.04 em of movement in the letters, and Rigidify halves what is
+            left to the nearest real family.
+          </p>
+          <Field label="Drift"
+                 note="How far it wanders. Low stays among faces the corpus
+                       thinks are plausible">
+            <span className="flex items-center gap-2">
+              <input type="range" min={0.1} max={1.5} step={0.05}
+                     value={temperature}
+                     onChange={(e) => setTemperature(Number(e.target.value))}
+                     className="w-32 accent-burgundy" />
+              <span className="font-mono text-[10px] text-muted-foreground
+                               tabular-nums">
+                {temperature.toFixed(2)}
+              </span>
+            </span>
+          </Field>
+          <Field label="Repel"
+                 note="How hard it pushes away from the nearest real
+                       families">
+            <span className="flex items-center gap-2">
+              <input type="range" min={0.1} max={1.5} step={0.05}
+                     value={step}
+                     onChange={(e) => setStep(Number(e.target.value))}
+                     className="w-32 accent-burgundy" />
+              <span className="font-mono text-[10px] text-muted-foreground
+                               tabular-nums">
+                {step.toFixed(2)}
+              </span>
+            </span>
+          </Field>
         </section>
 
         <section>
@@ -296,8 +395,7 @@ export function Settings({
         <button className="btn border-burgundy/60 text-burgundy
                            hover:bg-burgundy/10"
                 onClick={() => setConfirming(true)}
-                title={"Clear every remembered choice, including the toolbar's "
-                  + "position, and start from the defaults"}>
+                title="Clear every remembered choice and start from the defaults">
           Clear settings
         </button>
         </div>

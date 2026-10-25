@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Glyph } from "../api"
-import { FamilyPicker } from "./FamilyPicker"
-import { ProofBox } from "./ProofBox"
-import { ICONS, StageToolbar, type Dock, type Tool } from "./StageToolbar"
 import { handleColour } from "./handleColours"
 import { GUIDE_STROKE, type GuideStyle } from "./Settings"
 import { LINE_H, allHandles, handleAt, layout, lineCount, lineWidth,
@@ -34,12 +31,13 @@ export const PROPS: HandleKind[] = ["weight", "width", "tightness", "x-height",
                                     "slant"]
 
 export function SpecimenStage({
-  glyphs, text, hullRadius, radius, depth, setDepth,
+  glyphs, text, hullRadius, radius, depth,
   onDragStart, onDrag, onDragEnd, lost, onReset,
-  onUndo, onRedo, canUndo, canRedo, guideInk, guideStyle,
-  setText, neighbours, onGoToFamily, geometry, busy,
+  guideInk, guideStyle,
+  geometry, busy,
   xProp, yProp, zProp, setProps,
-  settled, settling, onToggleSettled, settledNote, onSettling, readings,
+  settled, settledNote,
+  points, guides, priority, size, onDrawnAt,
 }: {
   glyphs: Glyph[]
   text: string
@@ -47,20 +45,12 @@ export function SpecimenStage({
   hullRadius: number | null
   radius: number | null
   depth: Depth
-  setDepth: (d: Depth) => void
   onDragStart: (aiming: HandleKind[]) => void
   onDrag: (r: DragReport) => void
   onDragEnd: () => void
   /** Outside the corpus, where the outlines stop being readings. */
   lost: boolean
   onReset: () => void
-  /** Keep this exact place, and go back to the one kept last. Shaping runs
-   *  ahead of the trail: a hand tries twenty things and wants the good one
-   *  back, not the twentieth. */
-  onUndo: () => void
-  onRedo: () => void
-  canUndo: boolean
-  canRedo: boolean
   /** How strongly the guides and the depth rails are drawn. */
   guideInk: number
   /** And in what manner. */
@@ -69,24 +59,32 @@ export function SpecimenStage({
   geometry: Glyph[] | null
   /** Letters the designer has decided, marked under the baseline. */
   settled: string[]
-  /** Whether a press on a letter settles it rather than taking hold of it. */
-  settling: boolean
-  onToggleSettled: (ch: string) => void
-  /** Flip into and out of deciding letters. */
-  onSettling: () => void
-  /** Measurements that must survive a change of view. */
-  readings: { label: string; value: string; tone?: string }[]
   /** What has been decided and how much room is left, beside the handle
    *  reading, because both say what the next gesture will do. */
   settledNote: string | null
-  /** The word being set. */
-  setText: (t: string) => void
-  /** Real families, nearest first, and travel to the one chosen. */
-  neighbours: { family: string; distance: number }[]
-  onGoToFamily: (name: string) => void
   busy: boolean
   xProp: HandleKind; yProp: HandleKind; zProp: HandleKind
   setProps: (x: HandleKind, y: HandleKind, z: HandleKind) => void
+  /** How much of the control surface the type carries, and whether the
+   *  baseline, x-height and cap are drawn behind it. Both were buttons on a
+   *  toolbar of seven that the two canvas modes replaced; they are settings a
+   *  designer makes once, so they are kept with the rest of those. */
+  points: "on" | "minimal" | "off"
+  guides: boolean
+  /** Which handle a press prefers when several overlap, so a hand after one
+   *  property does not have to find a stem edge every time. "all" is the
+   *  letterform answering for itself, which is the mode the tool is named
+   *  after. */
+  priority: HandleKind | "all"
+  /** The size the string is set at, in points. The drawing is fitted to the
+   *  box, so a size is honoured by choosing the measure the box can show at
+   *  it and padding the viewBox out to that measure: the fit then works out
+   *  to exactly this many pixels per em. */
+  size: number
+  /** The size it was actually drawn at. An unbreakable word longer than the
+   *  box cannot be set at the size asked for, and a readout that says 180
+   *  when the letters are at 46 is a readout nobody can work from. */
+  onDrawnAt?: (points: number) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const svg = useRef<SVGSVGElement>(null)
@@ -96,35 +94,12 @@ export function SpecimenStage({
   // the drawing takes hold of that property, so a designer working on weight
   // does not have to find a stem edge every time. "all" is the letterform
   // answering for itself, which is the mode the tool is named after.
-  const [priority, setPriority] = useState<HandleKind | "all">(
-    () => (localStorage.getItem("vg.handle") as HandleKind | null) ?? "all")
-  const choosePriority = useCallback((k: HandleKind | "all") => {
-    setPriority(k)
-    localStorage.setItem("vg.handle", k)
-  }, [])
   // Which way the shell is facing. A drag in perspective turns it, so the
   // space answers the hand rather than sitting behind the letters as a
   // decoration: moving across the floor spins it, pushing away tilts it.
   const [spin, setSpin] = useState({ yaw: 0.5, pitch: 0.42 })
   const [fader, setFader] = useState(0)
   const faderLast = useRef(0)
-  // Metrics are wanted while judging a shape and in the way while reading a
-  // word, so they come and go on their own switch, and the choice is kept.
-  const [guides, setGuides] = useState(
-    () => localStorage.getItem("vg.guides") !== "0")
-  // How much of the control surface the type carries. All of it while
-  // learning what the letters offer, one point at a time once that is known,
-  // none of it when the specimen is being judged as a specimen.
-  const [points, setPoints] = useState<"on" | "minimal" | "off">(
-    () => (localStorage.getItem("vg.points") as
-      "on" | "minimal" | "off" | null) ?? "on")
-  // Where the tools sit. Kept, because it is a decision about the desk.
-  const [dock, setDock] = useState<Dock>(
-    () => (localStorage.getItem("vg.dock.v2") as Dock | null)
-      // On a phone the head row carries the proof chips and the foot carries
-      // the depth schemes and the reading, so the tools take the right edge,
-      // where they stack vertically and leave the letters clear.
-      ?? "bottom-right")
 
   // A tall panel sets the text over as many lines as it can show at a
   // readable size; a short one keeps to one, as before. The measure is
@@ -140,12 +115,23 @@ export function SpecimenStage({
   // the panel taller made the letters smaller, which is the opposite of what
   // dragging it taller is for.
   const [measure, setMeasure] = useState(Infinity)
+  /** How wide the viewBox is held open, so a short string is not blown up to
+   *  fill the box when a size has been asked for. */
+  const [frameW, setFrameW] = useState(0)
   useEffect(() => {
     const el = box.current
     if (!el) return
     const read = () => {
       const w = el.clientWidth, h = el.clientHeight
       if (!w || !h) return
+      // A point is 96/72 CSS pixels. Everything else here is fitting, which
+      // is the right behaviour for a map and the wrong one for a proof: a
+      // designer judging a face at 10 point needs it drawn at 10 point.
+      const perEm = size * (96 / 72)
+      const m = Math.max(1, w / perEm) - 0.12
+      setMeasure(m)
+      setFrameW(m + 0.12)
+      return
       const wide = lineWidth(layout(glyphs, text))
       let best = { measure: Infinity, size: 0 }
       for (let n = 1; n <= 4; n++) {
@@ -176,7 +162,7 @@ export function SpecimenStage({
     const ro = new ResizeObserver(read)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [glyphs, text])
+  }, [glyphs, text, size])
 
   const placed = useMemo(
     () => layout(glyphs, text, measure), [glyphs, text, measure])
@@ -214,13 +200,16 @@ export function SpecimenStage({
   // narrower, which made the instrument look like it was zooming while the
   // type was being worked on.
   const lines = lineCount(placed)
-  const VB = { x0: -0.06, y0: -0.94, w: width + 0.12,
+  const VB = { x0: -0.06, y0: -0.94, w: Math.max(width + 0.12, frameW),
                h: 1.24 + (lines - 1) * LINE_H }
   const el = box.current
   const scale = el && el.clientWidth
     ? Math.min(el.clientWidth / VB.w, el.clientHeight / VB.h) : 0
   /** A length in screen pixels, in the drawing's own units. */
   const px = (n: number) => (scale > 0 ? n / scale : n / 260)
+  useEffect(() => {
+    if (scale > 0) onDrawnAt?.(scale * (72 / 96))
+  }, [scale, onDrawnAt])
 
   /** A client point in the font's own coordinates: x along the line, y up. */
   const toEm = useCallback((cx: number, cy: number) => {
@@ -255,149 +244,6 @@ export function SpecimenStage({
   const beyond = lost
     || (hullRadius != null && radius != null && radius > hullRadius)
 
-  const tools: Tool[] = [
-    // How the hand drives the letters, first, because it decides what every
-    // other gesture on the drawing means.
-    ...(["handles", "modifier", "perspective"] as Depth[]).map((d) => ({
-      key: d,
-      on: depth === d,
-      icon: d === "handles" ? ICONS.handles
-        : d === "modifier" ? ICONS.modifier : ICONS.perspective,
-      label: d === "handles" ? "Handles"
-        : d === "modifier" ? "Modifier" : "Perspective",
-      title: d === "handles"
-        ? "grab the part of the letter that expresses the property"
-        : d === "modifier"
-          ? "drag anywhere for two properties, wheel or fader for the third"
-          : "drag anywhere for two properties, into the picture for the third",
-      onClick: () => setDepth(d),
-      // Held down, the plane modes offer the properties the hand drives.
-      // Handles has none to offer: there the letter decides.
-      menu: d === "handles" ? (
-        <span className="flex flex-col gap-1">
-          <span className="rail-label !text-[8px]">handle to grab</span>
-          {(["all", ...PROPS] as (HandleKind | "all")[]).map((k) => {
-            const offered = k === "all" || handles.some((h) => h.kind === k)
-            return (
-              <button key={k} onClick={() => choosePriority(k)}
-                      disabled={!offered}
-                      title={k === "all"
-                        ? "The part of the letter under the hand decides"
-                        : offered
-                          ? `A press anywhere takes hold of ${k}`
-                          : `This specimen offers no ${k} handle`}
-                      className={`text-left font-mono text-[10px] px-1.5 py-1
-                                  max-lg:py-1.5 rounded-sm transition-colors
-                                  disabled:opacity-30
-                                  ${priority === k
-                                    ? "bg-here/10 text-here"
-                                    : "hover:bg-muted"}`}>
-                {k === "all" ? "all \u00b7 choose via dot" : k}
-              </button>
-            )
-          })}
-        </span>
-      ) : (
-        <span className="flex flex-col gap-1.5">
-          <span className="rail-label !text-[8px]">
-            modifiers for dragging
-          </span>
-          {(d === "perspective"
-            ? ([["\u2194 across the floor", xProp, 0],
-                ["\u2191 away from the eye", zProp, 2]] as const)
-            : ([["\u2194 sideways", xProp, 0],
-                ["\u2195 up and down", yProp, 1],
-                ["\u2316 wheel or fader", zProp, 2]] as const)
-          ).map(([label, val, slot]) => (
-            <span key={slot} className="flex items-center justify-between gap-2">
-              <span className="font-mono text-[9px] text-muted-foreground
-                               whitespace-nowrap">
-                {label}
-              </span>
-              <select
-                value={val}
-                onChange={(e) => {
-                  const v = e.target.value as HandleKind
-                  setProps(slot === 0 ? v : xProp, slot === 1 ? v : yProp,
-                           slot === 2 ? v : zProp)
-                }}
-                className="font-mono text-[10px] bg-background border
-                           border-border rounded-sm px-1 py-0.5"
-              >
-                {PROPS.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </span>
-          ))}
-        </span>
-      ),
-    })),
-    {
-      key: "points", divider: true, on: points !== "off" && depth === "handles",
-      disabled: depth !== "handles",
-      icon: points === "on" ? ICONS.points
-        : points === "minimal" ? ICONS.pointsMinimal : ICONS.pointsOff,
-      label: points === "on" ? "Grab points: all"
-        : points === "minimal" ? "Grab points: only the one under the hand"
-        : "Grab points: none",
-      title: points === "on"
-        ? "showing all of them \u00b7 click for only the one under the hand"
-        : points === "minimal"
-        ? "showing only the one under the hand \u00b7 click for none"
-        : "hidden \u00b7 click to show all of them",
-      onClick: () => {
-        const next = points === "on" ? "minimal"
-          : points === "minimal" ? "off" : "on"
-        setPoints(next)
-        localStorage.setItem("vg.points", next)
-      },
-    },
-    {
-      key: "guides", on: guides, icon: ICONS.guides, label: "Guides",
-      title: "baseline, x-height and cap height behind the letters",
-      onClick: () => {
-        const next = !guides
-        setGuides(next)
-        localStorage.setItem("vg.guides", next ? "1" : "0")
-      },
-    },
-    // Undo and redo, where the hand already is. Keeping and recalling a place
-    // sat here before, and both did their work invisibly: on a phone, with no
-    // tooltip to read, a press that changes nothing on screen is a press that
-    // did not work. Both still live in the Edit menu.
-    {
-      key: "undo", on: false, divider: true, icon: ICONS.recall, label: "Undo",
-      title: "back to the last stop on the trail",
-      disabled: !canUndo,
-      onClick: onUndo,
-    },
-    {
-      key: "redo", on: false, icon: ICONS.redo, label: "Redo",
-      title: "forward again, to the stop you came back from",
-      disabled: !canRedo,
-      onClick: onRedo,
-    },
-    // Settling is the decision the instrument exists to let a designer make,
-    // and it lived two levels into a menu. It belongs where the hand already
-    // is, beside the modes that say what a press on a letter does, because
-    // that is exactly what it changes.
-    {
-      key: "settle", divider: true, on: settling, icon: ICONS.settle,
-      label: settled.length
-        ? `Settle letters \u00b7 ${settled.length} decided`
-        : "Settle letters",
-      title: settling
-        ? "press a letter to decide it \u00b7 click here to stop"
-        : "decide letters: moves are then projected onto the directions "
-          + "they barely feel, so the rest of the alphabet goes on moving",
-      onClick: onSettling,
-    },
-    ...(beyond ? [{
-      key: "rescue", on: true, icon: ICONS.rescue,
-      label: "Back to the last sane position",
-      title: "the last stop still inside the corpus",
-      onClick: onReset,
-    }] : []),
-  ]
   const last = useRef<{ x: number; y: number } | null>(null)
   const held = useRef<Handle | "plane" | null>(null)
 
@@ -535,9 +381,8 @@ export function SpecimenStage({
       <svg
         ref={svg}
         viewBox={`${VB.x0} ${VB.y0} ${VB.w} ${VB.h}`}
-        preserveAspectRatio="xMidYMid meet"
-        className={`w-full h-full touch-none select-none lg:pr-0 ${
-          dock === "right" ? "pr-8" : dock === "left" ? "pl-8" : ""} ${
+        preserveAspectRatio="xMinYMid meet"
+        className={`w-full h-full touch-none select-none ${
           dragging ? "cursor-grabbing"
           : showing ? "cursor-grab"
           : depth === "handles" ? "cursor-default" : "cursor-grab"}`}
@@ -671,16 +516,7 @@ export function SpecimenStage({
               {placed.map((p, i) => (
                 <path key={i}
                       transform={`translate(${p.x0.toFixed(4)},${p.y0.toFixed(4)})`}
-                      // While letters are being settled the whole word is a
-                      // row of targets, so the unsettled ones step back and
-                      // the press lands on a letter rather than on a handle.
-                      opacity={settling && !decided.has(p.g.char) ? 0.45 : 1}
-                      style={settling ? { cursor: "pointer" } : undefined}
-                      pointerEvents={settling ? "auto" : "none"}
-                      onPointerDown={settling ? (e) => {
-                        e.stopPropagation()
-                        onToggleSettled(p.g.char)
-                      } : undefined}
+                      pointerEvents="none"
                       d={p.g.path} />
               ))}
             </g>
@@ -733,25 +569,6 @@ export function SpecimenStage({
           </g>
 
 
-      {/* The readings, where they cannot go dark.
-
-          Altitude and density lived inside the atlas, so switching to the
-          proof sheet took them off the screen: the instruments that exist to
-          show the pull toward the average went out at exactly the moment a
-          designer starts shaping. They belong to the work rather than to one
-          view of it, so they sit on the stage. */}
-      {readings.length > 0 && (
-        <div className="absolute top-1 left-2 flex flex-wrap items-baseline
-                        gap-x-3 gap-y-0.5 pointer-events-none">
-          {readings.map((r) => (
-            <span key={r.label} className="flex items-baseline gap-1">
-              <span className={`font-mono text-[11px] leading-none
-                                ${r.tone ?? ""}`}>{r.value}</span>
-              <span className="rail-label !text-[7px]">{r.label}</span>
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that
@@ -765,9 +582,7 @@ export function SpecimenStage({
             ? `perspective \u00b7 ${xProp}/${zProp}`
             : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
         {settledNote && (
-          <div className={settling ? "text-burgundy" : undefined}>
-            {settledNote}
-          </div>
+          <div>{settledNote}</div>
         )}
       </div>
 
@@ -798,25 +613,6 @@ export function SpecimenStage({
         </g>
       </svg>
 
-      {/* What the type is being set in, at the head of the panel it is set
-          in. It had been up in the menu bar, a long way from the letters it
-          changes. */}
-      {/* What the type is being set in, at the head of the panel it is set
-          in. The five chips that stood here were the same strings the list
-          holds, abbreviated to Ham and adh and HHOO, which read as words
-          only to someone who already knew them. */}
-      <div className="absolute top-1 left-2 right-2 z-30 flex items-center
-                      justify-end gap-1">
-        <ProofBox text={text} setText={setText} />
-
-        {/* The real families you are standing among, nearest first, each set
-            in its own face: the list was a readout, and every line of it is
-            somewhere the traveller might want to be. */}
-        <FamilyPicker neighbours={neighbours} onPick={onGoToFamily}
-                      sample={[...text].filter((c) => /[A-Za-z]/.test(c))
-                        .slice(0, 3).join("") || "Ham"} />
-      </div>
-
       {depth === "perspective" && (
         <div className="absolute left-2 bottom-7 rail-label !text-[8px]
                         text-here pointer-events-none leading-tight">
@@ -826,25 +622,6 @@ export function SpecimenStage({
         </div>
       )}
 
-      {/* The readings, where they cannot go dark.
-
-          Altitude and density lived inside the atlas, so switching to the
-          proof sheet took them off the screen: the instruments that exist to
-          show the pull toward the average went out at exactly the moment a
-          designer starts shaping. They belong to the work rather than to one
-          view of it, so they sit on the stage. */}
-      {readings.length > 0 && (
-        <div className="absolute top-1 left-2 flex flex-wrap items-baseline
-                        gap-x-3 gap-y-0.5 pointer-events-none">
-          {readings.map((r) => (
-            <span key={r.label} className="flex items-baseline gap-1">
-              <span className={`font-mono text-[11px] leading-none
-                                ${r.tone ?? ""}`}>{r.value}</span>
-              <span className="rail-label !text-[7px]">{r.label}</span>
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* What a press will take hold of, in the corner the eye starts from.
           The choice lives two presses deep in the toolbar, and a setting that
@@ -858,9 +635,7 @@ export function SpecimenStage({
             ? `perspective \u00b7 ${xProp}/${zProp}`
             : `modifier \u00b7 ${xProp}/${yProp}/${zProp}`}
         {settledNote && (
-          <div className={settling ? "text-burgundy" : undefined}>
-            {settledNote}
-          </div>
+          <div>{settledNote}</div>
         )}
       </div>
 
@@ -877,9 +652,6 @@ export function SpecimenStage({
           )}
         </div>
       )}
-
-      <StageToolbar tools={tools} dock={dock}
-                    setDock={(d) => { setDock(d); localStorage.setItem("vg.dock.v2", d) }} />
 
       {/* The wheel's job, for hands without a wheel: a fader that springs
           back to rest, so it deals in movement rather than position, exactly
@@ -913,9 +685,8 @@ export function SpecimenStage({
         </div>
       )}
 
-      <div className={`absolute bottom-1 left-2 flex flex-wrap items-center
-                       gap-1 ${dock === "bottom-right" ? "right-[124px]"
-                         : dock === "bottom" ? "right-[124px]" : "right-2"}`}>
+      <div className="absolute bottom-1 left-2 right-2 flex flex-wrap
+                      items-center gap-1">
         {depth !== "handles" && (
           <span className="hidden lg:flex items-center gap-1 ml-1">
             {([["↔", xProp, 0], ["↕", yProp, 1], ["⌖", zProp, 2]] as const)
@@ -957,6 +728,17 @@ export function SpecimenStage({
                   + "map says how far out you are."}>
             {"\u26a0 beyond the hull"}
           </span>
+        )}
+
+        {beyond && (
+          <button onClick={onReset}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm
+                             border border-gold/60 text-gold
+                             hover:bg-gold/10 transition-colors"
+                  title="The last stop on the trail still inside the corpus">
+            back inside
+          </button>
         )}
 
       </div>

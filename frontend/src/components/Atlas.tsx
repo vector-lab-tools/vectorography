@@ -142,7 +142,8 @@ function labelKey(name: string, text: string, rgb: [number, number, number]) {
 
 export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
                         waypoint, setWaypoint, onToward, radius, sample,
-  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus }: {
+  liveGlyphs, liveSelf, ballOn, setBallOn, altitude, corpus,
+  axX, axY, axZ, setAxes }: {
   data: AtlasData | null
   onPick: (name: string) => void
   busy: boolean
@@ -168,6 +169,14 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
    *  where. It belongs next to the position, not across the room from it. */
   altitude: Altitude | null
   corpus: CorpusInfo | null
+  /** Which three directions the map plots. These are a property of the view
+   *  rather than of the work, so they sit on the map's own control bar; they
+   *  used to be three selects on a travel panel that the whole window carried
+   *  whether or not the map was open. A corpus axis and a measured property
+   *  are both directions in the same space, and which is which is the
+   *  comparison the instrument exists to make. */
+  axX: string; axY: string; axZ: string
+  setAxes: (x: string, y: string, z: string) => void
   /** Radius of the position being dragged to, computed by the client, so the
    *  reading moves with the mark instead of waiting for the server. */
 }) {
@@ -857,6 +866,35 @@ export function Atlas({ data, onPick, busy, directions, colourBy, setColourBy,
           >
             N
           </button>
+          {([["\u2194", axX, 0], ["\u2195", axY, 1], ["\u2316", axZ, 2]] as const)
+            .map(([sym, val, slot]) => (
+            <select key={slot}
+              value={val}
+              onChange={(e) => {
+                const v = e.target.value
+                setAxes(slot === 0 ? v : axX, slot === 1 ? v : axY,
+                        slot === 2 ? v : axZ)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="font-mono text-[9px] bg-card border border-border
+                         rounded-sm px-1 py-0.5 max-w-[92px] min-w-0 truncate
+                         max-lg:hidden"
+              title={`What the ${slot === 0 ? "across" : slot === 1 ? "up"
+                : "height"} direction of the map plots`}
+            >
+              {(corpus?.explained_variance ?? []).slice(0, 12)
+                .map((_, i) => (
+                <option key={`axis:${i}`} value={`axis:${i}`}>
+                  {`${sym} axis ${i + 1}`}
+                </option>
+              ))}
+              {directions.map((d) => (
+                <option key={`dir:${d.key}`} value={`dir:${d.key}`}>
+                  {`${sym} ${d.label}`}
+                </option>
+              ))}
+            </select>
+          ))}
           <select
             value={colourBy}
             onChange={(e) => setColourBy(e.target.value)}

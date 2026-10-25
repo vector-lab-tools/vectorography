@@ -23,7 +23,8 @@ import { LINE_H, layout } from "./handles"
  * how steadily it held, so a key can be taken or refused on evidence.
  */
 export function SpaceCenter({ text, setText, glyphs, rows, suggestions,
-                             spacing, setSpacing, onSuggest, busy, onClose }: {
+                             spacing, setSpacing, onSuggest, busy, onClose,
+                             showString = true, selected, onSelect }: {
   text: string
   setText: (t: string) => void
   glyphs: Glyph[]
@@ -34,6 +35,14 @@ export function SpaceCenter({ text, setText, glyphs, rows, suggestions,
   onSuggest: () => void
   busy: boolean
   onClose?: () => void
+  /** False under the specimen, which is already setting the string: then
+   *  this is the row of sidebearings alone, as the Space Center is in
+   *  RoboFont. */
+  showString?: boolean
+  /** The letter the inspector is reading, highlighted here, and set by a
+   *  click on a card. */
+  selected?: string
+  onSelect?: (ch: string) => void
 }) {
   const by = useMemo(() => {
     const m: Record<string, SpacingRow> = {}
@@ -57,10 +66,12 @@ export function SpaceCenter({ text, setText, glyphs, rows, suggestions,
     () => [...new Set([...text])].filter((c) => by[c]), [text, by])
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className={showString
+                      ? "h-full flex flex-col min-h-0" : "flex flex-col"}>
+      {showString && (
       <div className="flex items-center gap-3 px-1 pb-1.5 shrink-0 flex-wrap">
         <span className="rail-label">Spacing</span>
-        <input
+        {showString && <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
@@ -68,7 +79,7 @@ export function SpaceCenter({ text, setText, glyphs, rows, suggestions,
                      bg-background border border-ink/25 focus:outline-none
                      focus:border-burgundy"
           title="The string you are spacing against"
-        />
+        />}
         {["nnoonn", "HHOOHH", "nonbnpn", "HOHOHO"].map((t) => (
           <button key={t} onClick={() => setText(t)}
             className={`font-mono text-[10px] px-1.5 py-0.5 rounded-sm border
@@ -95,30 +106,40 @@ export function SpaceCenter({ text, setText, glyphs, rows, suggestions,
           </button>
         )}
       </div>
+      )}
 
-      <div className="flex-1 min-h-0 overflow-auto">
-        {/* The string, set. Sidebearings are judged by the rhythm of this
-            and then typed; the numbers below are not the instrument. */}
-        <svg viewBox={`0 ${-0.85} ${width} ${LINE_H}`}
-             height={76} width="100%"
-             preserveAspectRatio="xMinYMid meet"
-             className="block text-ink">
-          <g transform="scale(1,-1)" fill="currentColor" fillRule="evenodd">
-            {placed.map((p, i) => (
-              <path key={i} d={p.g.path}
-                    transform={`translate(${p.x0.toFixed(4)},0)`} />
-            ))}
-          </g>
-        </svg>
+      <div className={showString
+                        ? "flex-1 min-h-0 overflow-auto" : "min-h-0"}>
+        {showString && (
+          <svg viewBox={`0 ${-0.85} ${width} ${LINE_H}`}
+               height={76} width="100%"
+               preserveAspectRatio="xMinYMid meet"
+               className="block text-ink">
+            {/* Sidebearings are judged by the rhythm of this and then typed;
+                the numbers below are not the instrument. */}
+            <g transform="scale(1,-1)" fill="currentColor" fillRule="evenodd">
+              {placed.map((p, i) => (
+                <path key={i} d={p.g.path}
+                      transform={`translate(${p.x0.toFixed(4)},0)`} />
+              ))}
+            </g>
+          </svg>
+        )}
 
-        <div className="mt-2 flex gap-2 flex-wrap">
+        <div className={showString
+                          ? "mt-2 flex gap-2 flex-wrap"
+                          : "flex gap-2 overflow-x-auto pb-1"}>
           {columns.map((ch) => {
             const r = by[ch]
             const s = suggestions?.[ch]
             return (
               <div key={ch}
-                   className="border border-border rounded-sm px-2 py-1.5
-                              min-w-[128px]">
+                   onClick={() => onSelect?.(ch)}
+                   className={`border rounded-sm px-2 py-1.5 min-w-[112px]
+                               shrink-0 cursor-pointer
+                               transition-colors ${selected === ch
+                                 ? "border-burgundy bg-burgundy/5"
+                                 : "border-border"}`}>
                 <div className="flex items-baseline justify-between">
                   <span className="font-mono text-[13px]">{ch}</span>
                   <span className="font-mono text-[9px] text-muted-foreground
