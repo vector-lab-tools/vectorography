@@ -7,6 +7,7 @@ import { api, held, type AtlasData, type CompassPoint, type CorpusInfo,
 import { About } from "./components/About"
 import { ProjectionReport } from "./components/Projection"
 import { LearnAxis } from "./components/LearnAxis"
+import { slide } from "./components/probes"
 import { ProofSheet } from "./components/ProofSheet"
 import { SpaceCenter } from "./components/SpaceCenter"
 import { Atlas, type Waypoint } from "./components/Atlas"
@@ -268,6 +269,17 @@ export default function App() {
   const [axes, setAxes] = useKept<LearnedAxis[]>("vg.axes", [],
     (v) => Array.isArray(v))
   const [learning, setLearning] = useState(false)
+  // Properties held while another is moved. The eight measured directions are
+  // not orthogonal, so a step along one drags the others: measured at cardo, a
+  // step of 1.5 along slant moves width by -0.96, tightness by +0.96 and
+  // x-height by -0.95. Holding the rest is what makes a slider a control.
+  const [locks, setLocks] = useKept<string[]>("vg.locks", [],
+    (v) => Array.isArray(v))
+  // With this on, touching a slider holds every other property for the length
+  // of the gesture, which is lock-one-and-twist without having to say so each
+  // time. The padlocks are for holding a few while the rest stay free.
+  const [isolate, setIsolate] = useKept("vg.isolate", true,
+    (v) => typeof v === "boolean")
   // Whether a way in has been chosen. Kept, so the doors are the start of a
   // project rather than a toll gate on every visit; File > New opens them
   // again, which is the moment a project actually begins.
@@ -926,9 +938,18 @@ export default function App() {
     if (!d?.vector) return
     const from = dragZ.current ?? z
     if (!from) return
-    const delta = value - dot(from, d.vector)
-    if (Math.abs(delta) < 1e-6) return
-    const nz = from.map((c, i) => c + delta * d.vector![i])
+    // Everything held for this gesture: the padlocked properties, and with
+    // isolate on, every other property too. The reading stays the projection
+    // onto the direction as written, so the slider means the same thing
+    // whether anything is held or not.
+    const heldKeys = isolate
+      ? allDirections.filter((x) => x.key !== key).map((x) => x.key)
+      : locks.filter((k) => k !== key)
+    const held = heldKeys
+      .map((k) => allDirections.find((x) => x.key === k)?.vector)
+      .filter((v): v is number[] => !!v)
+    const nz = slide(from, d.vector, held, value)
+    if (!nz) return
     dragZ.current = nz
     if (!strokePath.current.length) strokePath.current = [from]
     strokePath.current.push(nz)
@@ -1658,6 +1679,8 @@ export default function App() {
                        note={`${allDirections.length}`}>
                 <DirectionPad directions={allDirections} at={standing}
                               onSlide={slideTo} onCommit={slideCommit}
+                              locks={locks} setLocks={setLocks}
+                              isolate={isolate} setIsolate={setIsolate}
                               busy={busy} />
               </Section>
 
@@ -1782,6 +1805,8 @@ export default function App() {
               {directions.length > 0 ? (
                 <DirectionPad directions={allDirections} at={standing}
                               onSlide={slideTo} onCommit={slideCommit}
+                              locks={locks} setLocks={setLocks}
+                              isolate={isolate} setIsolate={setIsolate}
                               busy={busy} />
               ) : (
                 <p className="font-mono text-[10px] text-muted-foreground p-2">

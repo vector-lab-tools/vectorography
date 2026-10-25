@@ -14,18 +14,42 @@ import type { HandleKind } from "./handles"
  * but there are no real families left to interpolate toward and the outlines
  * start to guess.
  */
-export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
+export function DirectionPad({ directions, at, onSlide, onCommit, busy,
+                               locks, setLocks, isolate, setIsolate }: {
   directions: NamedDirection[]
   /** Current projection along each direction, keyed by property. */
   at: Record<string, number>
   onSlide: (key: string, value: number) => void
   onCommit: () => void
   busy: boolean
-  /** Move halfway to the nearest real family. */
+  /** Properties held while any other is moved. */
+  locks: string[]
+  setLocks: (k: string[]) => void
+  /** Hold every other property for the length of a gesture. */
+  isolate: boolean
+  setIsolate: (v: boolean) => void
 }) {
+  const flip = (key: string) =>
+    setLocks(locks.includes(key) ? locks.filter((k) => k !== key)
+                                 : [...locks, key])
 
   return (
     <div>
+      {/* The eight directions were fitted off the corpus and are not
+          orthogonal to one another, so a step along one arrives in the others
+          as well. Holding the rest is what turns eight handles on one control
+          into eight controls. */}
+      <label className="flex items-center gap-1.5 mb-1.5 cursor-pointer">
+        <input type="checkbox" checked={isolate}
+               onChange={(e) => setIsolate(e.target.checked)}
+               className="accent-burgundy" />
+        <span className="text-[11px]">Twist one at a time</span>
+        <span className="font-mono text-[9px] text-muted-foreground ml-auto"
+              title={"With this off, only the padlocked properties are held "
+                + "and the rest move together as they always did."}>
+          {locks.length ? `${locks.length} held` : ""}
+        </span>
+      </label>
       {/* One line per property: name, track, reading. Stacked over two lines
           each, eight properties did not fit a column and half of them lived
           behind a scrollbar. */}
@@ -39,6 +63,22 @@ export function DirectionPad({ directions, at, onSlide, onCommit, busy }: {
           return (
             <div key={d.key} className="flex items-center gap-1.5
                                         max-lg:gap-2">
+              {/* Held, so that moving anything else leaves this one where it
+                  is. Dimmed rather than hidden when isolate is on, since then
+                  everything is held for the length of a gesture anyway and a
+                  padlock would be saying something already true. */}
+              <button
+                onClick={() => flip(d.key)}
+                title={locks.includes(d.key)
+                  ? `${d.label} is held: other properties move without it`
+                  : `Hold ${d.label} while other properties move`}
+                className={`shrink-0 w-3 text-[9px] leading-none transition-opacity
+                            ${locks.includes(d.key)
+                              ? "text-burgundy"
+                              : "text-muted-foreground opacity-35 hover:opacity-100"}
+                            ${isolate ? "opacity-20" : ""}`}>
+                {locks.includes(d.key) ? "●" : "○"}
+              </button>
               {/* The same colour this property wears on the letterform, so the
                   slider and the grab point read as one control. */}
               <span className="w-[52px] max-lg:w-[58px] shrink-0 truncate

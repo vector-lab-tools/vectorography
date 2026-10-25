@@ -818,3 +818,40 @@ a group of letters at once.
 All 164 are fetched only while the grid is showing: it is the largest thing a
 location can be asked for, 336 kB before compression and 117 kB after, and
 drawing a word does not need it.
+
+## 20. The eight sliders were one control
+
+The eight measured directions were fitted off the corpus and they are not
+orthogonal to one another, so a step along one arrives in the others as well.
+Measured at `cardo`, stepping 1.5 units:
+
+| step along | weight | width | tightness | x-height | contrast | serif | straight | slant |
+|---|---|---|---|---|---|---|---|---|
+| slant | +0.18 | −0.96 | +0.96 | −0.95 | −0.06 | −0.45 | −0.57 | +1.50 |
+| x-height | +0.16 | +0.78 | −0.64 | +1.50 | −0.17 | −0.00 | +0.82 | −0.95 |
+| serif | −0.42 | +0.33 | −0.36 | −0.00 | +0.14 | +1.50 | +0.10 | −0.45 |
+
+Pulling slant drags width, tightness and x-height about two thirds as far as
+the property that was asked for. Eight handles on one control, which is the
+mechanical cause of a space that cannot be designed in.
+
+A probe is the part of a direction that the held properties cannot feel: the
+target with its projection onto their span removed, by modified Gram-Schmidt.
+Moving along it changes the target's own reading and leaves every held reading
+where it was. The reading stays the projection onto the direction as written,
+so a slider means the same thing whether anything is held or not, and reaching
+a given reading takes a longer step by the reciprocal of what survived.
+
+What survives, once the other seven are held: slant 0.59, slant and width and
+x-height around 0.65, contrast 0.95. A probe with nothing left in it means the
+properties being held have already decided this one.
+
+**Twist one at a time** holds every other property for the length of a
+gesture. The padlocks hold a few while the rest stay free, which is the other
+way round and is for exploring within a decision already made. Measured in the
+running app, dragging the serif slider by +0.804: with the switch off, six
+other sliders move, the largest being slant −0.232 and weight −0.221. With it
+on, nothing else moves at all.
+
+Done in the browser rather than on the server, because a slider that waits on
+a round trip is dead and this is a Gram-Schmidt over at most a dozen vectors.
