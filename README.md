@@ -28,7 +28,7 @@ short_description: Type design by traversal of a vector space of letterforms
 
 **Created by:** David M. Berry
 **Institution:** University of Sussex
-**Version:** 0.3, October 2026
+**Version:** 0.4, October 2026
 **Licence:** GPL-3.0
 **Copyright:** © 2026 David M. Berry
 
@@ -43,23 +43,22 @@ omission. Every control in the instrument is a movement: a direction, a
 distance, a heading, a return. The letterforms are already everywhere in the
 space; the work is getting to them, and knowing where you have been.
 
-![The navigator: specimen at the top, the vector space below it, the compass
-rose and the eight measured properties on the right, the trail along the
-bottom](docs/images/navigator.png)
+![Edit mode: the letter n with its outline points, and the inspector on the
+right reading divergence, axes and the drawing](docs/images/0.4/glyph-edit.webp)
 
-The whole instrument is one screen. The specimen is the type as it stands at
-the current location, the map below it is the corpus, the nine panels on the
-right are the eight places one step away, and the list along the bottom is
-every place visited so far.
+It opens on a glyph, as a font editor does. One canvas carries the work in two
+modes, text and edit, and one inspector on the right reads what is true of the
+typeface: how far it has diverged from the corpus, the eight measured axes, and
+whichever letter is selected.
 
 ![Specimen sheet exported from a location two repel steps out from Abel](docs/specimen.svg)
 
 ## The two principles
 
-**Traversal first.** The core screen is a navigator, not a form. A compass rose
-shows eight neighbouring positions as eight rendered specimens, so the choice is
-between visible places rather than abstract parameters. Every move is recorded
-on a trail that can be revisited, branched, and compiled.
+**Traversal first.** The core screen is a canvas, not a form. **Diverge → Step**
+sets a row of candidates a step either way along each axis as running text, so
+the choice is between visible faces rather than abstract parameters. Every move
+is recorded on a trail that can be revisited, branched, and compiled.
 
 **Anti-normalisation.** A space fitted to Google Fonts has a dense
 neo-grotesque core, and every fitted space pulls toward the average of what it
@@ -112,63 +111,65 @@ large and fully regenerable from `fetch.py` and the manifest.
 
 ## The specimen
 
-Drag the divider and the letters take the window. The coloured dots are the
-handles: each one is the part of the letter that carries a property, so a stem
-is dragged thicker and a bowl is dragged rounder rather than a slider being
-found for it.
+In text mode the letters take the window and the coloured dots are the handles:
+each one is the part of the letter that carries a property, so a stem is dragged
+thicker and a bowl is dragged rounder rather than a slider being found for it.
+Under each letter is its sidebearings, and clicking one selects that letter for
+the inspector and for edit mode.
 
-![The specimen filling the window, handles showing on each letter](docs/images/specimen.png)
+![Text mode: the string nnoonn set large, with a sidebearing card under each
+letter](docs/images/0.4/text-mode.webp)
 
 A pointer gives two numbers and the design needs three, so the third dimension
 is offered three ways and the one that suits the hand is chosen in settings.
 **Perspective** puts the word on a shallow ground plane, which makes pushing it
 away from the viewer a real direction on screen.
 
-![The specimen drawn in perspective](docs/images/perspective.png)
+**Modifier** makes the whole word one control and reads the third property off
+the wheel. Both are chosen in **Edit → Settings**.
 
-Two items on the **Edit** menu change how a location is drawn rather than where
-it is. **Rigidify** moves half the way to the nearest real family, and half
-again on the next press. **Straighten outlines** pulls the runs between corners
-onto the straights they nearly are.
+**Diverge → Rigidify** moves half the way to the nearest real family, and half
+again on the next press. **Glyph → Straighten** pulls the runs between corners
+onto the straights they nearly are, which changes the drawing rather than the
+location.
 
-![The Edit menu, showing rigidify and straighten](docs/images/edit-menu.png)
+![The Diverge menu open, showing step, drift, repel, rigidify, pull here and
+name axis](docs/images/0.4/diverge-menu.webp)
 
 ## Travelling
 
 | Control | Movement |
 |---|---|
-| **Compass rose** | click any of eight neighbouring positions to go there |
-| **Arrow keys** | walk east, north, west, south |
-| **Walk radius** | how far one step goes |
-| **Drift** (`d`) | random step, scaled by temperature |
+| **Step** | a row of candidates either way along each axis, set as text under the canvas; click one to go there |
+| **Arrow keys** | walk east, north, west, south on the plane the map is drawn in |
+| **Drift** (`d`) | random step, scaled by the amount in Settings |
 | **Repel** (`r`) | step against the local density gradient, away from the crowd |
-| **Ride** | make the difference between two families a heading usable from anywhere |
-| **Orbit** | circle a chosen family at fixed radius |
-| **Atlas** | click a family to travel to it; click open ground to drop a waypoint, then step toward it or go |
+| **Rigidify** | half the way to the nearest real family, and half again |
+| **Pull here** | move the typeface onto a hand-drawn glyph, as far as the space can reach it |
+| **Map** | click a family to travel to it; click open ground to drop a waypoint, then step toward it or go |
 | **Drag the specimen** | grab your own mark and pull it through the space; the letterforms change as it moves. Alt-drag anywhere does the same without leaving orbit mode, and shift while dragging moves along the third axis instead of across the ground |
-| **Steer** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on. Each is also a **chip**: dragging the specimen moves along the lit chips and nothing else, so the chips aim the drag |
+| **Axes** | eight measured properties, each with a direction: thinner/fatter, tighter/looser, sans/serif, rounder/straighter, and so on. Each can be held, and **twist one at a time** holds the rest for the length of a gesture, since the eight are not orthogonal |
 | **Trail** | click any stop to return; moving from an earlier stop opens a branch |
 | **Backspace** | back to the previous stop |
 
-The eight compass bearings are 45-degree steps in a **heading plane** spanned by
-two of the space's axes. The plane selector prints each axis's share of corpus
-variance, because which plane you turn in is a choice about which directions of
-variation you treat as the important ones. REPEL is not confined to the plane:
-it uses the density gradient in the dominant style subspace and will take you out
-of whatever plane you are turning in.
+The arrow keys step on a **heading plane** spanned by two of the space's axes,
+chosen on the map's own control bar, because which plane you turn in is a choice
+about which directions of variation you treat as the important ones. REPEL is not
+confined to the plane: it uses the density gradient in the dominant style
+subspace and will take you out of whatever plane you are turning in.
 
 Every move lands on the trail, numbered and labelled with how it was made, and
 any stop can be clicked to return to it. Moving from an earlier stop opens a
 branch rather than discarding what came after.
 
-![A trail of seven stops, the current location highlighted](docs/images/trail.png)
+![The trail palette open over the canvas, listing every stop](docs/images/0.4/trail.webp)
 
 ## The atlas
 
-![The vector space with the corpus drawn as a cloud of families, the traveller's
-own mark at the centre and the trail behind it](docs/images/atlas.png)
+![The map: 441 families as a point cloud inside the dashed corpus shell, this
+typeface marked at the centre](docs/images/0.4/map.webp)
 
-The corpus drawn as a place. Both ground axes are the plane the compass turns
+The corpus drawn as a place. Both ground axes are the plane the arrow keys step
 in, so it is the surface actually being steered on rather than another
 projection of the space, and height is crowding, which makes REPEL visibly
 downhill. Coordinates are absolute with the centroid at the origin, so the map
@@ -275,7 +276,7 @@ half-loaded, since a trail is only meaningful in the space it was walked in.
 
 ## Export
 
-![The export panel, grouped by what the file is for](docs/images/export.png)
+![The export panel, grouped by what the file is for](docs/images/0.4/export.webp)
 
 **File → Export** (⇧⌘E) opens one panel, grouped by what you do with the
 file rather than by what the file is: fonts to install, source to carry on
@@ -403,18 +404,18 @@ font model depends on a paid dataset. The space here was built instead.
 instrument will not do. **About** names the model and the version a journey was
 walked in.
 
-![The about panel](docs/images/about.png)
+![The about panel, naming the model and the version](docs/images/0.4/about.webp)
 
 ## Settings
 
-![The settings panel: theme, opening text, specimen colour, guides and the
-drag modifiers](docs/images/settings.png)
+![The settings panel: theme, opening text, specimen colour, guides and how the
+hand drives the letters](docs/images/0.4/settings.webp)
 
 **Edit → Settings** (⌘,) keeps what should outlast a session: the theme,
 with a System option that follows the machine; the text the specimen opens
 with; whether the corpus shell is drawn; and the licence and copyright holder
-that exports carry. Everything on the stage toolbar is a thing you flip while
-working and is not kept.
+that exports carry, together with how the hand drives the letters, which grab
+points are drawn and how far Drift and Repel go.
 
 It is all in this browser's local storage. There is no account, no server-side
 profile and no telemetry; **Clear settings** puts it back to the defaults
@@ -422,13 +423,12 @@ without touching the journey.
 
 ## On a phone
 
-Below the desk widths the specimen and the map stay on screen throughout, and
-the instruments share the region beneath them by tab. The divider between the
-two is draggable, so a big map and a big specimen are the same handle.
+The same two panes, stacked, with a draggable handle between them: the canvas
+above and the inspector below. Until 0.4 a phone had a tab rail of its own
+carrying four instruments, which meant two interfaces to keep true to each
+other.
 
-| Map | Steer | Trail |
-|---|---|---|
-| ![The map tab on a phone](docs/images/mobile.png) | ![The steer tab on a phone](docs/images/mobile-steer.png) | ![The trail tab on a phone](docs/images/mobile-trail.png) |
+<img src="docs/images/0.4/phone.webp" alt="The instrument on a phone: tabs, canvas and inspector stacked" width="300">
 
 ## Provenance and licensing
 
@@ -484,10 +484,10 @@ backend/
   export/fontfile.py    master and variable font compilation
   export/ufo.py         UFO 3 and designspace source
   render.py             contours to SVG
-  main.py               FastAPI: location, compass, travel, export
+  main.py               FastAPI: location, travel, freedom, spacing, export
 frontend/src/
   App.tsx               the navigator
-  components/           compass rose, altitude meter, atlas, specimen stage,
+  components/           atlas, specimen stage, glyph editor, inspector,
                         export panel, settings, help, project files
 DESIGN.md               design of record, including the pre-build review
 ```
