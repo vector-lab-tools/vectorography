@@ -14,3 +14,7 @@ backend/data/ofl-tree.json
 # can travel immediately without downloading the corpus and refitting.
 .vercel
 .env*
+
+# Local-only inbox and scratch. Never committed, so "git add -A" cannot
+# sweep working files into history.
+_tmp/
