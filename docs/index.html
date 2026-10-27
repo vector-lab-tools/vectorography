@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectorography · Type design by traversal</title>
+<meta name="description" content="A typographic instrument for designing type by moving through a 128-dimensional vector space fitted on 441 open-licence families. Outlines are only rendered out to OpenType at export.">
+<meta name="theme-color" content="#f6f2e9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0b12" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Vectorography">
+<meta property="og:description" content="Type design by traversal of a vector space of letterforms.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vector-lab-tools.github.io/vectorography/">
+
+<!-- Before any paint, so a remembered theme never shows the other one first. -->
+<script>(function(){try{var t=localStorage.getItem('vgy-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=IBM+Plex+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+/* Vector Lab family style: cream paper, serif, burgundy accent. Light
+   default; dark via prefers-color-scheme or html[data-theme="dark"]. The
+   instrument itself opens light, because type is judged against paper. */
+:root {
+  --bg: #f6f2e9;
+  --surface: #fffdf8;
+  --surface-alt: #efe7d8;
+  --ink: #141518;
+  --muted: #5b5d66;
+  --accent: #7c2d36;
+  --accent-hover: #5e1f27;
+  --accent-soft: #f0e2e3;
+  --blue: #1a1aff;
+  --rule: #e2d9c8;
+  --shadow: 0 1px 2px rgba(20,21,24,.04), 0 8px 28px rgba(20,21,24,.06);
+  --serif: "Source Serif 4", Georgia, serif;
+  --display: "Cormorant Garamond", Georgia, serif;
+  --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0b12; --surface: #171320; --surface-alt: #201a2c;
+    --ink: #f3f1e8; --muted: #9b9aa8;
+    --accent: #e39aa4; --accent-hover: #f2bcc3; --accent-soft: #2a1a20;
+    --blue: #8a90ff;
+    --rule: #2c2438;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0b12; --surface: #171320; --surface-alt: #201a2c;
+  --ink: #f3f1e8; --muted: #9b9aa8;
+  --accent: #e39aa4; --accent-hover: #f2bcc3; --accent-soft: #2a1a20;
+  --blue: #8a90ff;
+  --rule: #2c2438;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--serif); font-size: 18px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .25s ease, color .25s ease;
+}
+a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 3px; }
+a:hover { color: var(--accent-hover); text-decoration-color: currentColor; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+
+/* Header */
+.site-header {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.site-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand b { font-family: var(--display); font-weight: 600; font-size: 1.15rem; letter-spacing: .16em; text-transform: uppercase; }
+.site-nav { display: flex; align-items: center; gap: 20px; font-size: .9rem; }
+.site-nav a { color: var(--muted); text-decoration: none; }
+.site-nav a:hover { color: var(--ink); }
+.theme-toggle {
+  background: none; border: 1px solid var(--rule); border-radius: 999px; color: var(--muted);
+  width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; flex: 0 0 auto;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--muted); }
+.theme-toggle svg { width: 16px; height: 16px; }
+.icon-sun { display: none; }
+:root[data-theme="dark"] .icon-sun { display: block; }
+:root[data-theme="dark"] .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-sun { display: block; }
+  :root:not([data-theme="light"]) .icon-moon { display: none; }
+}
+/* Four section links and a wordmark do not fit a phone, and the page is
+   short enough to scroll. The toggle stays, since nothing else offers it. */
+@media (max-width: 620px) {
+  .site-nav a { display: none; }
+  .brand b { font-size: 1rem; letter-spacing: .12em; }
+}
+
+/* Hero */
+.hero { padding: 72px 0 44px; border-bottom: 1px solid var(--rule); }
+.eyebrow { font-family: var(--mono); font-size: .74rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(2.6rem, 7vw, 4.2rem); line-height: 1.02; margin: 0 0 18px; letter-spacing: -.01em; }
+.standfirst { font-size: 1.22rem; max-width: 40em; margin: 0 0 26px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn {
+  display: inline-block; font-family: var(--mono); font-size: .82rem; letter-spacing: .04em;
+  padding: 11px 20px; border-radius: 6px; text-decoration: none;
+  border: 1px solid var(--accent); color: var(--accent); background: transparent;
+}
+.btn:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.btn-solid { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn-solid:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--bg); }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin: 40px 0 0; }
+.stat { background: var(--surface); padding: 18px 20px; }
+.stat b { display: block; font-family: var(--mono); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
+.stat span { display: block; font-size: .86rem; color: var(--muted); margin-top: 3px; }
+@media (max-width: 760px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* Sections */
+section { padding: 56px 0; border-bottom: 1px solid var(--rule); scroll-margin-top: 72px; }
+.sec-num { font-family: var(--mono); font-size: .74rem; letter-spacing: .2em; color: var(--accent); display: block; margin-bottom: 8px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.12; margin: 0 0 20px; }
+h3 { font-size: 1.08rem; font-weight: 600; margin: 32px 0 8px; }
+p { max-width: 42em; }
+.lede { font-size: 1.08rem; }
+
+pre {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: .82rem;
+  line-height: 1.6; margin: 14px 0;
+}
+code { font-family: var(--mono); font-size: .88em; }
+p code, li code { background: var(--surface-alt); padding: 1px 5px; border-radius: 4px; }
+pre code { background: none; padding: 0; }
+.out { color: var(--muted); }
+
+/* The freedom curve: a sequence, so it falls rather than sitting in cells. */
+.curve { list-style: none; padding: 0; margin: 20px 0 0; max-width: 34em; }
+.curve li { display: grid; grid-template-columns: 9.5em 1fr 3.6em; gap: 12px; align-items: center; padding: 5px 0; }
+.curve .what { font-size: .94rem; }
+.curve .bar { height: 7px; border-radius: 4px; background: var(--accent); min-width: 2px; }
+.curve .n { font-family: var(--mono); font-size: .86rem; text-align: right; color: var(--accent); }
+@media (max-width: 560px) { .curve li { grid-template-columns: 7em 1fr 3.2em; } }
+
+figure { margin: 26px 0 0; }
+figure img { width: 100%; height: auto; display: block; border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); background: var(--surface); }
+figcaption { font-size: .88rem; color: var(--muted); margin-top: 9px; max-width: 44em; }
+.shot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 760px) { .shot-pair { grid-template-columns: 1fr; } }
+.phone-shot img { max-width: 300px; margin: 0 auto; }
+
+.cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 24px; }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 20px 22px; }
+.card h4 { margin: 0 0 7px; font-size: 1rem; font-weight: 600; }
+.card p { margin: 0; font-size: .94rem; color: var(--muted); max-width: none; }
+.card .sym { font-family: var(--mono); font-size: .78rem; color: var(--accent); display: block; margin-bottom: 6px; letter-spacing: .04em; }
+
+dl.tr { margin: 0; }
+dl.tr dt { font-weight: 600; margin-top: 22px; font-size: .98rem; }
+dl.tr dd { margin: 5px 0 0; color: var(--muted); max-width: 44em; }
+dl.tr dd code { color: var(--ink); }
+
+ul.plain { list-style: none; padding: 0; max-width: 42em; }
+ul.plain li { padding: 9px 0; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+ul.plain li span { color: var(--muted); font-size: .92rem; }
+
+footer { padding: 40px 0 60px; font-size: .9rem; color: var(--muted); }
+footer a { color: var(--muted); }
+footer a:hover { color: var(--ink); }
+.note { font-size: .9rem; color: var(--muted); border-left: 2px solid var(--rule); padding-left: 16px; margin: 22px 0; max-width: 42em; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="https://vector-lab-tools.github.io/" aria-label="Vector Lab">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--blue)">
+          <path d="M 12 18 L 88 18 L 50 86 Z"/>
+          <path d="M 50 30 L 12 18"/>
+          <path d="M 50 30 L 88 18"/>
+          <path d="M 50 30 L 50 86"/>
+        </g>
+      </svg>
+      <b>Vectorography</b>
+    </a>
+    <nav class="site-nav">
+      <a href="#start">Start</a>
+      <a href="#use">Usage</a>
+      <a href="#shots">Screens</a>
+      <a href="#trouble">Trouble</a>
+      <button class="theme-toggle" type="button" id="theme" aria-label="Toggle light and dark theme" title="Toggle light and dark theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Vector Lab · design instrument · v0.4</p>
+    <h1>Type design<br>by traversal</h1>
+    <p class="standfirst">Vectorography is a typographic instrument in which a typeface is a point in a 128-dimensional space fitted on 441 open-licence families, and designing is moving through that space rather than drawing outlines. Outlines exist only at the end, when a location is compiled out to OpenType.</p>
+    <div class="cta">
+      <a class="btn btn-solid" href="https://vectorography.onrender.com">Open the instrument</a>
+      <a class="btn" href="https://github.com/vector-lab-tools/vectorography">Source on GitHub</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>441</b><span>families in the corpus, all OFL</span></div>
+      <div class="stat"><b>128</b><span>dimensions, holding 95.6% of the variance</span></div>
+      <div class="stat"><b>164</b><span>glyphs decoded at every location</span></div>
+      <div class="stat"><b>2048</b><span>units per em on export</span></div>
+    </div>
+  </div>
+</div>
+
+<section id="what">
+  <div class="wrap">
+    <span class="sec-num">01</span>
+    <h2>What it is</h2>
+    <p class="lede">Every location in the space decodes to a complete 164-glyph typeface, so you judge a face by looking at it rather than by reading parameters. There is no prompt and no generate button: every control is a movement, and the letterforms are already everywhere in the space.</p>
+    <p>The decode is an exact linear map, <code>x = mean + (z &odot; scale) @ components</code>, which is what makes the measurements on this page possible. The model is a whitened principal subspace of 164 glyphs &times; 5 contours &times; 40 points plus advances, 65,764 dimensions reduced to 128.</p>
+
+    <h3>The reading no other type editor has</h3>
+    <p>Decide a letter and the space holds it while everything else moves. Because one glyph occupies 401 coordinates and the space has 128 dimensions, holding it exactly is impossible, so it is held by projection: the move is confined to the directions the decided letters barely feel. The count of those directions is a reading of how much of the typeface is still open.</p>
+    <ul class="curve">
+      <li><span class="what">nothing decided</span><span class="bar" style="width:100%"></span><span class="n">128</span></li>
+      <li><span class="what"><code>n</code></span><span class="bar" style="width:64.8%"></span><span class="n">83</span></li>
+      <li><span class="what"><code>n</code> and <code>o</code></span><span class="bar" style="width:53.1%"></span><span class="n">68</span></li>
+      <li><span class="what">nine letters</span><span class="bar" style="width:15.6%"></span><span class="n">20</span></li>
+      <li><span class="what">whole lowercase</span><span class="bar" style="width:0.8%"></span><span class="n">1</span></li>
+    </ul>
+    <p class="note">Measured on VectorModel 0.2, counting the directions that move the decided letters by under one per cent of the worst case.</p>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <span class="sec-num">02</span>
+    <h2>Quick start</h2>
+    <p>Nothing to configure and no account. The fitted space ships inside the repository, so a clone can travel straight away without downloading the 441-family corpus.</p>
+
+    <h3>Prerequisites</h3>
+    <ul class="plain">
+      <li>Python <code>3.12</code> or newer <span>fastapi, uvicorn, fonttools, numpy, pillow</span></li>
+      <li>Node <code>22</code> or newer <span>for the Vite frontend</span></li>
+      <li>macOS or Linux <span><code>run.sh</code> is bash; on Windows use WSL or Docker</span></li>
+      <li>About 1&nbsp;GB of disk <span>the repository carries a 30&nbsp;MB fitted space</span></li>
+    </ul>
+
+    <h3>Run it</h3>
+<pre><code>git clone https://github.com/vector-lab-tools/vectorography
+cd vectorography
+./run.sh</code></pre>
+    <p>One command. It creates the Python environment on first run, installs the frontend, then starts the space on <code>:8765</code> and the app on <code>:5173</code>. Open <a href="http://localhost:5173">http://localhost:5173</a>.</p>
+
+    <h3>Or in Docker</h3>
+<pre><code>docker build -t vectorography .
+docker run -p 7860:7860 vectorography</code></pre>
+
+    <h3>Environment</h3>
+    <p>Two variables exist, both optional. There are no API keys, no credentials and no third-party services.</p>
+    <ul class="plain">
+      <li><code>APP_VERSION</code> <span>fallback when the <code>VERSION</code> file is absent, as in some container builds</span></li>
+      <li><code>VG_CORPUS_SIZE</code> <span>how many families to fetch if you rebuild the space from scratch, default 500</span></li>
+    </ul>
+    <p>To check a running instance:</p>
+<pre><code>curl -s http://127.0.0.1:8765/api/health
+<span class="out">{"ok":true,"model":"VectorModel 0.2","families":441,"dims":128,"version":"0.4"}</span></code></pre>
+  </div>
+</section>
+
+<section id="use">
+  <div class="wrap">
+    <span class="sec-num">03</span>
+    <h2>Usage</h2>
+
+    <h3>Decide two letters and watch the freedom fall</h3>
+    <p>Open on the glyph, draw or accept <code>n</code>, then <code>Glyph &#9656; Decide</code>. Do the same for <code>o</code>. The Divergence panel reads 128 at the start, 83 after <code>n</code>, 68 after <code>o</code>. Those two letters set the stem and the bowl, and the space then proposes the other 162.</p>
+    <figure>
+      <img src="images/0.4/decided.webp" width="1600" height="1000" alt="The instrument in text mode with n and o decided, the Divergence panel reading 68 of 128">
+      <figcaption>Text mode with <code>n</code> and <code>o</code> decided. The inspector reads 68 / 128, and the rules under the letters mark what has been decided. Version 0.4.</figcaption>
+    </figure>
+
+    <h3>Space by metrics key</h3>
+    <p>Either sidebearing takes a number in units or a key, after Glyphs: <code>=n</code> is n's own bearing, <code>=|n</code> is n's mirrored, <code>=n+8</code> is that plus eight units. A key stays true when the letter it points at moves.</p>
+    <p>The suggestions come from the sixty families nearest the centroid rather than all 441, because across the whole corpus the agreement is too loose to use. Measured: <code>m~n</code> agrees to &plusmn;17.8 units across the corpus and &plusmn;9.7 in the text core; <code>o~c</code> holds to &plusmn;4.1.</p>
+
+    <h3>Export a font</h3>
+    <p>From <code>File &#9656; Export</code>, or over the API:</p>
+<pre><code>curl -s -X POST http://127.0.0.1:8765/api/export/font \
+  -H 'Content-Type: application/json' \
+  -d '{"z":[0,0,0,"…128 numbers…"],"family":"Demo","format":"otf",
+       "licence":"none","author":"","straight":0,
+       "settled":[],"settle_tol":0.01,"spacing":{},"outlines":{}}' \
+  -o demo.otf</code></pre>
+    <p>At the centroid that returns a 75,160-byte OTF: 166 glyphs at 2048 units per em, CFF outlines, with <code>cmap</code>, <code>name</code>, <code>OS/2</code>, <code>hmtx</code> and <code>post</code> tables written. The journey itself can also compile as a variable font, with the stops as weights and the route between them as the axis.</p>
+    <p class="note">Exports are for study and specimen. There is no hinting, no kerning and no overlap removal, and the glyph set is fixed with stable contour counts.</p>
+  </div>
+</section>
+
+<section id="shots">
+  <div class="wrap">
+    <span class="sec-num">04</span>
+    <h2>Screenshots</h2>
+    <p>All taken from version 0.4 against the running app.</p>
+
+    <figure>
+      <img src="images/0.4/glyph-edit.webp" width="1600" height="1000" alt="Edit mode: the letter n with its outline points, the inspector on the right" loading="lazy">
+      <figcaption>Edit mode, where it opens. One letter at drawing size, its points forty to a contour at uniform arc length. Version 0.4, light theme.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="images/0.4/text-mode.webp" width="1600" height="1000" alt="Text mode: the string nnoonn set large, with sidebearing cards beneath each letter" loading="lazy">
+      <figcaption>Text mode. The string at the size it will be set at, with each letter's sidebearings on a card beneath it. Clicking a card selects that letter for the inspector. Version 0.4, light theme.</figcaption>
+    </figure>
+
+    <div class="shot-pair">
+      <figure>
+        <img src="images/0.4/font-view.webp" width="1600" height="1000" alt="Font view: every glyph in the character set, arranged by category" loading="lazy">
+        <figcaption>Font view: all 164 glyphs by category, decided letters tinted. Version 0.4.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/0.4/map.webp" width="1600" height="1000" alt="Map view: the 441 corpus families as a point cloud inside a dashed shell" loading="lazy">
+        <figcaption>Map: the 441 families, coloured by serif, with this typeface marked. Version 0.4.</figcaption>
+      </figure>
+    </div>
+
+    <div class="shot-pair">
+      <figure>
+        <img src="images/0.4/glyph-edit-dark.webp" width="1600" height="1000" alt="Edit mode in the dark theme" loading="lazy">
+        <figcaption>The same edit mode, dark theme. Version 0.4.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/0.4/text-mode-dark.webp" width="1600" height="1000" alt="Text mode in the dark theme" loading="lazy">
+        <figcaption>Text mode, dark theme. Version 0.4.</figcaption>
+      </figure>
+    </div>
+
+    <figure class="phone-shot">
+      <img src="images/0.4/phone.webp" width="600" height="1299" alt="The instrument on a phone: tabs, canvas and inspector stacked" loading="lazy">
+      <figcaption>On a phone, the same two panes stacked, with a handle to trade room between them. Version 0.4, 390&nbsp;&times;&nbsp;844.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="trouble">
+  <div class="wrap">
+    <span class="sec-num">05</span>
+    <h2>Troubleshooting</h2>
+    <dl class="tr">
+      <dt>The hosted app takes about a minute to load</dt>
+      <dd>Render's free tier sleeps after fifteen idle minutes, and waking it means starting a container and reading a 30&nbsp;MB space. The boot screen counts the seconds and says so. A warm instance answers <code>/api/corpus</code> in about 0.14&nbsp;s.</dd>
+
+      <dt>The app loads but shows an old version after an update</dt>
+      <dd>A browser cache holding <code>index.html</code>. Fixed in 0.4 by serving the page with <code>Cache-Control: no-cache</code> and the hashed assets as <code>immutable</code>. If you are running an older build, hard-reload once.</dd>
+
+      <dt><code>./run.sh</code> reports that port 5173 or 8765 is in use</dt>
+      <dd>Another copy is already running. Find it with <code>lsof -i :8765</code>, or start the two halves by hand on other ports; the frontend proxies <code>/api</code> to 8765.</dd>
+
+      <dt>The space fails to load and the health check reports no model</dt>
+      <dd><code>backend/data/vectormodel-0.2.npz</code> is missing or is a 130-byte Git LFS pointer rather than the 30&nbsp;MB file. <code>.gitattributes</code> declares <code>*.npz</code> as LFS, but the file is stored as an ordinary blob; if your clone smudged it, fetch it with <code>git lfs pull</code> or re-download the file from the repository.</dd>
+
+      <dt>Exported outlines look soft or blobby</dt>
+      <dd>Glyphs whose topology differs across the corpus, such as <code>a</code>, <code>e</code> and <code>g</code>, average badly because a one-counter drawing is padded against a two-counter one. <code>Glyph &#9656; Straighten</code> pulls near-straight runs onto their straights, which helps stems but not counters. This is a limit of the representation rather than a setting.</dd>
+
+      <dt>Letters stop following the typeface</dt>
+      <dd>A glyph drawn by hand has left the space on purpose. Either <code>Diverge &#9656; Pull here</code>, which moves the typeface as near the drawing as the space can reach and reports how far that was, or <code>Glyph &#9656; Reset</code> to drop the drawing.</dd>
+    </dl>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="wrap">
+    <span class="sec-num">06</span>
+    <h2>What it does not do</h2>
+    <div class="cards">
+      <div class="card">
+        <span class="sym">no invention</span>
+        <h4>It will not invent letterforms</h4>
+        <p>Everything inside the corpus hull is an interpolation of what exists, and past it the outlines degrade. What it offers is a map of what exists, a way to propagate one decision across a character set, and a measure of what you have made.</p>
+      </div>
+      <div class="card">
+        <span class="sym">representation</span>
+        <h4>The points are not where you would put them</h4>
+        <p>Forty to a contour at uniform arc length, so drawing on them is drawing on the representation. A curve fit is wanted before anyone edits these outlines by hand elsewhere.</p>
+      </div>
+      <div class="card">
+        <span class="sym">latin only</span>
+        <h4>Latin, and not production quality</h4>
+        <p>A fixed 164-glyph set with stable contour counts. No hinting, no kerning, no overlap removal.</p>
+      </div>
+      <div class="card">
+        <span class="sym">reach</span>
+        <h4>It reaches about half of a real face</h4>
+        <p>Bring a typeface in and the space explains 48 to 69 per cent of its departure from the corpus average, leaving 0.017 to 0.040&nbsp;em it cannot draw. It finds the right neighbourhood and then cannot say everything it found.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="https://github.com/vector-lab-tools/vectorography">Source</a> ·
+      <a href="https://github.com/vector-lab-tools/vectorography/blob/main/LICENSE">GPL-3.0</a> ·
+      <a href="https://vectorography.onrender.com">Live instrument</a> ·
+      <a href="https://vector-lab-tools.github.io/">Vector Lab</a>
+    </p>
+    <p>Created by David M. Berry, University of Sussex. Version 0.4, October 2026. Copyright &copy; 2026 David M. Berry. Corpus families are used under the SIL Open Font Licence.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement
+  var btn = document.getElementById('theme')
+  btn.addEventListener('click', function () {
+    var set = root.getAttribute('data-theme')
+    var dark = set
+      ? set === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches
+    var next = dark ? 'light' : 'dark'
+    root.setAttribute('data-theme', next)
+    try { localStorage.setItem('vgy-theme', next) } catch (e) {}
+  })
+})()
+</script>
+</body>
+</html>
