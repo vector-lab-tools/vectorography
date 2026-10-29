@@ -88,6 +88,21 @@ export function About({ version, model, dims, onClose }: {
           Software: GPL-3.0
         </p>
 
+        {/* How to cite it. Every release is archived, and the concept DOI
+            always resolves to the latest, so a reader who used this on a
+            piece of work has something permanent to point at. */}
+        <p className="font-mono text-[10px] text-muted-foreground mt-3
+                      leading-relaxed">
+          <a href="https://zenodo.org/badge/latestdoi/1338790010"
+             target="_blank" rel="noreferrer"
+             onClick={(e) => e.stopPropagation()}
+             title="The archived release on Zenodo, for citation"
+             className="underline decoration-border underline-offset-2
+                        hover:decoration-burgundy hover:text-foreground">
+            Cite this version
+          </a>
+        </p>
+
         <p className="font-mono text-[10px] text-muted-foreground mt-4">
           Vectorography design and coding by David M. Berry
         </p>

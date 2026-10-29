@@ -492,18 +492,6 @@ frontend/src/
 DESIGN.md               design of record, including the pre-build review
 ```
 
-## Citation
-
-```bibtex
-@software{berry_vectorography_2026,
-  author  = {Berry, David M.},
-  title   = {Vectorography: Type Design by Traversal},
-  year    = {2026},
-  url     = {https://github.com/vector-lab-tools/vectorography},
-  license = {GPL-3.0}
-}
-```
-
 ## Versioning
 
 `VERSION` at the repository root is the single source for the **application**
@@ -518,3 +506,26 @@ because citation metadata has to stand alone. `frontend/package.json` carries no
 version of its own.
 
 Versions move in steps of 0.01, and only when agreed.
+
+## Citation
+
+[![DOI](https://zenodo.org/badge/1338790010.svg)](https://zenodo.org/badge/latestdoi/1338790010)
+
+Every release is archived on Zenodo. The badge resolves to the concept DOI,
+which always points at the latest version; each release also carries a version
+DOI of its own, for citing the exact state of the software a piece of work
+used. The authoritative metadata is in
+[`CITATION.cff`](CITATION.cff), which GitHub reads for its own
+**Cite this repository** button.
+
+```bibtex
+@software{berry_vectorography_2026,
+  author    = {Berry, David M.},
+  title     = {Vectorography: Type Design by Traversal},
+  year      = {2026},
+  version   = {0.4},
+  publisher = {Zenodo},
+  url       = {https://github.com/vector-lab-tools/vectorography},
+  license   = {GPL-3.0}
+}
+```
