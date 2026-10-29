@@ -509,12 +509,14 @@ Versions move in steps of 0.01, and only when agreed.
 
 ## Citation
 
-[![DOI](https://zenodo.org/badge/1338790010.svg)](https://zenodo.org/badge/latestdoi/1338790010)
+[![DOI](https://zenodo.org/badge/1338790010.svg)](https://doi.org/10.5281/zenodo.23768039)
 
-Every release is archived on Zenodo. The badge resolves to the concept DOI,
-which always points at the latest version; each release also carries a version
-DOI of its own, for citing the exact state of the software a piece of work
-used. The authoritative metadata is in
+Every release is archived on Zenodo. The concept DOI
+[10.5281/zenodo.23768039](https://doi.org/10.5281/zenodo.23768039) always
+resolves to the latest version; each release also carries a version DOI of its
+own, for citing the exact state of the software a piece of work used, and 0.4
+is [10.5281/zenodo.23768040](https://doi.org/10.5281/zenodo.23768040). The
+authoritative metadata is in
 [`CITATION.cff`](CITATION.cff), which GitHub reads for its own
 **Cite this repository** button.
 
@@ -525,7 +527,8 @@ used. The authoritative metadata is in
   year      = {2026},
   version   = {0.4},
   publisher = {Zenodo},
-  url       = {https://github.com/vector-lab-tools/vectorography},
+  doi       = {10.5281/zenodo.23768039},
+  url       = {https://doi.org/10.5281/zenodo.23768039},
   license   = {GPL-3.0}
 }
 ```

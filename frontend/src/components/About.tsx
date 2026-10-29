@@ -93,7 +93,7 @@ export function About({ version, model, dims, onClose }: {
             piece of work has something permanent to point at. */}
         <p className="font-mono text-[10px] text-muted-foreground mt-3
                       leading-relaxed">
-          <a href="https://zenodo.org/badge/latestdoi/1338790010"
+          <a href="https://doi.org/10.5281/zenodo.23768039"
              target="_blank" rel="noreferrer"
              onClick={(e) => e.stopPropagation()}
              title="The archived release on Zenodo, for citation"

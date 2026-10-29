@@ -7,6 +7,7 @@ authors:
     given-names: David M.
     affiliation: University of Sussex
     orcid: "https://orcid.org/0000-0002-7737-5586"
+doi: "10.5281/zenodo.23768039"
 repository-code: "https://github.com/vector-lab-tools/vectorography"
 license: GPL-3.0
 version: "0.4"
